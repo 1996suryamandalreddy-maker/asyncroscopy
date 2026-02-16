@@ -11,9 +11,29 @@ import sys
 
 from asyncroscopy.servers.protocols.execution_protocol import ExecutionProtocol
 from asyncroscopy.servers.protocols.utils import package_message, unpackage_message
+
 # sys.path.insert(0, "C:\\AE_future\\autoscript_1_14\\")
 sys.path.insert(0, "/Users/austin/Desktop/Projects/autoscript_tem_microscope_client")
 import autoscript_tem_microscope_client as auto_script
+from autoscript_tem_microscope_client.enumerations import (
+    DetectorType,
+    CameraType,
+    OptiStemMethod,
+    OpticalMode,
+    EdsDetectorType,
+    ExposureTimeType,
+)
+from autoscript_tem_microscope_client.structures import (
+    RunOptiStemSettings,
+    RunStemAutoFocusSettings,
+    Point,
+    StagePosition,
+    AdornedImage,
+    EdsAcquisitionSettings,
+    AdornedSpectrum,
+    StemAcquisitionSettings,
+    StageVelocity,
+)
 
 
 # FACTORY — holds shared state (persistent across all connections)
@@ -62,7 +82,7 @@ class ASProtocol(ExecutionProtocol):
     def calibrate_screen_current(self, args: dict = None):
         """
         calibrates the gun lens values to screen current
-        start with screen current at ~100 pA
+        start with screen current at ~100 pA 
         screen must be inserted
         """
         mic = self.factory.microscope
@@ -90,39 +110,6 @@ class ASProtocol(ExecutionProtocol):
         msg = f"[AS] calibrated screen current"
         self.log.info(msg)
         self.sendString(package_message(msg))
-
-    # gerd's code - check
-#     def carth2polar(z):
-#         return np.linalg.norm(z), np.degrees(np.arctan2(z[1], z[0]))
-#     # def carth2polar, correct_3rd_orders, correct_low_orders
-#     def aberration_correction(self, args: dict):
-#         """Perform aberration correction"""
-#         tem = NotebookClient.connect(host='localhost',port=9000)
-#         mic = self.factory.microscope
-#         mic.optics.scan_field_of_view  = 348*1e-9
-#         order = parameter.get('order, 1')
-# 
-#         print(f"Performing aberration correction of order {order}")
-#         if order <3:
-#             tableau_result = tem.send_command(destination = 'Ceos', command = 'acquireTableau', args = {'tabType':"Fast", 'angle':1})
-#             for key in ['C1', 'A1', 'B2', 'A2']:
-#                 amplitude , angle = carth2polar(tableau_result['aberrations'][key])                                         
-#                 print(f" {key}: {amplitude*1e9:.2f}nm {angle:.2f}deg")
-#             print(f" WD: {np.linalg.norm(tableau_result['aberrations']['WD'])*1e3:.3f}mrad ")
-#             tableau_result['corrected'] = correct_low_orders(self.ceos, tableau_result['aberrations'])
-#         else:
-#             tableau_result = self.ceos.run_tableau(tab_type="Enhanced", angle=40)
-# 
-#             for key in ['C3', 'S3', 'A3', 'A4', 'D4', 'B4']:   
-#                 amplitude , angle = carth2polar(tableau_result['aberrations'][key])                                         
-#                 print(f" {key}: {amplitude*1e9:.2f}nm {angle:.2f}deg")
-#                 tableau_result['corrected'] = correct_3rd_orders(self.ceos, tableau_result['aberrations'])
-#         
-#         self.sendString(package_message(out_dict))
-        
-
-# ---------------------------
-
 
     def set_current(self, args:dict):
         """
@@ -208,6 +195,11 @@ class ASProtocol(ExecutionProtocol):
             image = np.array(image.data, dtype=np.float32)
             self.factory.status = "Ready"
             self.sendString(package_message(image))
+
+    def tune_C1A1(self, args: dict = None):
+        settings = RunOptiStemSettings(method=OptiStemMethod.C1A1)#, dwell_time=2e-06, cutoff_in_pixels=5)
+        microscope.auto_functions.run_opti_stem(settings)
+
 
     def get_stage(self, args: dict = None):
         """Return current stage position"""
