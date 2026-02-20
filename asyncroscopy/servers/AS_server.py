@@ -43,6 +43,7 @@ class ASFactory(protocol.Factory):
         self.microscope = None
         self.detectors = {}
         self.status = "Offline"
+        self.metadata = {}
 
     def buildProtocol(self, addr):
         """Create a new protocol instance and attach the factory (shared state)."""
@@ -133,6 +134,15 @@ class ASProtocol(ExecutionProtocol):
         self.log.info(msg)
         self.sendString(package_message(msg))
 
+    def get_current(self, args: dict = None):
+        """measure screen current (pA)"""
+        mic = self.factory.microscope
+        screen_current = mic.detectors.screen.measure_current() * 1e12
+
+        msg = f"Screen current: {screen_current} pA"
+        self.log.info(f"[AS] {msg}")
+        self.sendString(package_message(screen_current))
+
     def place_beam(self, args: dict = None):
         """
         sets resting beam position, [0:1]
@@ -192,14 +202,21 @@ class ASProtocol(ExecutionProtocol):
                 scanning_detector = 'HAADF', 
                 size = size, 
                 dwell_time = dwell_time)
+
+            pixel_size = image.metadata.binary_result.pixel_size.x * 1e9 # convert to nm
+            self.factory.metadata['last_pixel_size'] = pixel_size
+                
             image = np.array(image.data, dtype=np.float32)
             self.factory.status = "Ready"
             self.sendString(package_message(image))
 
-    def tune_C1A1(self, args: dict = None):
-        settings = RunOptiStemSettings(method=OptiStemMethod.C1A1)#, dwell_time=2e-06, cutoff_in_pixels=5)
-        microscope.auto_functions.run_opti_stem(settings)
+    def get_metadata(self, args: dict = None):
+        """Return metadata dictionary"""
+        self.sendString(package_message(self.factory.metadata))
 
+    def tune_C1A1(self, args: dict = None):
+        settings = RunOptiStemSettings(method=OptiStemMethod.C1_A1)#, dwell_time=2e-06, cutoff_in_pixels=5)
+        self.factory.microscope.auto_functions.run_opti_stem(settings)
 
     def get_stage(self, args: dict = None):
         """Return current stage position"""

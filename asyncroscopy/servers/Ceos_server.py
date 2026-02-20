@@ -18,6 +18,22 @@ logging.basicConfig()
 log = logging.getLogger('CEOS_acquisition')
 log.setLevel(logging.INFO)
 
+def normalize_jsonrpc_bytes(raw_bytes: bytes) -> str:
+    """
+    Converts length-prefixed JSON-RPC bytes into clean JSON string.
+    Compatible with existing package_message without modification.
+    """
+    s = raw_bytes.decode("utf-8")
+
+    # Remove length prefix like "412:"
+    if ':' in s and s.split(':', 1)[0].isdigit():
+        _, s = s.split(':', 1)
+
+    # Remove trailing comma
+    s = s.rstrip(',')
+
+    return s
+
 # FACTORY — holds shared state (persistent across all connections)
 class CeosFactory(protocol.Factory):
     def __init__(self):
@@ -76,7 +92,9 @@ class CeosProtocol(ExecutionProtocol):
                 buffer += chunk
 
         print("[Exec] Received netstring from CEOS:", buffer)
-        self.sendString(package_message(buffer))
+        msg_to_send = normalize_jsonrpc_bytes(buffer)
+        self.sendString(package_message(msg_to_send))
+
 
 
 if __name__ == "__main__":
