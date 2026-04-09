@@ -65,6 +65,15 @@ class Microscope(Device, metaclass=CombinedMeta):
             "DB mode: 'test/hardware/stage' "
             "No-DB mode: 'tango://127.0.0.1:8888/test/nodb/stage#dbase=no'",
     )
+
+
+    corrector_device_address = device_property(
+        dtype=str,
+        doc="Tango device address for the aberration corrector settings device. "
+            "DB mode: 'test/hardware/corrector' "
+            "No-DB mode: 'tango://127.0.0.1:8888/test/nodb/corrector#dbase=no'",
+    )
+    
     testing_mode_bool = device_property(dtype=bool, 
                                         default_value=False,
                                         doc="When True - used for running tests, passed in conftest.py")
