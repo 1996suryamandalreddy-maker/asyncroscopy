@@ -45,6 +45,8 @@ from fastmcp.server.server import Transport
 class MCPServer:
     DEFAULT_BLOCKED_CLASSES = ["DataBase", "DServer"]
     DEFAULT_BLOCKED_FUNCTIONS = ["Init"]
+    SUPPORTED_HARDWARE: list[str] | None = None
+    DIGITAL_TWIN: str | None = None
 
     def __init__(
         self,

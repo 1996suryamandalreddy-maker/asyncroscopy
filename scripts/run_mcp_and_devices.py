@@ -140,7 +140,9 @@ def get_class_from_name(class_name: str):
     module_paths_to_try = [
         f"asyncroscopy.{class_name}",
         f"asyncroscopy.hardware.{class_name}",
-        f"asyncroscopy.detectors.{class_name}"
+        f"asyncroscopy.detectors.{class_name}",
+        f"asyncroscopy.mcp.{class_name}",
+        f"asyncroscopy.mcp.mcp_server"
     ]
     
     for mod_path in module_paths_to_try:
@@ -215,9 +217,26 @@ def main():
     python_bin = sys.executable
 
     try:
-        class_name = input("Enter the name of the main class to register (e.g., 'ThermoMicroscope'): ")
+        mcp_class_name = input("Enter the name of the MCP class to run (e.g., 'ThermoMCP' or 'MCPServer') [MCPServer]: ").strip() or "MCPServer"
+        mcp_cls = get_class_from_name(mcp_class_name)
+
+        class_name = None
+        if hasattr(mcp_cls, "SUPPORTED_HARDWARE") and mcp_cls.SUPPORTED_HARDWARE:
+            class_name = mcp_cls.SUPPORTED_HARDWARE[0]
+            if getattr(mcp_cls, "DIGITAL_TWIN", None):
+                twin_class = mcp_cls.DIGITAL_TWIN
+                use_twin = input(f"A digital twin mapping ({twin_class}) is available. Use digital twin instead of real hardware? [y/N]: ").strip().lower()
+                if use_twin == 'y':
+                    class_name = twin_class
+        
+        if not class_name:
+            class_name = input("Enter the name of the main hardware class to register (e.g., 'ThermoMicroscope'): ").strip()
+
+        # Fail early if the hardware class doesn't exist
+        get_class_from_name(class_name)
+
         host = input("Enter Tango DB host (default: 127.0.0.1): ").strip() or "127.0.0.1"
-        port_input = input("Enter Tango DB port: ").strip()
+        port_input = input("Enter Tango DB port (default: 9094): ").strip() or "9094"
         
         if not port_input:
             log_stderr("[error] Tango DB port is required")
@@ -229,12 +248,17 @@ def main():
             log_stderr(f"[error] Invalid port number: {port_input}")
             sys.exit(1)
 
-        cleanup_old_servers_for_class(class_name)
-
         tango_host = f"{host}:{port}"
-
         print(f"[config] TANGO_HOST={tango_host}")
         os.environ["TANGO_HOST"] = tango_host
+
+        try:
+            # Check if DB is reachable before attempting cleanup
+            db = Database()
+            db.get_info()
+            cleanup_old_servers_for_class(class_name)
+        except Exception:
+            log_stderr("[startup] Skipping stale-server cleanup (Tango DB not reachable yet)")
 
         env = make_env(tango_host)
 
@@ -299,9 +323,9 @@ def main():
             log_stderr(f"[startup] Main {class_name} device is fully accessible")
             
             # Start MCPServer
-            log_stderr("[startup] Initializing MCP Server...")
-            server = MCPServer(
-                name=f"MCPServer_{class_name}",
+            log_stderr(f"[startup] Initializing {mcp_class_name}...")
+            server = mcp_cls(
+                name=f"{mcp_class_name}_{class_name}",
                 tango_host=host,
                 tango_port=port,
                 blocked_classes=["DataBase", "DServer"],
