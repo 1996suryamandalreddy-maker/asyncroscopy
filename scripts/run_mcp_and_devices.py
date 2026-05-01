@@ -241,6 +241,11 @@ def main():
             db_dir_obj = stack.enter_context(tempfile.TemporaryDirectory(prefix="tango-db-run-"))
             db_path = Path(db_dir_obj)
 
+            # Tango DB needs the port to be completely free before starting.
+            if port_socket is not None:
+                port_socket.close()
+                port_socket = None
+
             # Start Tango DB
             db_proc = start_background_process(
                 name="tango-db",
@@ -251,11 +256,6 @@ def main():
                 cwd=db_path
             )
             stack.enter_context(db_proc)
-
-            # Tango DB is now running and bound to the port; we can release the port-finder socket
-            if port_socket is not None:
-                port_socket.close()
-                port_socket = None
 
             db = connect_database(host, port)
             device_name = f"test/{class_name.lower()}/1"
