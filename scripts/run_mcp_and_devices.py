@@ -7,7 +7,6 @@ and then start the MCP server.
 from __future__ import annotations
 
 import os
-import socket
 import subprocess
 import sys
 import tempfile
@@ -39,13 +38,6 @@ class ManagedProcess:
 def log_stderr(msg: str) -> None:
     """Log to stderr to avoid corrupting MCP stdout JSON-RPC."""
     print(msg, file=sys.stderr, flush=True)
-
-def find_free_port(host: str = "127.0.0.1") -> tuple[int, socket.socket]:
-    """Find a free port and return (port, socket)."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((host, 0))
-    return int(sock.getsockname()[1]), sock
 
 def make_env(tango_host: str) -> dict[str, str]:
     env = os.environ.copy()
@@ -220,16 +212,25 @@ def cleanup_old_servers_for_class(class_name: str) -> None:
         log_stderr(f"[startup] Skipping stale-server cleanup: {exc}")
 
 def main():
-    host = "127.0.0.1"
     python_bin = sys.executable
-    port_socket: socket.socket | None = None
 
     try:
         class_name = input("Enter the name of the main class to register (e.g., 'ThermoMicroscope'): ")
+        host = input("Enter Tango DB host (default: 127.0.0.1): ").strip() or "127.0.0.1"
+        port_input = input("Enter Tango DB port: ").strip()
+        
+        if not port_input:
+            log_stderr("[error] Tango DB port is required")
+            sys.exit(1)
+        
+        try:
+            port = int(port_input)
+        except ValueError:
+            log_stderr(f"[error] Invalid port number: {port_input}")
+            sys.exit(1)
 
         cleanup_old_servers_for_class(class_name)
 
-        port, port_socket = find_free_port(host)
         tango_host = f"{host}:{port}"
 
         print(f"[config] TANGO_HOST={tango_host}")
@@ -238,13 +239,7 @@ def main():
         env = make_env(tango_host)
 
         with contextlib.ExitStack() as stack:
-            db_dir_obj = stack.enter_context(tempfile.TemporaryDirectory(prefix="tango-db-run-"))
-            db_path = Path(db_dir_obj)
-
-            # Tango DB needs the port to be completely free before starting.
-            if port_socket is not None:
-                port_socket.close()
-                port_socket = None
+            db_path = Path(".")
 
             # Start Tango DB
             db_proc = start_background_process(
@@ -296,7 +291,7 @@ def main():
                 args=[python_bin, "-m", main_cls.__module__, f"{class_name.lower()}_instance"],
                 env=env,
                 expected_text="Ready to accept request",
-                timeout=30.0
+                timeout=120.0
             )
             stack.enter_context(main_proc)
             
@@ -325,9 +320,6 @@ def main():
     except Exception as exc:
         log_stderr(f"\n[error] Fatal error: {exc}")
         sys.exit(1)
-    finally:
-        if port_socket is not None:
-            port_socket.close()
 
 if __name__ == "__main__":
     main()
