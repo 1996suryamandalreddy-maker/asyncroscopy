@@ -1,6 +1,8 @@
 # Asyncroscopy:
 - Enabling smart microscopy via asynchronous servers
 
+![Schematic of the functional project structure](architecture.png)
+
 Note: `main` branch now contains the PyTango-based architecture. The previous Twisted-based implementation is preserved in the `twisted-legacy` branch for reference.
 ---
 
@@ -47,7 +49,7 @@ See - docs/dev_guide.md
 ### Core installation (simulation mode)
 
 ```bash
-pip install .
+pip install --find-links ./stubs -e .
 ```
 
 or with `uv`:

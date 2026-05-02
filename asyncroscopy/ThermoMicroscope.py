@@ -27,6 +27,7 @@ Client-side reconstruction example::
 import os
 import math
 from typing import Optional
+import time
 
 import numpy as np
 import tango
@@ -41,7 +42,7 @@ try:
     from autoscript_tem_microscope_client.enumerations import DetectorType, ImageSize, EdsDetectorType
     from autoscript_tem_microscope_client.enumerations import RegionCoordinateSystem, ExposureTimeType
     from autoscript_tem_microscope_client.structures import Region, Rectangle, AdornedSpectrum
-    from autoscript_tem_microscope_client.structures import StemAcquisitionSettings, EdsAcquisitionSettings
+    from autoscript_tem_microscope_client.structures import StemAcquisitionSettings, EdsAcquisitionSettings, RunOptiStemSettings, CameraAcquisitionSettings
 
     _AUTOSCRIPT_AVAILABLE = True
 except ImportError:
@@ -92,6 +93,7 @@ class ThermoMicroscope(Microscope):
         self._connect_hardware()
         self._connect_detector_proxies()
         self.set_state(DevState.ON)
+        self.screen_current_calibration = None
 
     def _connect_hardware(self) -> None:
         """Establish AutoScript connection from MPC -> hardware."""
@@ -115,6 +117,7 @@ class ThermoMicroscope(Microscope):
             "eds":  self.eds_device_address,
             "stage": self.stage_device_address,
             "scan": self.scan_device_address,
+            "camera": self.camera_device_address,
         }
         print(addresses)
         for name, address in addresses.items():
@@ -144,8 +147,6 @@ class ThermoMicroscope(Microscope):
     def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> np.ndarray:
         """
         Call AutoScript acquisition and return numpy array.
-
-        Falls back to a simulated image when AutoScript is unavailable.
         """
         if self._microscope is not None:
             # check detectors in detector_list
@@ -156,6 +157,21 @@ class ThermoMicroscope(Microscope):
             adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
             # adorned.metadata TODO get this and pass it on
             return adorned.data
+        
+    def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> np.ndarray:
+        """
+        Call AutoScript acquisition and return numpy array.
+        this is the advanced version
+        """
+        
+        detector = 'BM-Ceta' # or "Flucam"
+
+        settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize,
+            exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
+        adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
+        image = adorned.data
+        return image
+
 
     def _acquire_stem_image_advanced(
         self,
@@ -249,11 +265,14 @@ class ThermoMicroscope(Microscope):
         """set field of view in meters"""
         self._microscope.optics.scan_field_of_view = fov
 
+    def _get_fov(self) -> float:
+        """get field of view in meters"""
+        return self._microscope.optics.scan_field_of_view
+
     def _blank_beam(self) -> None:
         """blank beam"""
         if self._microscope is not None:
             self._microscope.optics.blanker.blank()
-
 
     def _unblank_beam(self) -> None:
         """
@@ -261,48 +280,97 @@ class ThermoMicroscope(Microscope):
         """
         self._microscope.optics.blanker.unblank()
 
+    def _caibrate_screen_current(self) -> None:
+        original_gun_lens = self._microscope.optics.monochromator.focus
+        gun_lens_series = np.linspace(10, 150, 15)
+
+        # series of measurements
+        current_series = []
+        for val in gun_lens_series:
+            self._microscope.optics.monochromator.focus = val
+            time.sleep(1)
+            screen_current = self._microscope.detectors.screen.measure_current()
+            current_series.append(screen_current)
+        current_series = np.array(current_series) * 1e12
+        self._microscope.optics.monochromator.focus = original_gun_lens
+
+        # fit a polynomial and save:
+        coeffs = np.polyfit(gun_lens_series, current_series, 11)
+        poly_func = np.poly1d(coeffs)
+        self.screen_current_calibration = poly_func
+
+    def _set_screen_current(self, current) -> None:
+        """set screen current in pA"""
+        if self.screen_current_calibration is not None:
+            poly_func = self.screen_current_calibration
+            adjusted_poly = poly_func - current
+            x_candidates = adjusted_poly.r
+            x_real = x_candidates[np.isreal(x_candidates)].real
+            x_real = np.max(x_real) # choose the largest real root as the gun lens value
+            self._microscope.optics.monochromator.focus = float(x_real)
+        else:
+            self.warn_stream("Screen current calibration not available. running calibration (should take 15 seconds).")
+            self._caibrate_screen_current()
+
+            poly_func = self.screen_current_calibration
+            adjusted_poly = poly_func - current
+            x_candidates = adjusted_poly.r
+            x_real = x_candidates[np.isreal(x_candidates)].real
+            x_real = np.max(x_real) # choose the largest real root as the gun lens value
+            self._microscope.optics.monochromator.focus = float(x_real)
+
+    def _get_screen_current(self) -> float:
+        """get screen current in pA"""
+        screen_current = self._microscope.detectors.screen.measure_current() * 1e12
+        return screen_current
+
     def _get_stage(self):
         """Get the current stage position as a list of floats [x, y, z, alpha, beta]."""
-        position = self._microscope.specimen.stage.position
-        position = np.array(position)
-
         # set proxy attributes with current stage position
         stage = self._detector_proxies['stage']
-        beta_tilt_enabled = stage.read_attribute("beta_tilt_enabled").value
+
+        position = self._microscope.specimen.stage.position
+        position = np.array(position)
 
         stage.x = float(position[1])
         stage.y = float(position[0])
         stage.z = float(position[2])
         stage.alpha = float(math.degrees(position[3]))
 
-        if beta_tilt_enabled:
-            stage.beta = float(math.degrees(position[4]))
-        beta_tilt_enabled = False
-        if beta_tilt_enabled:
+        if position[4] is not None:
             return position
         else:
-            return position[:-1]
+            return position[:4]
 
     def _move_stage(self, position) -> None:
         """Move stage to specified position [x, y, z, alpha, beta]."""
         x = float(position[0])
         y = float(position[1])
         z = float(position[2])
-        alpha = float(position[3])
-        
-        stage = self._detector_proxies['stage']
-        beta_enabled = stage.beta_tilt_enabled
+        alpha = float(math.radians(position[3]))
 
-        if beta_enabled:
-            beta = float(position[4])
-            self._microscope.specimen.stage.absolute_move((x, y, z, math.radians(alpha), math.radians(beta)))
+        if len(position) > 4 and position[4] is not None:
+            beta = float(math.radians(position[4]))
         else:
-            print('moving')
-            self._microscope.specimen.stage.absolute_move((x, y, z, math.radians(alpha), None))
+            beta = None
 
-        # link the proxy with real state
-        self._get_stage()
+        self._microscope.specimen.stage.absolute_move((x, y, z, alpha, beta))
+        self._get_stage() # link the proxy with real state
 
+    def _auto_focus(self):
+        """Perform autofocus routine C1A1"""
+        settings = RunOptiStemSettings(method='C1A1') #method=OptiStemMethod.C1_A1, dwell_time=2e-06, cutoff_in_pixels=5)
+        self._microscope.auto_functions.run_opti_stem(settings)
+
+    def _set_image_shift(self, shift):
+        """Apply image shift in meters."""
+        x_shift = float(shift[0])
+        y_shift = float(shift[1])
+        print(shift)
+        try:
+            self._microscope.optics.deflectors.beam_shift = (x_shift, y_shift)
+        except Exception as e:
+            self.error_stream(f"Failed to set beam shift: {e}")
 
 # ----------------------------------------------------------------------
 # Server entry point

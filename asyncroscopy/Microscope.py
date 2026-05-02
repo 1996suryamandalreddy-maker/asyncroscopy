@@ -44,7 +44,6 @@ class Microscope(Device, metaclass=CombinedMeta):
     # Device properties — configure in Tango DB per deployment
     # ------------------------------------------------------------------
 
-
     scan_device_address = device_property(
         dtype=str,
         doc="Tango device address for the SCAN settings device. "
@@ -66,14 +65,12 @@ class Microscope(Device, metaclass=CombinedMeta):
             "No-DB mode: 'tango://127.0.0.1:8888/test/nodb/stage#dbase=no'",
     )
 
-
-    corrector_device_address = device_property(
+    camera_device_address = device_property(
         dtype=str,
-        doc="Tango device address for the aberration corrector settings device. "
-            "DB mode: 'test/hardware/corrector' "
-            "No-DB mode: 'tango://127.0.0.1:8888/test/nodb/corrector#dbase=no'",
+        doc="Tango device address for the CAMERA settings . "
+            "DB mode: 'test/detector/camera' "
+            "No-DB mode: 'tango://127.0.0.1:8888/test/nodb/camera#dbase=no'",
     )
-    
     testing_mode_bool = device_property(dtype=bool, 
                                         default_value=False,
                                         doc="When True - used for running tests, passed in conftest.py")
@@ -198,6 +195,14 @@ class Microscope(Device, metaclass=CombinedMeta):
 
         return json.dumps(metadata), raw_bytes
 
+    @command(dtype_out=DevEncoded)
+    def get_camera_image(self) -> tuple[str, bytes]:
+        """
+        get image on the camera
+        """
+
+        camera = self._detector_proxies.get("camera")
+        # use this to get params
 
     @command(dtype_out=DevEncoded)#In PyTango, DevEncoded is a special Tango data type designed to send binary data + a small description string together as a single return value.
     def get_scanned_image(self) -> tuple[str, bytes]:
@@ -224,18 +229,63 @@ class Microscope(Device, metaclass=CombinedMeta):
         dwell_time=scan.dwell_time
         imsize=scan.imsize
 
-        adorned_image = self._acquire_stem_image(imsize, dwell_time, ['haadf'])
+        image = self._acquire_stem_image(imsize, dwell_time, ['haadf'])
 
         metadata = {
             "detector": 'haadf',
             "shape": [imsize, imsize],
-            "dtype": str(adorned_image.dtype),
+            "dtype": str(image.dtype),
             "dwell_time": dwell_time,
             "timestamp": time.time(),
             # TODO: add metadata from adorned_image.metadata when using real AutoScript
         }
 
-        return json.dumps(metadata), adorned_image.tobytes()
+        return json.dumps(metadata), image.tobytes()
+    
+
+    @command(dtype_out=DevEncoded)
+    def get_camera_image(self) -> tuple[str, bytes]:
+        """
+        Acquire a single camera image from the named detector.
+
+        Parameters
+        ----------
+        detector_name:
+            Name of the detector, e.g. "BM-Ceta". Must match a key in
+            self._detector_proxies.
+
+        Returns
+        -------
+        DevEncoded = (json_metadata, raw_bytes)
+            json_metadata includes: shape, dtype, dwell_time, detector,
+            timestamp, and any other relevant metadata.
+            raw_bytes is the flat numpy array bytes; reshape using shape from metadata.
+        """
+
+        # check active detectors
+        camera = self._detector_proxies.get("camera")
+
+        # Read settings from the detector
+        exposure_time=camera.exposure_time
+        imsize=camera.imsize
+        readout_area=camera.readout_area
+
+        image = self._acquire_camera_image(imsize=imsize, exposure_time=exposure_time,
+                                           detector='BM-Ceta', readout_area=readout_area)
+
+        metadata = {
+            "detector": 'Ceta',
+            "shape": [imsize, imsize],
+            "dtype": str(image.dtype),
+            "exposure_time": exposure_time,
+            "timestamp": time.time(),
+            "readout_area": readout_area,
+            # TODO: move this metadata packing into the _acquire_camera_image method
+            # when usingreal AutoScript,to include metadata from adorned_image.metadata
+        }
+
+        return json.dumps(metadata), image.tobytes()
+
 
     @command(dtype_in=('str',), dtype_out=str)
     def get_images(self, detector_names: list[str]) -> str:
@@ -328,10 +378,31 @@ class Microscope(Device, metaclass=CombinedMeta):
     @command(dtype_in=DevFloat)
     def set_fov(self, fov):
         """
-        set the field of view for the next acquisition, [0:1]
+        set the field of view for the next acquisition
         """
         print(fov)
         self._set_fov(fov)
+
+    @command(dtype_out=DevFloat)
+    def get_fov(self):
+        """
+        read the field of view for the next acquisition
+        """
+        return self._get_fov()
+    
+    @command(dtype_in=DevFloat)
+    def set_screen_current(self, current):
+        """
+        set the screen current in pA
+        """
+        self._set_screen_current(current)
+
+    @command(dtype_out=DevFloat)
+    def get_screen_current(self):
+        """
+        get the screen current in pA
+        """
+        return self._get_screen_current()
 
     @command(dtype_out=DevVarFloatArray)
     def get_stage(self):
@@ -359,6 +430,23 @@ class Microscope(Device, metaclass=CombinedMeta):
         """
         self._move_stage(position)
 
+    @command()
+    def auto_focus(self):
+        """
+        Run the microscope's autofocus routine.
+        """
+        self._auto_focus()
+
+    @command(dtype_in=DevVarFloatArray)
+    def set_image_shift(self, shift):
+        """
+        Set the image shift to the specified values [x_shift, y_shift].
+
+        Parameters
+        ----------
+        shift: list of two floats [x_shift, y_shift] specifying the desired image shift in meters.
+        """
+        self._set_image_shift(shift)
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
@@ -370,6 +458,9 @@ class Microscope(Device, metaclass=CombinedMeta):
     @abstractmethod
     def _acquire_stem_image_advanced():
         print("Get image with more flexible settings")
+        pass
+    def _acquire_camera_image():
+        # define in the inherit class
         pass
 
     def _place_beam():
@@ -385,6 +476,15 @@ class Microscope(Device, metaclass=CombinedMeta):
         pass
 
     @abstractmethod
+    def _set_screen_current():
+        # define in the inherit class
+        pass
+
+    @abstractmethod
+    def _get_screen_current():
+        pass
+
+    @abstractmethod
     def _move_stage():
         # define in the inherit class
         pass
@@ -395,6 +495,18 @@ class Microscope(Device, metaclass=CombinedMeta):
 
     @abstractmethod
     def _set_fov():
+        pass
+
+    @abstractmethod
+    def _get_fov():
+        pass
+
+    @abstractmethod
+    def _auto_focus():
+        pass
+
+    @abstractmethod
+    def _set_image_shift():
         pass
 # ----------------------------------------------------------------------
 # Server entry point
