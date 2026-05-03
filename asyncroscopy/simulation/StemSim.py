@@ -17,42 +17,44 @@ from scipy.fft import fft2, ifft2
 import pyTEMlib.probe_tools as pt
 
 
-def make_holes(atoms: Atoms, n_holes: int, hole_size: float) -> Atoms:
+def make_holes(atoms, n_holes=1, hole_size=3.0):
     """
-    Create holes in an Atoms object by deleting atoms around randomly selected positions.
-
-    Parameters:
-    - atoms (ase.Atoms): The input Atoms object.
-    - n_holes (int): The number of holes to create.
-    - hole_size (float): The radius of each hole.
-
+    Remove atoms in random holes from the structure.
+    
+    Args:
+        atoms: ASE Atoms object
+        n_holes: Number of holes to create
+        hole_size: Radius of each hole in Angstroms
+    
     Returns:
-    - ase.Atoms: The modified Atoms object with holes.
+        Modified Atoms object with holes created
     """
-    # Step 1: Randomly select n_holes atoms
-    num_atoms = len(atoms)
-    selected_indices = random.sample(range(num_atoms), n_holes)
-
-    # Step 2: Find and delete atoms within radius hole_size
-    for index in selected_indices:
-        # Get the position of the selected atom
-        pos = atoms[index].position
-
-        # Create a NeighborList to find atoms within hole_size
-        cutoffs = [hole_size / 2] * len(atoms)
-        nl = NeighborList(cutoffs, self_interaction=False, bothways=True)
-        nl.update(atoms)
-
-        # Find atoms within hole_size around the selected atom
-        indices, offsets = nl.get_neighbors(index)
-        indices = indices.tolist()
-
-        # Add the selected atom itself to the list of atoms to be deleted
-        indices.append(index)
-
-        # Delete atoms by their indices
-        atoms = atoms[[atom.index for atom in atoms if atom.index not in indices]]
-
+    import random
+    from ase.geometry import get_distances
+    
+    atoms = atoms.copy()
+    
+    if n_holes == 0 or len(atoms) == 0:
+        return atoms
+    
+    # Randomly select hole centers
+    n_holes = min(n_holes, len(atoms))
+    hole_centers_indices = random.sample(range(len(atoms)), n_holes)
+    hole_centers = atoms.positions[hole_centers_indices]
+    
+    # Collect atoms to remove (work backwards to avoid index shifting)
+    atoms_to_remove = []
+    for i, pos in enumerate(atoms.positions):
+        for center in hole_centers:
+            distance = np.linalg.norm(pos - center)
+            if distance < hole_size and i not in hole_centers_indices:
+                atoms_to_remove.append(i)
+                break
+    
+    # Remove in reverse order to maintain valid indices
+    for idx in sorted(atoms_to_remove, reverse=True):
+        del atoms[idx]
+    
     return atoms
 
 def rotate_xtal(xtal, angle):
