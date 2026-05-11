@@ -86,8 +86,8 @@ class ThermoMicroscope(Microscope):
     )
     acquisition_file_format = device_property(
         dtype=str,
-        default_value="emd",
-        doc="Preferred acquisition file format. Use 'emd' when AutoScript metadata supports it.",
+        default_value="tiff",
+        doc="Acquisition file format. TIFF preserves AutoScript image metadata.",
     )
     tiled_device_address = device_property(
         dtype=str,

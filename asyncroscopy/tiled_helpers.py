@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 import uuid
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 
@@ -31,7 +32,7 @@ def acquisition_config(
         ),
         "tiled_uri": tiled_uri or os.environ.get("ASYNCROSCOPY_TILED_URI") or DEFAULT_TILED_URI,
         "tiled_root_path": (tiled_root_path or os.environ.get("ASYNCROSCOPY_TILED_ROOT_PATH") or "").strip("/"),
-        "file_format": (file_format or os.environ.get("ASYNCROSCOPY_ACQUISITION_FORMAT") or "emd").lower().lstrip("."),
+        "file_format": (file_format or os.environ.get("ASYNCROSCOPY_ACQUISITION_FORMAT") or "tiff").lower().lstrip("."),
     }
 
 
@@ -63,29 +64,31 @@ def save_adorned_acquisition(
     parameters: dict[str, Any] | None = None,
 ) -> str:
     """Save an AutoScript adorned object and return a JSON Tiled descriptor."""
-    save_directory = Path(config["save_directory"]).expanduser().resolve()
-    save_directory.mkdir(parents=True, exist_ok=True)
+    save_directory = _path_from_user(config["save_directory"])
+    if isinstance(save_directory, Path):
+        save_directory.mkdir(parents=True, exist_ok=True)
+        _verify_writable_directory(save_directory)
 
-    file_format = config.get("file_format", "emd").lower().lstrip(".")
-    if file_format not in {"emd", "tiff", "tif"}:
+    file_format = config.get("file_format", "tiff").lower().lstrip(".")
+    if file_format not in {"tiff", "tif"}:
         raise ValueError(f"Unsupported acquisition file format: {file_format}")
 
-    suffix = ".emd" if file_format == "emd" else ".tiff"
+    suffix = ".tiff"
     timestamp = time.time()
-    path = save_directory / f"{_safe_name(acquisition_type)}_{_safe_name(detector)}_{_stamp(timestamp)}_{uuid.uuid4().hex[:8]}{suffix}"
+    file_name = f"{_safe_name(acquisition_type)}_{_safe_name(detector)}_{_stamp(timestamp)}_{uuid.uuid4().hex[:8]}{suffix}"
+    path = save_directory / file_name
 
-    saved_format = file_format
-    save_error = None
-    if file_format == "emd":
-        try:
-            _save_as_emd(adorned, path)
-        except Exception as exc:
-            save_error = f"EMD save failed; fell back to TIFF: {exc}"
-            saved_format = "tiff"
-            path = path.with_suffix(".tiff")
-            adorned.save(str(path))
-    else:
-        adorned.save(str(path))
+    saved_format = "tiff"
+    path = _save_with_native_adorned_writer(adorned, path)
+
+    if not _path_exists(path):
+        if not (_is_windows_drive_path(path) and os.name != "nt"):
+            raise FileNotFoundError(
+                "Acquisition save returned without creating a file. "
+                f"Expected path: {_path_text(path)}. "
+                f"Save directory: {_path_text(save_directory)}. "
+                f"Process working directory: {Path.cwd()}."
+            )
 
     relative_path = _relative_or_name(path, save_directory)
     descriptor = {
@@ -95,16 +98,16 @@ def save_adorned_acquisition(
         "detector": detector,
         "timestamp": timestamp,
         "format": saved_format,
-        "path": str(path),
-        "file_name": path.name,
+        "path": _path_text(path),
+        "file_name": _path_name(path),
         "relative_path": relative_path,
         "tiled_uri": config.get("tiled_uri") or DEFAULT_TILED_URI,
         "tiled_root_path": config.get("tiled_root_path", ""),
         "tiled_path_candidates": tiled_path_candidates(relative_path, config.get("tiled_root_path", "")),
         "parameters": parameters or {},
+        "file_exists": _path_exists(path),
+        "file_size_bytes": Path(path).stat().st_size if _path_exists(path) else None,
     }
-    if save_error is not None:
-        descriptor["save_warning"] = save_error
     return json.dumps(descriptor)
 
 
@@ -122,6 +125,39 @@ def tiled_path_candidates(relative_path: str, tiled_root_path: str = "") -> list
     if root:
         candidates = [f"{root}/{candidate}" for candidate in candidates]
     return list(dict.fromkeys(candidates))
+
+
+def descriptor_path_candidates(descriptor: dict[str, Any]) -> list[str]:
+    """Build likely Tiled paths from all path fields in a descriptor."""
+    root = str(descriptor.get("tiled_root_path", "")).strip("/")
+    candidates = list(descriptor.get("tiled_path_candidates", []))
+
+    for value in [
+        descriptor.get("relative_path"),
+        descriptor.get("file_name"),
+        descriptor.get("path"),
+    ]:
+        if not value:
+            continue
+        path = Path(str(value))
+        pieces = [path.name]
+        if path.suffix:
+            pieces.append(path.stem)
+        if not path.is_absolute():
+            pieces.extend(tiled_path_candidates(str(path), root))
+        else:
+            parents = list(path.parents)
+            for index, parent in enumerate(parents):
+                try:
+                    rel = path.relative_to(parent)
+                except ValueError:
+                    continue
+                if index > 4:
+                    break
+                pieces.extend(tiled_path_candidates(str(rel), root))
+        candidates.extend(pieces)
+
+    return list(dict.fromkeys(candidate.strip("/") for candidate in candidates if candidate))
 
 
 def connect_tiled_client(uri: str | None = None, api_key: str | None = None):
@@ -146,7 +182,7 @@ def get_tiled_dataset(
     client = client or connect_tiled_client(uri or info.get("tiled_uri"), api_key=api_key)
 
     errors = []
-    for candidate in info.get("tiled_path_candidates", []):
+    for candidate in descriptor_path_candidates(info):
         try:
             return _walk_tiled_path(client, candidate)
         except Exception as exc:
@@ -183,11 +219,48 @@ def parse_descriptor(descriptor: str | dict[str, Any]) -> dict[str, Any]:
     return info
 
 
-def _save_as_emd(adorned: Any, path: Path) -> None:
-    from autoscript_tem_microscope_client.structures import EmdFile, EmdStemFeature
+def _save_with_native_adorned_writer(adorned: Any, path: Path | PureWindowsPath) -> Path | PureWindowsPath:
+    result = adorned.save(_path_text(path))
+    saved_path = _find_saved_path(path)
+    if saved_path is not None:
+        return saved_path
+    if _is_windows_drive_path(path) and os.name != "nt":
+        return path
+    raise FileNotFoundError(
+        "AutoScript adorned.save returned without creating the expected file. "
+        f"Expected path: {_path_text(path)}. "
+        f"Return value: {result!r}. "
+        f"Directory contents: {_directory_preview(path.parent)}"
+    )
 
-    emd_file = EmdFile.create(str(path), EmdStemFeature([adorned]))
-    emd_file.close()
+
+def _find_saved_path(path: Path | PureWindowsPath) -> Path | PureWindowsPath | None:
+    candidates = [path]
+    suffix = _path_suffix(path)
+    if suffix.lower() == ".tiff":
+        candidates.append(path.with_suffix(".tif"))
+    if suffix:
+        candidates.append(path.with_suffix(""))
+    for candidate in candidates:
+        if _path_exists(candidate):
+            return candidate
+    return None
+
+
+def _verify_writable_directory(path: Path) -> None:
+    try:
+        with tempfile.NamedTemporaryFile(prefix=".asyncroscopy_write_test_", dir=path, delete=True):
+            pass
+    except Exception as exc:
+        raise PermissionError(f"Acquisition save directory is not writable: {path}") from exc
+
+
+def _directory_preview(path: Path, limit: int = 10) -> list[str]:
+    try:
+        entries = sorted(path.iterdir(), key=lambda item: item.stat().st_mtime, reverse=True)
+        return [entry.name for entry in entries[:limit]]
+    except Exception as exc:
+        return [f"<could not list {path}: {exc}>"]
 
 
 def _walk_tiled_path(client: Any, tiled_path: str) -> Any:
@@ -206,8 +279,49 @@ def _stamp(timestamp: float) -> str:
     return time.strftime("%Y%m%dT%H%M%S", time.localtime(timestamp))
 
 
-def _relative_or_name(path: Path, parent: Path) -> str:
+def _relative_or_name(path: Path | PureWindowsPath, parent: Path | PureWindowsPath) -> str:
+    if _is_windows_drive_path(path) or _is_windows_drive_path(parent):
+        try:
+            rel = PureWindowsPath(_path_text(path)).relative_to(PureWindowsPath(_path_text(parent)))
+            return rel.as_posix()
+        except ValueError:
+            return _path_name(path)
     try:
         return str(path.relative_to(parent))
     except ValueError:
         return path.name
+
+
+def _path_from_user(value: str | os.PathLike[str]) -> Path | PureWindowsPath:
+    text = os.fspath(value)
+    if _looks_like_windows_drive_path(text):
+        return PureWindowsPath(text)
+    return Path(text).expanduser().resolve()
+
+
+def _looks_like_windows_drive_path(value: str) -> bool:
+    return len(value) >= 3 and value[1] == ":" and value[0].isalpha() and value[2] in {"\\", "/"}
+
+
+def _is_windows_drive_path(path: Path | PureWindowsPath) -> bool:
+    return isinstance(path, PureWindowsPath) or _looks_like_windows_drive_path(str(path))
+
+
+def _path_text(path: Path | PureWindowsPath) -> str:
+    if _is_windows_drive_path(path):
+        return str(path).replace("\\", "/")
+    return str(path)
+
+
+def _path_name(path: Path | PureWindowsPath) -> str:
+    return PureWindowsPath(str(path)).name if _is_windows_drive_path(path) else path.name
+
+
+def _path_suffix(path: Path | PureWindowsPath) -> str:
+    return PureWindowsPath(str(path)).suffix if _is_windows_drive_path(path) else path.suffix
+
+
+def _path_exists(path: Path | PureWindowsPath) -> bool:
+    if _is_windows_drive_path(path) and os.name != "nt":
+        return False
+    return Path(path).exists()

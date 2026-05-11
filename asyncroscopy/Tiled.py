@@ -10,7 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 import numpy as np
@@ -21,6 +21,7 @@ from asyncroscopy.tiled_helpers import (
     DEFAULT_ACQUISITION_DIR,
     DEFAULT_TILED_URI,
     connect_tiled_client,
+    descriptor_path_candidates,
     get_tiled_dataset,
     parse_descriptor,
     tiled_path_candidates,
@@ -154,6 +155,11 @@ class Tiled(Device):
         node = self._node_for_path(path)
         return json.dumps({"path": path, "entries": list(node)})
 
+    @command(dtype_out=str)
+    def list_root(self) -> str:
+        """List entries at the Tiled root."""
+        return self.list_entries("")
+
     @command(dtype_in=str, dtype_out=str)
     def get_data(self, descriptor_or_path: str) -> str:
         """Read data from Tiled using an asyncroscopy descriptor or Tiled path."""
@@ -161,10 +167,65 @@ class Tiled(Device):
         data = self._read_node(node)
         return json.dumps(self._json_ready(data))
 
+    @command(dtype_in=str, dtype_out=str)
+    def inspect_descriptor(self, descriptor_json: str) -> str:
+        """Return local and Tiled path diagnostics for a descriptor."""
+        descriptor = parse_descriptor(descriptor_json)
+        candidates = descriptor_path_candidates(descriptor)
+        client = self._client()
+        resolved = []
+        failed = []
+        for candidate in candidates:
+            try:
+                self._walk_path(client, candidate)
+                resolved.append(candidate)
+            except Exception as exc:
+                failed.append({"candidate": candidate, "error": str(exc)})
+
+        root_entries = []
+        try:
+            root_entries = list(client)
+        except Exception as exc:
+            root_entries = [f"<could not list root: {exc}>"]
+
+        local_path = Path(descriptor.get("path", "")).expanduser()
+        return json.dumps(
+            {
+                "path": str(local_path),
+                "file_exists": local_path.exists(),
+                "file_size_bytes": local_path.stat().st_size if local_path.exists() else None,
+                "root_path": self._root_path,
+                "save_path": self._save_path,
+                "root_entries": root_entries,
+                "candidates": candidates,
+                "resolved": resolved,
+                "failed": failed[:20],
+            }
+        )
+
     @command(dtype_out=str)
     def get_recent(self) -> str:
         """Return recently modified files in save_path as JSON."""
         return json.dumps({"save_path": self._save_path, "files": self._recent_files()})
+
+    @command(dtype_in=str, dtype_out=str)
+    def path_exists(self, path: str) -> str:
+        """Return file existence details as seen by this Tango device process."""
+        is_windows_path = self._looks_like_windows_drive_path(path)
+        candidate = PureWindowsPath(path) if is_windows_path else Path(path).expanduser()
+        if not is_windows_path and not candidate.is_absolute():
+            candidate = Path(self._save_path).expanduser() / candidate
+
+        exists = False if is_windows_path and os.name != "nt" else Path(candidate).exists()
+        return json.dumps(
+            {
+                "path": str(candidate).replace("\\", "/"),
+                "exists": exists,
+                "is_file": Path(candidate).is_file() if exists else False,
+                "size_bytes": Path(candidate).stat().st_size if exists and Path(candidate).is_file() else None,
+                "note": "Windows drive path cannot be checked from this non-Windows process." if is_windows_path and os.name != "nt" else "",
+            }
+        )
 
     # ------------------------------------------------------------------
     # Internals
@@ -201,7 +262,10 @@ class Tiled(Device):
         return self._node_for_path(text)
 
     def _node_for_path(self, tiled_path: str):
-        node = self._client()
+        return self._walk_path(self._client(), tiled_path)
+
+    @staticmethod
+    def _walk_path(node, tiled_path: str):
         for part in [piece for piece in tiled_path.strip("/").split("/") if piece]:
             node = node[part]
         return node
@@ -267,6 +331,10 @@ class Tiled(Device):
         without_scheme = uri.split("://", 1)[-1].strip("/")
         host, _, port = without_scheme.partition(":")
         return host or "10.46.217.241", int(port or 9091)
+
+    @staticmethod
+    def _looks_like_windows_drive_path(value: str) -> bool:
+        return len(value) >= 3 and value[1] == ":" and value[0].isalpha() and value[2] in {"\\", "/"}
 
 
 # ----------------------------------------------------------------------
