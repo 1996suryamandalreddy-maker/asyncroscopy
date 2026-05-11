@@ -157,7 +157,7 @@ class ThermoMicroscope(Microscope):
             adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
             # adorned.metadata TODO get this and pass it on
             return adorned.data
-        
+
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> np.ndarray:
         """
         Call AutoScript acquisition and return numpy array.
@@ -173,25 +173,14 @@ class ThermoMicroscope(Microscope):
         return image
 
 
-    def _acquire_stem_image_advanced(
-        self,
-        detector_names: list[str],
-        base_resolution: int,
-        scan_region: list[float],
-        dwell_time: float,
-        auto_beam_blank: bool,
-    ) -> list[np.ndarray]:
-        """Acquire images from multiple detectors simultaneously."""
-
+    def _acquire_stem_image_advanced(self, imsize: int, dwell_time: float, detector_list: list, scan_region: list[float]) -> np.ndarray:
+        """
+        Call AutoScript acquisition and return numpy array.
+        """
         if self._microscope is not None:
-            # Real AutoScript
-            detector_types = []
-            for name in detector_names:
-                if name == "haadf":
-                    detector_types.append(DetectorType.HAADF)
-                elif name == "bf":
-                    detector_types.append(DetectorType.BF)
-                # Add more detector types as needed
+            # check detectors in detector_list
+            detector_list = [d.upper() for d in detector_list] # must be caps for AutoScript
+            detector_type = 'HAADF'
 
             # Create scan region
             custom_region = Region(
@@ -203,29 +192,17 @@ class ThermoMicroscope(Microscope):
                     scan_region[3]   # height
                 )
             )
-        
-            # TODO -----> handle segments
 
             settings = StemAcquisitionSettings(
                 dwell_time=dwell_time,
-                detector_types=detector_types,
-                size=base_resolution,
+                detector_types=detector_list,
+                size=imsize,
                 region=custom_region,
-                auto_beam_blank=auto_beam_blank
             )
             
-            return self._microscope.acquisition.acquire_stem_images_advanced(settings)
-        
-        # Simulation fallback
-        self.warn_stream(f"Simulating acquisition for {detector_names}")
-        rng = np.random.default_rng()
-        
-        # Calculate cropped dimensions based on scan_region
-        height = int(base_resolution * scan_region[3])
-        width = int(base_resolution * scan_region[2])
-        
-        return [rng.integers(0, 65535, size=(height, width), dtype=np.uint16) 
-                for _ in detector_names]
+            adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
+            return adorned.data
+
 
     def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> np.ndarray:
         if detector_name.upper() == "EDS":
