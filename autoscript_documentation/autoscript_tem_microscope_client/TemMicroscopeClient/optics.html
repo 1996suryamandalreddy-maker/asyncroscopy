@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>optics</title>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../TemMicroscopeClient/optics.html">optics</a></h1>
+    <p>The microscope optical settings.</p>
+    <h2>Classes</h2>
+    <table>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/acceleration_voltage.html">acceleration_voltage</a></td>
+            <td>Provides access to electron beam acceleration voltage.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/aperture_mechanisms.html">aperture_mechanisms</a></td>
+            <td>The collection of aperture mechanisms on the microscope.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/beam_stopper.html">beam_stopper</a></td>
+            <td>Provides access to the beam stopper device.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/blanker.html">blanker</a></td>
+            <td>Blanker group contains controls responsible for controlling the electron beam.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/camera_length.html">camera_length</a></td>
+            <td>Provides access to the camera lengths of the microscope.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/deflectors.html">deflectors</a></td>
+            <td>Provides access to deflector lens.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/energy_filter.html">energy_filter</a></td>
+            <td>Provides access to energy filter (imaging filter) settings.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/focusing.html">focusing</a></td>
+            <td>Allows you to control the focusing mechanisms of the microscope.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/lenses.html">lenses</a></td>
+            <td>Provides a direct access to the lenses of the microscope.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/magnification.html">magnification</a></td>
+            <td>Provides access to the TEM magnifications of the microscope.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/monochromator.html">monochromator</a></td>
+            <td>Provides access to the monochromator.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/stigmators.html">stigmators</a></td>
+            <td>Provides access to stigmators.</td>
+        </tr>
+    </table>
+    <h2>Properties</h2>
+    <table>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/beam_diameter.html">beam_diameter</a></td>
+            <td>The beam diameter in meters. Only available on systems with three condenser lenses.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/convergence_angle.html">convergence_angle</a></td>
+            <td>The beam convergence angle in radians. Only available on systems with three condenser lenses.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/defocus.html">defocus</a></td>
+            <td>Defocus value is focus with an offset (in meters). <br><b>[The property is deprecated and will be removed in version 1.17]</b></td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/focus.html">focus</a></td>
+            <td>Focus value of the main imaging lens (in meters). <br><b>[The property is deprecated and will be removed in version 1.17]</b></td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/illumination_mode.html">illumination_mode</a></td>
+            <td>The illumination mode of the condenser system. Maps to <a href="../enumerations/IlluminationMode/IlluminationMode.html">IlluminationMode</a> enumeration. Only available on systems with three condenser lenses.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/intensity.html">intensity</a></td>
+            <td>Intensity value (not available in STEM mode).</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/is_accelerator_on.html">is_accelerator_on</a></td>
+            <td><em>[Read only]</em> Returns true if the high voltage accelerator is on.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/is_beam_blanked.html">is_beam_blanked</a></td>
+            <td><em>[Read only]</em> Returns true when the beam blanker is active. <br><b>[The property is deprecated and will be removed in version 1.21]</b></td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/is_eftem_on.html">is_eftem_on</a></td>
+            <td>The EFTEM (Energy Filtered TEM) mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/is_holography_mode_on.html">is_holography_mode_on</a></td>
+            <td>The holography mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/is_xl_mode_on.html">is_xl_mode_on</a></td>
+            <td>The X Lens mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/objective_lens_mode.html">objective_lens_mode</a></td>
+            <td>The objective lens mode. Maps to enumeration <a href="../enumerations/ObjectiveLensMode/ObjectiveLensMode.html">ObjectiveLensMode</a>.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/optical_mode.html">optical_mode</a></td>
+            <td>The optical mode of the microscope. Maps to <a href="../enumerations/OpticalMode/OpticalMode.html">OpticalMode</a> enumeration.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/paused_scan_beam_position.html">paused_scan_beam_position</a></td>
+            <td>The position of the beam in the full scan area when the scan is paused. Range: -1 to +1 for x and y.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/probe_mode.html">probe_mode</a></td>
+            <td>The probe mode of the condenser system. Maps to <a href="../enumerations/ProbeMode/ProbeMode.html">ProbeMode</a> enumeration.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/projector_mode.html">projector_mode</a></td>
+            <td>The mode of the projector. Maps to <a href="../enumerations/ProjectorMode/ProjectorMode.html">ProjectorMode</a> enumeration.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/scan_field_of_view.html">scan_field_of_view</a></td>
+            <td>The field of view of the scan in meters. Applicable only in STEM mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/scan_rotation.html">scan_rotation</a></td>
+            <td>The rotation of the scan in radians. Applicable only in STEM mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/spot_size_index.html">spot_size_index</a></td>
+            <td>Index of currently selected spot size.</td>
+        </tr>
+    </table>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/blank.html">blank()</a></td>
+            <td>Blanks the beam. When blanked, the sample is not exposed to the beam. <br><b>[The method is deprecated and will be removed in version 1.21]</b></td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/reset_defocus.html">reset_defocus()</a></td>
+            <td><b>[The method is deprecated and will be removed in version 1.17]</b></td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/set_projector.html">set_projector()</a></td>
+            <td>Sets the projector to magnification or camera length using information encoded in a text label.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_optics/Optics/unblank.html">unblank()</a></td>
+            <td>Unblanks the beam. When unblanked, the sample is exposed to the beam. <br><b>[The method is deprecated and will be removed in version 1.21]</b></td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <!--<h2>Remarks</h2>-->
+    <!--<h2>Examples</h2>-->
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

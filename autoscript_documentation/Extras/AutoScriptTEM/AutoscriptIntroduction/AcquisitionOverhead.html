@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>Acquisition overhead</h1>
+    <p>
+        This page documents the operational time overhead of the acquisition, i.e., the theoretical time of the acquisition
+        compared to the expected time of the acquisition. If you encounter significantly higher differences than the values
+        presented here, please contact <a href="../Support.html">support</a>.
+    </p>
+
+    <h2>STEM Acquisition</h2>
+    <p>
+        The theoretical acquisition time of the STEM acquisition is the time needed for the microscope to visit each pixel
+        (typically <code>size * size</code>) of the image and acquire the data for the amount of time specified in the acquisition
+        (dwell time). It can thus be calculated as: <code>theoretical_time = dwell time * number of pixels</code>.
+    </p>
+    <p>
+        The actual time must take into account more factors: the movement of the beam between the pixels and the flyback
+        (move to the next row of pixels), the settling time of the beam, the time needed for software processing of the data,
+        and the time needed for serializing the data. If remote scripting is used (see
+        <a href="InstallationConfigurations.html">installation configurations</a>), the time
+        needed for communication between the Support PC and the Microscope PC must also be considered.
+    </p>
+    <p>
+        The following measurements were made by ignoring the communication time of the acquisition, as this value is too dependent on the
+        network configuration and the load of the network to be considered in a general case.
+    </p>
+
+    <h3>Overhead based on the number of segments</h3>
+    <table>
+        <tr>
+            <th>Number of segments</th>
+            <th>Theoretical time [s]</th>
+            <th>Real execution time [s]</th>
+            <th>Total overhead [s]</th>
+        </tr>
+        <tr>
+            <td>1</td>
+            <td>0.262144</td>
+            <td>0.62202005</td>
+            <td>0.35987605</td>
+        </tr>
+        <tr>
+            <td>4</td> 
+            <td>0.262144</td>
+            <td>0.78688565</td>
+            <td>0.52474165</td>
+        </tr>
+        <tr>
+            <td>8</td>
+            <td>0.262144</td>
+            <td>1.0045273</td>
+            <td>0.7423833</td>
+        </tr>
+    </table>
+    <img src="../../../Resources/stem-overhead-number-of-segments.png" style="max-width: 800px;" alt="Overhead based on the number of segments">
+
+    <h3>Overhead based on dwell time</h3>
+    <table>
+        <tr>
+            <th>Dwell time [μs]</th>
+            <th>Theoretical time [s]</th>
+            <th>Real execution time [s]</th>
+            <th>Total overhead [s]</th>
+        </tr>
+        <tr>
+            <td>1</td>
+            <td>0.262144</td>
+            <td>0.61120295</td>
+            <td>0.34905895</td>
+        </tr>
+        <tr>
+            <td>20</td>
+            <td>5.24288</td>
+            <td>6.05650225</td>
+            <td>0.81362225</td>
+        </tr>
+        <tr>
+            <td>100</td>
+            <td>26.2144</td>
+            <td>27.44323435</td>
+            <td>1.22883435</td>
+        </tr>
+    </table>
+    <img src="../../../Resources/stem-overhead-dwell-time.png" style="max-width: 1024px;" alt="Overhead based on the dwell time">
+
+    <h3>Overhead based on size</h3>
+    <table>
+        <tr>
+            <th>Size [number of pixels]</th>
+            <th>Theoretical time [s]</th>
+            <th>Real execution time [s]</th>
+            <th>Total overhead [s]</th>
+        </tr>
+        <tr>
+            <td>512&times;512</td>
+            <td>0.262144</td>
+            <td>1.042097</td>
+            <td>0.779953</td>
+        </tr>
+        <tr>
+            <td>4096&times;4096</td>
+            <td>16.777216</td>
+            <td>24.4433365</td>
+            <td>7.6661205</td>
+        </tr>
+    </table>
+    <img src="../../../Resources/stem-overhead-size.png" style="max-width: 1024px;" alt="Overhead based on the size">
+</body>
+</html>

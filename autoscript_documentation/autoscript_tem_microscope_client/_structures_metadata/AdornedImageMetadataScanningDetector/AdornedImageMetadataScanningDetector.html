@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AdornedImageMetadataScanningDetector</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_structures_metadata/AdornedImageMetadataScanningDetector/AdornedImageMetadataScanningDetector.html">AdornedImageMetadataScanningDetector</a></h1>
+    <p>Image metadata structure representing a scanning detector.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/detector_name.html">detector_name</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>String indicating the type of detector.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/detector_type.html">detector_type</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>Unique identifier for the detector model that can be used to cross-reference external data such as quantification properties.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/enabled.html">enabled</a></td>
+            <td><em>[Optional]</em> bool</td>
+            <td>Indicates if the detector is switched on, which may influence the optics.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/inserted.html">inserted</a></td>
+            <td><em>[Optional]</em> bool</td>
+            <td>Indicates if the detector is inserted.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/mix_contribution.html">mix_contribution</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>The amount this detector&#39;s signal contributes to the final result. -1 means inverted. Can be a proportion. If there is only one signal, it would be 1.0.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/signal.html">signal</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>A setting on the detector to help determine the difference between backscatter and secondary electrons in the ETD detector, for example.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/segments.html">segments</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>Mathematical expression of segment contributions where the coefficient is assumed to be 1.0 unless otherwise noted.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/gain.html">gain</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Detector gain in decibels.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/offset.html">offset</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Detector offset in volts, amperes, or native units.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/enhanced_gain.html">enhanced_gain</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Additional signal boost after gain and offset are applied, in decibels.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/grid_voltage.html">grid_voltage</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Voltage of the grid on the ETD/CDEM/ICE in volts.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/suction_tube_voltage.html">suction_tube_voltage</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Voltage of the suction tube on the TLD in volts.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/front_end_voltage.html">front_end_voltage</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Voltage of the ESEM/CDEM gaseous detector front end in volts.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/converter_electrode_voltage.html">converter_electrode_voltage</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Voltage of the converter electrode of the ICE detector in volts.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/scintillator_voltage.html">scintillator_voltage</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Voltage on the scintillator for ETD/ICE in volts.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/contrast_normalized.html">contrast_normalized</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Contrast voltage converted to decibels then normalized to a 0-100 scale.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/brightness_normalized.html">brightness_normalized</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Value applied to the detector inducing brightness then converted to a 0-100 scale.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/collection_angle_range.html">collection_angle_range</a></td>
+            <td><em>[Optional]</em> <a href="../../_structures_primitives/Limits/Limits.html">Limits</a></td>
+            <td>Collection angle range in radians.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/custom_properties.html">custom_properties</a></td>
+            <td><em>[Optional]</em> List[<a href="../../_structures_metadata/AdornedImageMetadataCustomProperties/AdornedImageMetadataCustomProperties.html">AdornedImageMetadataCustomProperties</a>]</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataScanningDetector/custom_sections.html">custom_sections</a></td>
+            <td><em>[Optional]</em> List[<a href="../../_structures_metadata/AdornedImageMetadataCustomSection/AdornedImageMetadataCustomSection.html">AdornedImageMetadataCustomSection</a>]</td>
+            <td></td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <!--<h2>Remarks</h2>-->
+    <!--<h2>Examples</h2>-->
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

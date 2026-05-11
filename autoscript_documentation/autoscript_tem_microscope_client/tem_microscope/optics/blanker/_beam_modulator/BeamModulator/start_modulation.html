@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>optics.blanker.beam_modulator.start_modulation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../../../Resources/common.js"></script>
+    <script src="../../../../../../Resources/page.js"></script>
+    <script src="../../../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../../../Resources/prism.js"></script>
+    <script src="../../../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../../../Resources/prism-c.js"></script>
+    <script src="../../../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../../../TemMicroscopeClient/optics.html">optics</a>.<a class="header-path" href="../../../../../tem_microscope/_optics/Optics/blanker.html">blanker</a>.<a class="header-path" href="../../../../../tem_microscope/optics/_blanker/Blanker/beam_modulator.html">beam_modulator</a>.<a class="header-path" href="../../../../../tem_microscope/optics/blanker/_beam_modulator/BeamModulator/start_modulation.html">start_modulation</a></h1>
+    <p>Starts the beam modulation.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">start_modulation()
+start_modulation(duty_cycle)
+start_modulation(duty_cycle, frequency)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>duty_cycle</td>
+            <td>float</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>frequency</td>
+            <td>float</td>
+            <td></td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        Calling start_modulation() without parameters starts the modulation with current modulation settings, 
+        when one parameter is provided modulation starts with the given modified duty cycle and current (or default on the first run) frequency.
+        Duplicate start_modulation() calls have no effect.
+        To adjust settings of a running modulation, use the properties
+        <a href="../../../blanker/_beam_modulator/BeamModulator/duty_cycle.html">duty_cycle</a> and 
+        <a href="../../../blanker/beam_modulator/_frequency/Frequency/value.html">frequency.value</a>.
+    </p>
+    <p>
+        Calling start_modulation(duty_cycle) when modulation is already running changes the given parameter of the modulation.
+    </p>
+    <!--<h2>Examples</h2>-->
+    <h2>See also</h2>
+    <p>
+        <a href="../../../blanker/_beam_modulator/BeamModulator/duty_cycle.html">duty_cycle</a><br>
+        <a href="../../../blanker/beam_modulator/_frequency/Frequency/value.html">frequency.value</a><br>
+        <a href="../../../blanker/_beam_modulator/BeamModulator/is_modulation_on.html">is_modulation_on</a><br>
+        <a href="../../../blanker/_beam_modulator/BeamModulator/stop_modulation.html">stop_modulation()</a><br>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

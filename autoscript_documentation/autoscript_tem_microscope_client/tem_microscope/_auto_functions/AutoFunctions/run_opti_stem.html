@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>auto_functions.run_opti_stem</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/auto_functions.html">auto_functions</a>.<a class="header-path" href="../../../tem_microscope/_auto_functions/AutoFunctions/run_opti_stem.html">run_opti_stem</a></h1>
+    <p>Runs OptiStem corrections with the specified parameters. Only available in STEM mode.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">run_opti_stem()
+run_opti_stem(settings)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>settings</td>
+            <td><a href="../../../structures/RunOptiStemSettings/RunOptiStemSettings.html">RunOptiStemSettings</a></td>
+            <td>Settings for the OptiStem routine.</td>
+        </tr>
+    </table>
+    <h2>Return value</h2>
+    <table>
+        <tr>
+            <td><a href="../../../structures/RunOptiStemResults/RunOptiStemResults.html">RunOptiStemResults</a></td>
+            <td>A structure capturing results of the autofunction run.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <span class="disclaimer">
+        OptiStem (C1A1 and C1 corrections) is only available on the Titan TEM server v3.15 or Talos TEM server v2.15 and newer.
+        OptiStem+ (B2A2 corrections) is only available on the Titan TEM server v3.19 or Talos TEM server v2.19 and newer.
+    </span>
+    <p>The autofunction can currently be run in three different modes depending on the <a href="../../../structures/RunOptiStemSettings/method.html">method</a> member of the settings parameter:</p>
+        <ul>
+            <li><a href="../../../enumerations/OptiStemMethod/C1_A1.html">C1A1</a> - correction of defocus + two-fold condenser astigmatism.</li>
+            <li><a href="../../../enumerations/OptiStemMethod/C1.html">C1</a> - correction of defocus.</li>
+            <li><a href="../../../enumerations/OptiStemMethod/B2_A2.html">B2A2</a> - correcting coma B2 and three fold astigmatism A2.</li>
+        </ul>
+    <p>
+        All correction algorithms typically take less than a minute to complete.
+    </p>
+    <p>
+        All input parameters are optional, and if any are left out, the default values are used instead. Default values are dependent on the system.
+        The <a href="../../../structures/RunOptiStemSettings/cutoff_in_pixels.html">cutoff_in_pixels</a> and <a href="../../../structures/RunOptiStemSettings/cutoff_spatial_frequency.html">cutoff_spatial_frequency</a>
+        can't be set in combination with <a href="../../../enumerations/OptiStemMethod/B2_A2.html">B2A2 method</a>.
+    </p>
+    <p>Preconditions:</p>  
+    <ul>
+        <li><a href="../../../tem_microscope/_optics/Optics/optical_mode.html">Optical_mode</a> must be <a href="../../../enumerations/OpticalMode/STEM.html">STEM</a>.</li>
+        <li><a href="../../../tem_microscope/_vacuum/Vacuum/column_valves.html">Column valves</a> must be <a href="../../..//enumerations/ColumnValvesState/OPENED.html">open</a>.</li>
+        <li>FEG must be in operation.</li>
+        <li>HT must be on.</li>
+        <li>
+            <a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/C1.html">Condenser 1</a> and <a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/C2.html">Condenser 2</a> must be enabled.
+            For <a href="../../../enumerations/OptiStemMethod/B2_A2.html">B2A2 method</a>,  <a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/C3.html">Condenser 3</a> motorized,
+            <a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/Objective.html">Objective</a> and <a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/SA.html">SA</a> must be also enabled.
+        </li>
+        <li>Diffraction must be on.</li>
+        <li>Nano probe must be selected.</li>
+        <li>Sample must be at eucentric height.</li>
+        <li>Microscope must be close to the ideal focus and condenser stigmatism.</li>
+        <li>(Titan only)The <a href="../../../tem_microscope/_vacuum/Vacuum/column_valves.html">illumination mode</a> must be set to <a href="../../../tem_microscope/_vacuum/Vacuum/column_valves.html">probe</a>.</li>
+    </ul>
+    
+    <h2>Examples</h2>
+    <p>The following example shows how to run the OptiSTEM routine with the default parameters:</p>
+    <pre><code class="language-python">
+        microscope.auto_functions.run_opti_stem()
+    </code></pre>
+
+    <p>The following example shows how to run the OptiSTEM routine with optional parameters:</p>
+    <pre><code class="language-python">
+        settings = RunOptiStemSettings(method=OptiStemMethod.C1, dwell_time=2e-06, cutoff_in_pixels=5)
+        microscope.auto_functions.run_opti_stem(settings)
+    </code></pre>
+    
+    <h2>See also</h2>
+    <p>
+        <a href="../../../structures/RunOptiStemSettings/RunOptiStemSettings.html">RunOptiStemSettings</a><br> 
+        <a href="../../../structures/RunOptiStemResults/RunOptiStemResults.html">RunOptiStemResults</a><br> 
+        <a href="../../../tem_microscope/_optics/Optics/defocus.html">optics.defocus</a>
+    </p>
+
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

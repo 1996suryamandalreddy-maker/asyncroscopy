@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>Python distribution</h1>
+    <p>
+        AutoScript comes bundled with the Python 3 distribution from <a href="https://www.enthought.com/" target="_blank">Enthought</a>.
+        Alongside the 64-bit Python 3 interpreter, the distribution includes a selection of pre-installed packages for scientific computing,
+        image processing, and data analysis.
+    </p>
+
+    <h2>Enthought Deployment Manager (EDM)</h2>
+    <p>
+        When the AutoScript product is installed, an initial Python environment with the name "AutoScript"
+        is created. You can manage packages within this environment as well as create or remove new environments
+        using the standard tooling provided by Enthought - the <strong>Enthought Deployment Manager</strong> command
+        line tool - "EDM". For more information about using the EDM tool, see the Enthought website online at
+        <a href="https://docs.enthought.com/edm" target="_blank">https://docs.enthought.com/edm</a>.
+    </p>
+    <p>
+        Please note that AutoScript installs its own version of EDM without registering it in the system path.
+        This approach is intentionally taken to prevent interference with other EDM installations.
+        To ensure smooth functionality, we recommend starting the Windows command prompt using the <strong>AutoScript
+            EDM Shell</strong>
+        shortcut available in the Start menu. By doing so, the command prompt will open with all the necessary
+        environment
+        variables pre-configured to work with the EDM shell provided by AutoScript.
+    </p>
+    <p>
+        The <a href="PythonDistribution/PackageManagement.html">Python package management</a> section of the manual
+        provides further details on how to install packages to environments.
+        Additionally, it showcases the usage of the AutoScript
+        <a href="../ProductComponents/AutoScriptTools/AutoScriptPackageManager.html">Package Manager</a> UI tool,
+        which allows you to work with packages without relying on the EDM command-line interface.
+    </p>
+</body>
+</html>

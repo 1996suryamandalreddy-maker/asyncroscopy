@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>detectors</title>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../TemMicroscopeClient/detectors.html">detectors</a></h1>
+    <p>Exposes the detectors that are available and can be controlled by scripting.</p>
+    <h2>Classes</h2>
+    <table>
+        <tr>
+            <td><a href="../tem_microscope/_detectors/Detectors/screen.html">screen</a></td>
+            <td>The main fluorescent screen of the microscope.</td>
+        </tr>
+    </table>
+    <h2>Properties</h2>
+    <table>
+        <tr>
+            <td><a href="../tem_microscope/_detectors/Detectors/camera_detectors.html">camera_detectors</a></td>
+            <td><em>[Read only]</em> Returns the list of available camera detectors on the microscope. Uses values from <a href="../enumerations/CameraType/CameraType.html">CameraType</a>.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_detectors/Detectors/eds_detectors.html">eds_detectors</a></td>
+            <td><em>[Read only]</em> Returns the list of available EDS detectors on the microscope. Uses values from <a href="../enumerations/EdsDetectorType/EdsDetectorType.html">EdsDetectorType</a>.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_detectors/Detectors/eels_detectors.html">eels_detectors</a></td>
+            <td><em>[Read only]</em> Returns the list of available EELS detectors on the microscope. Uses values from <a href="../enumerations/EelsDetectorType/EelsDetectorType.html">EelsDetectorType</a>.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_detectors/Detectors/scanning_detectors.html">scanning_detectors</a></td>
+            <td><em>[Read only]</em> Returns the list of available scanning detectors on the microscope. Uses values from <a href="../enumerations/DetectorType/DetectorType.html">DetectorType</a>.</td>
+        </tr>
+    </table>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="../tem_microscope/_detectors/Detectors/get_camera_detector.html">get_camera_detector()</a></td>
+            <td>Retrieves a camera detector by name.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_detectors/Detectors/get_eds_detector.html">get_eds_detector()</a></td>
+            <td>Retrieves an EDS detector by name.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_detectors/Detectors/get_eels_detector.html">get_eels_detector()</a></td>
+            <td>Retrieves an EELS detector by name.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_detectors/Detectors/get_scanning_detector.html">get_scanning_detector()</a></td>
+            <td>Retrieves a scanning detector by name.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <!--<h2>Remarks</h2>-->
+    
+<h2>Examples</h2>
+Acquire an image from all cameras on the microscope and save the images:
+
+<pre><code class="language-python">
+    for camera in microscope.detectors.camera_detectors:
+        image = microscope.acquisition.acquire_camera_image(camera, 1024, 1e-3)
+        image.save("C:/test/" + camera)</code></pre>
+    
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

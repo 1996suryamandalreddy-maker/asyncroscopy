@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CameraImageSize</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_structures_primitives/CameraImageSize/CameraImageSize.html">CameraImageSize</a></h1>
+    <p>Represents a size of a camera image with square pixel value and a fixed readout area.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_primitives/CameraImageSize/size.html">size</a></td>
+            <td><em>[Read only]</em> int</td>
+            <td>Square image size in pixels.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/CameraImageSize/fixed_readout_area.html">fixed_readout_area</a></td>
+            <td><em>[Read only]</em> str</td>
+            <td>Readout area of the sensor. Uses <a href="../../enumerations/FixedReadoutArea/FixedReadoutArea.html">FixedReadoutArea</a>.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        The structure defines a combination of image size and camera readout area. Together they implicitly define binning as well. For example, a camera with a full size of 4096x4096 pixels and values
+        <code class="language-python">CameraImageSize(size=2048, fixed_readout_area=FixedReadoutArea.FULL)</code> has a binning of 2x2.
+    </p>
+    <p>
+        See the following table for an example of how the image size, readout area and binning are related for a Ceta camera:
+    </p>
+    <table class="listing-table">
+        <tr>
+            <th>Image size</th>
+            <th>Readout area</th>
+            <th>Sampling / Binning</th>
+        </tr>
+        <tr>
+            <td>4096</td>
+            <td>Full</td>
+            <td>1</td>
+        </tr>
+        <tr>
+            <td>2048</td>
+            <td>Full</td>
+            <td>2</td>
+        </tr>
+        <tr>
+            <td>1024</td>
+            <td>Full</td>
+            <td>4</td>
+        </tr>
+        <tr>
+            <td>512</td>
+            <td>Full</td>
+            <td>8</td>
+        </tr>
+        <tr>
+            <td>2048</td>
+            <td>Half</td>
+            <td>1</td>
+        </tr>
+        <tr>
+            <td>1024</td>
+            <td>Half</td>
+            <td>2</td>
+        </tr>
+        <tr>
+            <td>512</td>
+            <td>Half</td>
+            <td>4</td>
+        </tr>
+        <tr>
+            <td>256</td>
+            <td>Half</td>
+            <td>8</td>
+        </tr>
+        <tr>
+            <td>1024</td>
+            <td>Quarter</td>
+            <td>1</td>
+        </tr>
+        <tr>
+            <td>512</td>
+            <td>Quarter</td>
+            <td>2</td>
+        </tr>
+        <tr>
+            <td>256</td>
+            <td>Quarter</td>
+            <td>4</td>
+        </tr>
+    </table>
+    <p>
+        Acquisition functions without the readout area parameter (e.g. <a href="../../tem_microscope/_acquisition/Acquisition/acquire_camera_image.html">acquire_camera_image()</a>)
+        will use the full readout area by default. Sizes outside the range given by the chosen readout area are not accepted. Sizes within the range but not equal to
+        any specific value are rounded to the nearest supported size.
+    </p>
+
+    <!--<h2>Examples</h2>-->
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

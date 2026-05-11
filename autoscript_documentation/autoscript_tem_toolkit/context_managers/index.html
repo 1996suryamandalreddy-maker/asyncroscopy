@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>Context managers</h1>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="blanker_context.html">blanker_context()</a></td>
+            <td>Unblanks and re-blanks the beam.</td>
+        </tr>
+        <tr>
+            <td><a href="insert_context.html">insert_context()</a></td>
+            <td>Inserts a given insertable and retracts after the <em>with</em> code block terminates.</td>
+        </tr>
+        <tr>
+            <td><a href="retract_context.html">retract_context()</a></td>
+            <td>Retracts a given retractable and re-inserts after the <em>with</em> code block terminates.</td>
+        </tr>
+        <tr>
+            <td><a href="auto_beam_blank_mode_context.html">auto_beam_blank_mode_context()</a></td>
+            <td>Resets set mode to default after the <em>with</em> code block terminates.</td>
+        </tr>
+        <tr>
+            <td><a href="beam_modulator_context.html">beam_modulator_context()</a></td>
+            <td>Resets modulation settings to default after the <em>with</em> code block terminates.</td>
+        </tr>
+    </table>
+    
+    <h2>Remarks</h2>
+    <p>
+        This module provides a set of context managers to automatically manage a given resource using Python's <em>with</em> statement. 
+        The given resource is managed by automatically calling an initilization function on entry to the <em>with</em> code-block and 
+        a clean-up function when the <em>with</em> block terminates. The cleanup function is called even if the code inside raises an exception.
+    </p>
+
+    <h2>Examples</h2>
+    <p>
+        The following example demonstrates context manager syntax on the microscope's beam blanker.
+    </p>
+    <pre><code class="language-python">
+        # blanked here
+
+        with blanker_context(microscope.optics.blanker): # calls .unblank() here
+            # unblanked
+            ...
+
+        # blanked, .blank() was called
+    </code></pre>
+    <!--<h2>See also</h2>-->
+</body>
+</html>

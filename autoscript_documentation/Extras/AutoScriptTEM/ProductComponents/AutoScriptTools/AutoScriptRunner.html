@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+
+<body>
+
+    <h1>AutoScript Runner</h1>
+    <p>
+        AutoScript Runner is a convenient tool designed as a launcher for Python scripts, which can utilize AutoScript API functions
+        or work independently. It serves as a preferred option for executing scripts that are already finely tuned and do not require
+        further editing.
+    </p>
+    <img src="../../Resources/RunnerLayout.svg">
+    <p>
+        A typical use case is to open a folder with multiple scripts using the <em>File/Open Folder</em> menu.
+        The Runner scans the folder for Python source files and identifies the startup scripts as those that contain AutoScript initialization
+        code or the function main(). These scripts are listed in the script selector <strong>(1)</strong>.
+        If the script is documented with an introductory comment, this comment is displayed in the upper pane <strong>(2)</strong> for the selected script.
+    </p>
+    <p>
+        When you click the <strong>Run </strong>button, the script is executed by a Python interpreter from the selected 
+        virtual environment <strong>(6)</strong>. You can choose an environment created using the AutoScript Package Manager or
+        select your own.
+    </p>
+    <p>
+        All output is directed to the Output panel <strong>(3)</strong>, which can be expanded or collapsed by clicking the arrow icon <strong>(7)</strong>.
+        The status of the script execution is displayed in the status bar <strong>(5)</strong> at the bottom of the window.
+    </p>
+    <p>
+        It is also possible to pause or stop a running script <strong>(4)</strong>, provided that the script has implemented regular checks of the control signals
+        (see functions
+        <a href="../../../../autoscript_tem_microscope_client/tem_microscope/service/autoscript/_client/Client/check_pause_requested.html">check_pause_requested()</a> and
+        <a href="../../../../autoscript_tem_microscope_client/tem_microscope/service/autoscript/_client/Client/check_stop_requested.html">check_pause_requested()</a>).
+        This mechanism allows you to define convenient break points where consistency of collected data and microscope state is ensured.
+        If you have inadvertently requested a pause or stop, you can undo the action by clicking the Request button <strong>(4)</strong> again
+        before the script reaches the check method.
+    </p>
+    <p>
+        If the pause or stop is requested but the check functions are not called by the script, its execution will not be
+        affected.
+    </p>
+    <h2>Meaning of icon colors:</h2>
+    <p>
+        <img src="../../../AutoScriptTEM/Resources/RunnerPauseDisabled.png" alt="Request pause disabled icon"> 
+        <img src="../../../AutoScriptTEM/Resources/RunnerStopDisabled.png" alt="Request stop disabled icon">
+        - the buttons are disabled, request can not be sent. Either the script is not running or another action has already been requested.
+    </p>
+    <p>
+        <img src="../../../AutoScriptTEM/Resources/RunnerPauseActive.png" alt="Request pause icon"> 
+        <img src="../../../AutoScriptTEM/Resources/RunnerStopActive.png"alt="Request stop icon">
+        - the buttons are clickable and clicking them will request the corresponding action.
+    </p>
+    <p>
+        <img src="../../../AutoScriptTEM/Resources/RunnerPauseRequested.png" alt="Request pause requested icon"> 
+        <img src="../../../AutoScriptTEM/Resources/RunnerStopRequested.png" alt="Request stop requested icon">
+        - the corresponding action has been requested. It is possible to cancel the request at this moment by clicking the buttons.
+    </p>
+    <p>
+        <img src="../../../AutoScriptTEM/Resources/RunnerResume.png" alt="Request resume icon">
+         - the script execution has been paused. The script execution resumes by clicking the button.
+    </p>
+    <p>
+        In the current version of the Runner, it is not possible to read user input from the console.
+    </p>
+</body>
+</html>

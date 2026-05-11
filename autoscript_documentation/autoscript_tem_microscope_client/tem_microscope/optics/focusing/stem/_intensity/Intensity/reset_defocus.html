@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>optics.focusing.stem.intensity.reset_defocus</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../../../../Resources/common.js"></script>
+    <script src="../../../../../../../Resources/page.js"></script>
+    <script src="../../../../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../../../../Resources/prism.js"></script>
+    <script src="../../../../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../../../../Resources/prism-c.js"></script>
+    <script src="../../../../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../../../../TemMicroscopeClient/optics.html">optics</a>.<a class="header-path" href="../../../../../../tem_microscope/_optics/Optics/focusing.html">focusing</a>.<a class="header-path" href="../../../../../../tem_microscope/optics/_focusing/Focusing/stem.html">stem</a>.<a class="header-path" href="../../../../../../tem_microscope/optics/focusing/_stem/Stem/intensity.html">intensity</a>.<a class="header-path" href="../../../../../../tem_microscope/optics/focusing/stem/_intensity/Intensity/reset_defocus.html">reset_defocus</a></h1>
+    <p>Resets condenser defocus to 0 (and does not change condenser focus).</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">reset_defocus()</code></pre>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        Intensity defocus can be thought of as a relative offset from the focus plane of the condenser lens. When you reset the
+        defocus, this offset is cleared, bringing it back to zero. This means that the current position of the condenser
+        lens's focal plane is now considered the new reference point for any future offsets. The total defocus is the sum of the
+        objective defocus and the intensity defocus.
+    </p>
+    <h2>Examples</h2>
+        <pre><code class="language-python">
+        # Reset defocus to zero for both intensity and objective defocus and print their values
+        microscope.optics.focusing.stem.intensity.reset_defocus()
+        microscope.optics.focusing.stem.objective.reset_defocus()
+
+        intensity_focus = microscope.optics.focusing.stem.intensity.focus
+        objective_focus = microscope.optics.focusing.stem.objective.focus
+
+        print(f"Intensity defocus: {intensity_focus}")
+        print(f"Objective defocus: {objective_focus}")
+        print(f"Total defocus: {intensity_focus + objective_focus}")
+    </code></pre>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

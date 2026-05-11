@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MoveToPixelSettings</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../structures/MoveToPixelSettings/MoveToPixelSettings.html">MoveToPixelSettings</a></h1>
+    <p>Additional settings for move to pixel functionality.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../structures/MoveToPixelSettings/image_size.html">image_size</a></td>
+            <td><em>[Optional]</em> int</td>
+            <td>Square image size in pixels. Enumeration <a href="../../enumerations/ImageSize/ImageSize.html">ImageSize</a> can be used. Default value is the maximum size supported by the camera (with the given fixed readout area in mind), or the maximum supported scanning resolution.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/MoveToPixelSettings/fixed_readout_area.html">fixed_readout_area</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>Readout area used to acquire the image (camera acquisition only). Enumeration <a href="../../enumerations/FixedReadoutArea/FixedReadoutArea.html">FixedReadoutArea</a> can be used. <a href="../../enumerations/FixedReadoutArea/FULL.html">FULL</a> by default.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/MoveToPixelSettings/method.html">method</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>Method of the move to pixel. Enumeration <a href="../../enumerations/MoveToPixelMethod/MoveToPixelMethod.html">MoveToPixelMethod</a> can be used. Default value is <a href="../../enumerations/MoveToPixelMethod/STAGE.html">STAGE</a>.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/MoveToPixelSettings/use_safe_stage_moves.html">use_safe_stage_moves</a></td>
+            <td><em>[Optional]</em> bool</td>
+            <td>Whether the stage should be moved safely by setting the tilt to zero before moving the stage to avoid pole touches. True by default.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <!--<h2>Remarks</h2>-->
+    <!--<h2>Examples</h2>-->
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../tem_microscope/specimen/_stage/Stage/move_to_pixel.html">specimen.stage.move_to_pixel()</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

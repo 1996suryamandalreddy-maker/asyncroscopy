@@ -178,8 +178,9 @@ def get_required_subdevices(class_name: str) -> list[dict[str, str]]:
             prop = getattr(cls, attr_name)
             if isinstance(prop, device_property):
                 prefix = attr_name.split("_device_address")[0]
+                sub_class = "Tiled" if prefix.lower() == "tiled" else prefix.upper()
                 sub_devices.append({
-                    "class": prefix.upper(),
+                    "class": sub_class,
                     "attr_name": attr_name,
                     "prefix": prefix.lower()
                 })
@@ -191,7 +192,7 @@ def cleanup_old_servers_for_class(class_name: str) -> None:
     Only runs if TANGO_HOST is already in the environment.
     """
     if "TANGO_HOST" not in os.environ:
-        log_stderr(f"[startup] No TANGO_HOST set; skipping stale-server cleanup (no old DB to query)")
+        log_stderr("[startup] No TANGO_HOST set; skipping stale-server cleanup (no old DB to query)")
         return
 
     try:

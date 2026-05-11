@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>optics.aperture_mechanisms</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/optics.html">optics</a>.<a class="header-path" href="../../../tem_microscope/_optics/Optics/aperture_mechanisms.html">aperture_mechanisms</a></h1>
+    <p>The collection of aperture mechanisms on the microscope.</p>
+    <h2>Classes</h2>
+    <table>
+        <tr>
+            <td><a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/bi_prisms.html">bi_prisms</a></td>
+            <td>The bi-prism control.</td>
+        </tr>
+    </table>
+    <h2>Properties</h2>
+    <table>
+        <tr>
+            <td><a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/C1.html">C1</a></td>
+            <td><em>[Read only]</em> The Condenser 1 aperture mechanism.</td>
+        </tr>
+        <tr>
+            <td><a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/C2.html">C2</a></td>
+            <td><em>[Read only]</em> The Condenser 2 aperture mechanism.</td>
+        </tr>
+        <tr>
+            <td><a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/C3.html">C3</a></td>
+            <td><em>[Read only]</em> The Condenser 3 aperture mechanism (if present).</td>
+        </tr>
+        <tr>
+            <td><a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/objective.html">objective</a></td>
+            <td><em>[Read only]</em> The Objective aperture mechanism.</td>
+        </tr>
+        <tr>
+            <td><a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/SA.html">SA</a></td>
+            <td><em>[Read only]</em> The Selected Area aperture mechanism.</td>
+        </tr>
+    </table>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/get_available.html">get_available()</a></td>
+            <td>Retrieves a list of IDs of currently available aperture mechanisms. Uses values from <a href="../../../enumerations/ApertureMechanismType/ApertureMechanismType.html">ApertureMechanismType</a>.</td>
+        </tr>
+        <tr>
+            <td><a href="../../../tem_microscope/optics/_aperture_mechanisms/ApertureMechanisms/get_mechanism.html">get_mechanism()</a></td>
+            <td>Retrieves an aperture mechanism by its id.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        Only motorized aperture mechanisms are accessible. GetMechanism can be used to retrieve all supported aperture mechanisms on a given system, however 
+        the most widely used mechanisms are available in a form of property (the ones present on most systems). The GetMechanism function is intended 
+        for more rare mechanisms to keep the API clean and it also provides a way to enumerate and perform an action on all available mechanisms.
+    </p>
+    
+    <!--<h2>Examples</h2>-->
+    <h2>See also</h2>
+    <p><a href="../../../_dynamic_object_proxies/ApertureMechanism/ApertureMechanism.html">ApertureMechanism</a></p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

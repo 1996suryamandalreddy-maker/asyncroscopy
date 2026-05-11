@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+
+    <h1><a class="header-path" href="UserGuide.html">User guide: </a> <a class="header-path" href="#">Vacuum</a></h1>
+
+    <p>Prior to proceeding with any code snippets below, make sure to <a href="ClientStartup.html">initialize AutoScript</a>.</p>
+
+    <p>The vacuum object is now used just to report the state of the vacuum system:</p>
+
+    <pre><code class="language-python">
+        print(microscope.vacuum.state)
+    </code></pre>
+
+    <p>
+        For controlling the column valves refer to
+        <a href="../../autoscript_tem_microscope_client/tem_microscope/_vacuum/Vacuum/column_valves.html">
+        vacuum.column_valves
+        </a>
+    </p>
+
+</body>
+</html>

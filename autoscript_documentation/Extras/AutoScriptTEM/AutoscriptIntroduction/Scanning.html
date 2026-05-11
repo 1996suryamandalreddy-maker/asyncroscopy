@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>Scanning</h1>
+    <p>
+        In the scanning mode (<a href="../../../autoscript_tem_microscope_client/enumerations/OpticalMode/STEM.html">STEM</a>) of the microscope,
+        images are acquired by moving a focused beam in a raster pattern across the specimen and collecting
+        a signal at each (x,y) pixel coordinate. The signals from all pixels together form the STEM image.
+    </p>
+
+    <h2>Scan engine</h2>
+    <p>
+        Scan engine is a hardware component that controls the movement and focus of the beam. It synchronizes the detectors and the beam position to ensure the data
+        are acquired at the right time. There are several types of synchronizations:
+        <ul>
+            <li>Hardware synchronization: The scan engine is connected to the detector directly.</li>
+            <li>Software synchronization: The scan engine pauses it operation after each point, line or a frame and the cameras are notified via SW.</li>
+        </ul>
+    </p>
+
+    <h2>Size and region</h2>
+    <p>
+        Size defines the outer boundary of the scan area. It is specified in pixels and is limited by the maximum scan size (which is determined by the license).
+        In AutoScript, size can be set with a single integer value that defines the size of the square scan area. The size argument is often optional, and if not set,
+        the default value is the maximum scan size. Region defines a scan pattern that can outline the scan area in a more flexible way. Currently, the only supported
+        region is the rectangular region. All regions must be positioned inside the scan area and can be defined using relative or absolute coordinates.
+    </p>
+</body>
+</html>

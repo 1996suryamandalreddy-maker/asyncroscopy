@@ -1,0 +1,132 @@
+body {
+    min-width: 1200px;
+    margin: 0;
+}
+
+#header {
+    background-color: #E71316;
+    padding: 2px;
+    height: 50px;
+    margin-bottom: 1em;
+}
+
+#header img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+#header img.company-logo {
+    float: left;
+    margin-left: 5.5%;
+    margin-top: 2px;
+}
+
+#header img.product-logo {
+    float: right;
+    margin-right: 5%;
+    margin-top: 3px;
+}
+
+/* Left column - menu. */
+#inner-left {
+    float: left;
+    width: 25%;
+    margin-left: 5%;
+    overflow-wrap: break-word;
+}
+
+/* Right column - help page content. */
+#inner-right {
+    float: right;
+    width: 65%;
+    margin-right: 5%;
+}
+
+iframe {
+    border: 0;
+    width: 100%;
+    height: 500px; /* Default value for older browsers, this value is overwritten in JS. */
+    overflow: hidden;
+}
+
+/* Navigation tree menu. */
+#navtree {
+    margin-left: -1.5em;
+}
+
+#navtree li {
+    list-style-type: none;
+    padding-top: 0.2em;
+    padding-bottom: 0.2em;
+}
+
+#navtree ul {
+    padding-left: 1.5em;
+}
+
+#navtree input[type=checkbox] {
+    display: none;
+}
+
+#navtree label {
+    user-select: none;
+}
+
+#navtree a {
+    user-select: text;
+    text-decoration: none;
+    color: #303030;
+}
+
+#navtree a:hover {
+    text-decoration: underline;
+}
+
+#navtree label:before {
+    font-size: 11px;
+    content: "\276f";
+    display: inline-block;
+    color: #B8BABC;
+    cursor: pointer;
+    margin-right: 0.5em;
+    margin-left: -1.1em;
+}
+
+#navtree input[type='checkbox']:checked ~ label:before {
+    transform: rotate(90deg);
+}
+
+#navtree input[type='checkbox'] ~ ul {
+    display: none;
+}
+
+#navtree input[type='checkbox']:checked ~ ul {
+    display: block;
+}
+
+#filterInput {
+    background-image: url("filter-icon.png");
+    background-position: 3px center;
+    background-repeat: no-repeat;
+    background-size: 15px 15px;
+    padding: 0.4em 0.4em 0.4em 21px;
+    border: 1px solid #303030;
+}
+
+#searchInput {
+    background-image: url("search-icon.png");
+    background-position: 3px center;
+    background-repeat: no-repeat;
+    background-size: 15px 15px;
+    padding: 0.4em 0.4em 0.4em 21px;
+    border: 1px solid #303030;
+}
+
+#menuEmptyInfo {
+    display: none;
+}
+
+/* Removes clear button for form iputs to unify behavior accross browsers. */
+::-ms-clear {
+    display: none;
+}

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>Offline mode</h1>
+    <p>
+        If the AutoScript server is installed on a non-MPC computer, it starts in offline mode. In this mode, the server operates disconnected from
+        the microscope and forwards all API calls to the built-in TEM simulator. An offline license is required to use AutoScript in offline mode.
+    </p>
+    <p>
+        An offline AutoScript license cannot be used on an MPC. On an MPC, a non-offline license is required to connect to the microscope.
+    </p>
+    <p>
+        Offline mode of AutoScript can be installed on any computer that meets the minimum hardware requirements specified in the installation manual.
+        Offline mode supports both local and remote <a href="InstallationConfigurations.html">scripting configurations</a>
+        (i.e., clients can connect to the offline server hosted over a network), although the local configuration is simpler and therefore recommended.
+    </p>
+
+    <h2>Simplistic modeling</h2>
+    <p>
+        The transmission electron microscope is a complex device.
+        The integrated microscope model does not attempt to accurately simulate all of this complexity.
+        Most API functions intended to control the state of the microscope function as a simple read/write cache.
+        A value written by the property setter is stored and returned when the getter is called.
+        This means, for example, that changing the value of beam tilt has no effect on other optical properties. 
+    </p>
+    <p>
+        The state of the simulator is not persisted.
+        When AutoScript server is restarted, the simulator is reset to its initial state and the current state is lost.
+    </p>
+    
+    <h2>Image acquisition</h2>
+    <p>
+        Images output from the detectors or cameras are not visually affected by the state of the microscope or acquisition settings. 
+        Static 16-bit images are provided, but in the correct size and format.
+        AutoScript allows you to upload a custom simulation image using the
+        <a href="../../../autoscript_tem_microscope_client/tem_microscope/service/_offline/Offline/set_image.html">service.offline.set_image()</a>
+        function. This can be particularly useful for simulating parts of the workflow that involve image processing.     </p>
+    <p>
+        Image metadata are simulated as well. Images are created with metadata structures that capture the simulated system state.
+        However, metadata may be incomplete in some areas, e.g. in camera detector settings.
+    </p>
+
+    <h2>Auto functions</h2>
+    <p>
+        Offline auto functions are not simulated, except for simple input and/or state checks.
+        The result values are filled with zeros.
+    </p>
+
+    <h2>Offline system properties</h2>
+    <ul>
+        <li>Maximum acceleration voltage: 300kV.</li>
+        <li>Three condenser lens system, C3 aperture is not motorized.</li>
+        <li>Lorentz mode not supported.</li>
+        <li>Double tilt stage (x, y, z, a, b).</li>
+        <li>Cameras: BM-Ceta, BM-Falcon (Falcon 3 EC), Flucam.</li>
+        <li>STEM available, scanning detectors: BF, DF2, DF4, HAADF, BF-S, DF-S.</li>
+        <li>Stigmators: condenser, diffraction, objective.</li>
+    </ul>
+
+    <h2>System initial state</h2>
+    <ul>
+        <li>Vacuum state is ready.</li>
+        <li>Specimen holder is set to double tilt.</li>
+        <li>FEG is operational, acceleration voltage: max value.</li>
+        <li>Objective lens mode: HM.</li>
+        <li>Projector mode: Imaging.</li>
+        <li>Magnification: approximately 50k.</li>
+    </ul>
+</body>
+</html>

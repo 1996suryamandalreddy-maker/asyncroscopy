@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EdsSpectrumImageSettings</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../structures/EdsSpectrumImageSettings/EdsSpectrumImageSettings.html">EdsSpectrumImageSettings</a></h1>
+    <p>Contains settings for EDS spectrum image acquisition.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/eds_detector.html">eds_detector</a></td>
+            <td>str</td>
+            <td>The name of the EDS detector. Enumeration <a href="../../enumerations/EdsDetectorType/EdsDetectorType.html">EdsDetectorType</a> can be used.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/dispersion.html">dispersion</a></td>
+            <td>float</td>
+            <td>Dispersion in eV.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/shaping_time.html">shaping_time</a></td>
+            <td>float</td>
+            <td>Shaping time in seconds.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/dwell_time.html">dwell_time</a></td>
+            <td>float</td>
+            <td>Scan dwell time in seconds.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/size.html">size</a></td>
+            <td><em>[Optional]</em> int</td>
+            <td>Square image size in pixels. Enumeration <a href="../../enumerations/ImageSize/ImageSize.html">ImageSize</a> can be used.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/region.html">region</a></td>
+            <td><em>[Optional]</em> <a href="../../structures/Region/Region.html">Region</a></td>
+            <td>Acquisition area to be scanned.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/scanning_detectors.html">scanning_detectors</a></td>
+            <td><em>[Optional]</em> List[str]</td>
+            <td>The name(s) of the STEM detector(s). Enumeration <a href="../../enumerations/DetectorType/DetectorType.html">DetectorType</a> can be used.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/scanning_detector_segments.html">scanning_detector_segments</a></td>
+            <td><em>[Optional]</em> List[<a href="../../_dynamic_object_proxies/DetectorSegment/DetectorSegment.html">DetectorSegment</a>]</td>
+            <td>The detector segment(s) used for the acquisition.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/eds_detector_segments.html">eds_detector_segments</a></td>
+            <td><em>[Optional]</em> List[<a href="../../_dynamic_object_proxies/EdsDetectorSegment/EdsDetectorSegment.html">EdsDetectorSegment</a>]</td>
+            <td>The list of enabled EDS detector segments. If not provided, all segments are assumed.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/EdsSpectrumImageSettings/save_eds_event_stream.html">save_eds_event_stream</a></td>
+            <td><em>[Optional]</em> bool</td>
+            <td>Defines whether EDS data events are to be saved. True by default.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        This structure contains a set of settings used for the EDS spectrum image acquisition. Not all settings are intercompatible.
+        A valid Settings structure must adhere to the following criteria: 
+    </p>
+    <ul>
+        <li>
+            <a href="../../structures/EdsSpectrumImageSettings/dwell_time.html">dwell_time</a>, <a href="../../structures/EdsSpectrumImageSettings/shaping_time.html">shaping_time</a>,
+            and <a href="../../structures/EdsSpectrumImageSettings/dispersion.html">dispersion</a> must be specified.
+        </li>
+        <li>
+            Either the <a href="../../structures/EdsSpectrumImageSettings/size.html">size</a> or the <a href="../../structures/EdsSpectrumImageSettings/region.html">region</a> must be specified.
+            If both are specified, the region must fit into the size dimensions. If the size is not specified, the maximum scan size of the system is assumed.
+        </li>
+        <li>
+            <a href="../../structures/EdsSpectrumImageSettings/region.html">region</a> has to contain exactly one shape.
+        </li>
+        <li>
+            Either <a href="../../structures/EdsSpectrumImageSettings/scanning_detectors.html">scanning_detectors</a> or <a href="../../structures/EdsSpectrumImageSettings/scanning_detector_segments.html">scanning_detector_segments</a>
+            must be specified. If both are given, they cannot overlap. In other words, segments from a detector listed in scanning detectors can't be used.
+        </li>
+        <li>
+            <a href="../../structures/EdsSpectrumImageSettings/eds_detector.html">eds_detector</a> must be specified, configuring the EDS segments is optional.
+        </li>
+    </ul>
+    <h3>Scan region</h3>
+    <p>
+        When a region is specified, both the scanning area and scanning time are reduced. This technique can be utilized for 
+        optimization purposes. Additionally, the resulting images will have a smaller size, as they will be cropped to match the 
+        specified region area.
+    </p>
+    <!--<h2>Examples</h2>-->
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../tem_microscope/Analysis/_eds/Eds/acquire_spectrum_image.html">acquire_spectrum_image()</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

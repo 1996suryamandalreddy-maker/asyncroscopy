@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ScanningDetector.set_segment_offset</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_dynamic_object_proxies/ScanningDetector/ScanningDetector.html">ScanningDetector</a>.<a class="header-path" href="../../_dynamic_object_proxies/ScanningDetector/set_segment_offset.html">set_segment_offset</a></h1>
+    <p>Sets offset on a given segment. Accepts a single segment name or a list of segment names. Enumeration <a href="../../enumerations/DetectorSegmentType/DetectorSegmentType.html">DetectorSegmentType</a> can be used.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">set_segment_offset(segment_name, value)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>segment_name</td>
+            <td>str | List[str]</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>value</td>
+            <td>float</td>
+            <td></td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        The function can act on a single segment or multiple segments. It accepts the input parameter in several forms:
+    </p>
+    <ul>
+        <li>A string representing a single segment, such as <code class="language-python">"Inner1"</code> or <code class="language-python">"Segment1"</code>.</li>
+        <li>A string representing a group of segments, e.g. <code class="language-python">"InnerRing"</code> or <code class="language-python">"All"</code>.</li>
+        <li>A list of segment names, e.g. <code class="language-python">["Inner1", "Inner2"]</code> or <code class="language-python">["Segment1", "Segment2"]</code>.</li>
+    </ul>
+    <p>
+        In any case, it is recommended to use the <a href="../../enumerations/DetectorSegmentType/DetectorSegmentType.html">DetectorSegmentType</a>
+        enumeration instead of strings to avoid typos.
+    </p>
+
+    <h2>Examples</h2>
+    <p>The following examples show several ways of setting the segment offset:</p>
+    <pre><code class="language-python">
+        # Get the BF-S detector object
+        detector = microscope.detectors.get_scanning_detector(DetectorType.BF_S)
+
+        # Set offset to a specified value on all segments
+        detector.set_segment_offset(DetectorSegmentType.ALL, -1e-5)
+
+        # Set offset to a specified value on the four outer ring segments; do not change other segments
+        detector.set_segment_offset(DetectorSegmentType.OUTER_RING, -1e-5)
+
+        # Set offset to a specified value on the explicitly listed segmentsl do not change other segments
+        detector.set_segment_offset([DetectorSegmentType.INNER1, DetectorSegmentType.OUTER1], -1e-5)
+    </code></pre>
+
+    <p>
+        It is also possible to access the <a href="../DetectorSegment/offset.html">offset</a> property directly on the segment object.<br>
+        Note that this approach doesn't allow for batch processing (acting on multiple segments at once).
+    </p>
+    <pre><code class="language-python">
+        # Get the DF4 detector object
+        detector = microscope.detectors.get_scanning_detector(DetectorType.DF4)
+        
+        # Set the first segment offset
+        segment = detector.get_segment(DetectorSegmentType.SEGMENT1)
+        segment.offset = -1e-5
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../DetectorSegment/offset.html">DetectorSegment.offset</a><br>
+        <a href="set_segment_gain.html">ScanningDetector.set_segment_gain()</a><br>
+        <a href="set_enabled_segments.html">ScanningDetector.set_enabled_segments()</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

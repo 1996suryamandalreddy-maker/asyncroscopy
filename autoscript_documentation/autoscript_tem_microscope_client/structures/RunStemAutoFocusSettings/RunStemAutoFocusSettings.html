@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RunStemAutoFocusSettings</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../structures/RunStemAutoFocusSettings/RunStemAutoFocusSettings.html">RunStemAutoFocusSettings</a></h1>
+    <p>Contains settings for the automatic focus routine in STEM optical mode.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../structures/RunStemAutoFocusSettings/scanning_detector.html">scanning_detector</a></td>
+            <td>str</td>
+            <td>The name of the detector. Enumeration <a href="../../enumerations/DetectorType/DetectorType.html">DetectorType</a> can be used.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/RunStemAutoFocusSettings/size.html">size</a></td>
+            <td><em>[Optional]</em> int</td>
+            <td>Square image size in pixels. Default is 1024. Enumeration <a href="../../enumerations/ImageSize/ImageSize.html">ImageSize</a> can be used.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/RunStemAutoFocusSettings/dwell_time.html">dwell_time</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>The dwell time in seconds. Default is 1e-6.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/RunStemAutoFocusSettings/auto_stigmate.html">auto_stigmate</a></td>
+            <td><em>[Optional]</em> bool</td>
+            <td>Whether the procedure should optimize stigmation or not. False by default.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/RunStemAutoFocusSettings/accuracy_level.html">accuracy_level</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>Specifies level of accuracy. Enumeration <a href="../../enumerations/AccuracyLevel/AccuracyLevel.html">AccuracyLevel</a> can be used. Default is <a href="../../enumerations/AccuracyLevel/COARSE.html">COARSE</a>.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/RunStemAutoFocusSettings/reset_beam_blanker_afterwards.html">reset_beam_blanker_afterwards</a></td>
+            <td><em>[Optional]</em> bool</td>
+            <td>If true, beam blanker will will be set to its previous status after the task completes. If false, beam will be left blanked. False by default.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>All attributes without specified default values are required.</p>
+    
+    <!--<h2>Examples</h2>-->
+    
+    <h2>See also</h2>
+    <p>
+        <a href="../../tem_microscope/_auto_functions/AutoFunctions/run_stem_auto_focus.html">auto_functions.run_stem_auto_focus()</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

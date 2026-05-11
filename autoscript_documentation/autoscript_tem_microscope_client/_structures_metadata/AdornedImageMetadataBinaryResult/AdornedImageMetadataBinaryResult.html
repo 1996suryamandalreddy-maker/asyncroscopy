@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AdornedImageMetadataBinaryResult</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_structures_metadata/AdornedImageMetadataBinaryResult/AdornedImageMetadataBinaryResult.html">AdornedImageMetadataBinaryResult</a></h1>
+    <p>Image metadata structure for binary result values.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/acquisition_unit.html">acquisition_unit</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>The basic unit of acquisition (Pixel, CameraImage, Spectrum).</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/bits_per_pixel.html">bits_per_pixel</a></td>
+            <td><em>[Optional]</em> int</td>
+            <td>Number of bits per pixel.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/black_level.html">black_level</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Luminosity value in the image to display as the darkest level.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/composition_type.html">composition_type</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>The method used to compose the acquisition units (Single, Series, Rectangle).</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/detector.html">detector</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>The name of the detector used for acquisition.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/detector_index.html">detector_index</a></td>
+            <td><em>[Optional]</em> int</td>
+            <td>The index of the detector in the list of detectors.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/digital_brightness.html">digital_brightness</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Brightness applied to the image after acquisition and before saving.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/digital_contrast.html">digital_contrast</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Contrast applied to the image after acquisition and before saving.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/encoding.html">encoding</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>Encoding type of the image or spectrum (Unsigned, Signed, Float, RGB, BGR, Complex).</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/filter_frame_count.html">filter_frame_count</a></td>
+            <td><em>[Optional]</em> int</td>
+            <td>Number of source frames combined using the averaging or integration filter.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/filter_type.html">filter_type</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>Type of filter used (Average, Integrate, DriftCorrectedFrameIntegration, RecursiveAverage).</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/gamma.html">gamma</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Image adjustment gamma setting.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/intensity_offset.html">intensity_offset</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>The value added to the scaled input value to determine actual intensity.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/intensity_scale.html">intensity_scale</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Multiplication factor to convert intensity values to other physical measurements if they do not represent intensity.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/intensity_scale_unit.html">intensity_scale_unit</a></td>
+            <td><strong>Get: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Unit/Unit.html">Unit</a><br><strong>Set: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Unit/Unit.html">Unit</a> | list | tuple</td>
+            <td>Unit of the intensity scale (Counts, Electrons, Photons, Atomic fraction, Weight fraction).</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/pixel_value_maximum.html">pixel_value_maximum</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Computed maximum numeric value of pixel values in the unprocessed image.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/pixel_value_minimum.html">pixel_value_minimum</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Computed minimum numeric value of pixel values in the unprocessed image.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/pixel_value_mean.html">pixel_value_mean</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Computed average (mean) numeric value of pixel values in the unprocessed (grayscale) image.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/pixel_value_standard_deviation.html">pixel_value_standard_deviation</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Computed standard deviation of pixel values in the unprocessed image.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/recursive_filter_coefficient.html">recursive_filter_coefficient</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>User-selected value that describes the filtering.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/reference_transformation.html">reference_transformation</a></td>
+            <td><em>[Optional]</em> <a href="../../_structures_metadata/AdornedImageMetadataReferenceTransformation/AdornedImageMetadataReferenceTransformation.html">AdornedImageMetadataReferenceTransformation</a></td>
+            <td>The reference transformation matrix translates pixel coordinates to the coordinate system at the optical axis/focus plane.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/sharpness.html">sharpness</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Sharpness as computed from the image pixel data.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/sharpness_algorithm.html">sharpness_algorithm</a></td>
+            <td><em>[Optional]</em> str</td>
+            <td>The algorithm used to calculate the sharpness value (Unknown, FourierAveragePower, FourierAverageMagnitude).</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/sigma.html">sigma</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Image adjustment sigma setting.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/white_level.html">white_level</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Luminosity value in the image to display as the lightest level.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/acquisition_area.html">acquisition_area</a></td>
+            <td><strong>Get: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Rectangle/Rectangle.html">Rectangle</a><br><strong>Set: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Rectangle/Rectangle.html">Rectangle</a> | list | tuple</td>
+            <td>The relative area from the full potential area used for acquisition to determine ImageSize and Offset. Ranges from 0 to 1.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/image_size.html">image_size</a></td>
+            <td><strong>Get: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Point/Point.html">Point</a><br><strong>Set: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Point/Point.html">Point</a> | list | tuple</td>
+            <td>The number of pixels in the X and Y dimensions.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/offset.html">offset</a></td>
+            <td><strong>Get: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Point/Point.html">Point</a><br><strong>Set: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Point/Point.html">Point</a> | list | tuple</td>
+            <td>Relative distance from the top-left (0, 0) pixel, representing the geometric center of the scanned area.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/pixel_size.html">pixel_size</a></td>
+            <td><strong>Get: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Point/Point.html">Point</a><br><strong>Set: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Point/Point.html">Point</a> | list | tuple</td>
+            <td>Physical size of the image pixel.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/pixel_size_x_unit.html">pixel_size_x_unit</a></td>
+            <td><strong>Get: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Unit/Unit.html">Unit</a><br><strong>Set: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Unit/Unit.html">Unit</a> | list | tuple</td>
+            <td>Unit of the X-dimension of the pixel&#39;s physical size in meters, eV, m-1, or radians.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_metadata/AdornedImageMetadataBinaryResult/pixel_size_y_unit.html">pixel_size_y_unit</a></td>
+            <td><strong>Get: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Unit/Unit.html">Unit</a><br><strong>Set: </strong><em>[Optional]</em> <a href="../../_structures_primitives/Unit/Unit.html">Unit</a> | list | tuple</td>
+            <td>Unit of the Y-dimension of the pixel&#39;s physical size in meters, eV, m-1, or radians.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <!--<h2>Remarks</h2>-->
+    <!--<h2>Examples</h2>-->
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

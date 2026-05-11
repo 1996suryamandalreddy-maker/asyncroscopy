@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+
+<body>
+    <h1>API design principles</h1>
+
+    <h2>Design principles of AutoScript</h2>
+    <p>
+        The following design principles provide a clear set of guidelines to ensure the API's usability, stability, and
+        consistency:
+    </p>
+    <ol>
+        <li>Easy to use:</li>
+        <p>The API should be user-friendly while offering powerful functionality.</p>
+        <li>Minimizing breaking changes:</li>
+        <p>
+            Changes that could break existing scripts are minimized. Experimental features are marked, indicating a
+            higher likelihood of breaking changes (e.g. autofunctions).
+        </p>
+        <li>SI units are preferred:</li>
+        <p>Standard International (SI) units are preferred for consistency and clarity.</p>
+        <li>Consistency:</li>
+        <p>Similar functionalities should behave in a consistent manner for better user understanding.</p>
+        <li>Explicit errors instead of silent ones:</li>
+        <p>
+            When functionality doesn't meet user expectations, raise explicit errors rather than failing silently. For example, if a function is called with an invalid combination of arguments,
+            an error should be raised instead of presuming what the user probably intended. This guides the user to use the API correctly instead of guessing.
+        </p>
+        <p>
+            One exception to this rule is when the user tries to set a state that is already set in the system. In this case, the call is executed without an error, but the system state remains unchanged.
+        </p>
+        <li>Same API on every type of microscope:</li>
+        <p>Scripts using the API should be portable across different systems with the same capabilities.</p>
+        <li>Minimizing internal state:</li>
+        <p>
+            AutoScript server is designed to have as little internal state as possible since the microscope server
+            itself should hold state information. In cases where this is not possible, the state is not shared between different
+            clients/scripts, i.e. each client has its own internal state. This reduces the complexity of the entire
+            script ecosystem. In most cases, the only places where a changing internal state needs to be taken into account are
+            the microscope server and the user script itself.
+        </p>
+    </ol>
+
+    <h2>Reoccurring patterns</h2>
+    <p>
+        The AutoScript API is designed to be consistent. Concepts with similar functionality are modeled in the same way
+        and their behavior
+        conveys further information about the microscope's internal state.
+        The following are some of the recurring patterns in the API:
+    </p>
+    <ol>
+        <li><strong>Value and available values pair</strong></li>
+        <p>
+            Properties representing a state have a value property and a method returning a collection of available
+            values. The value property represents the current state and the available values method returns a 
+            collection of currently accessible states. An empty collection signifies that no values are accessible 
+            at the current microscope state and an exception is thrown when the values are inaccessible due to 
+            missing hardware.
+        </p>
+        <li><strong>Value and limits pair</strong></li>
+        <p>
+            Functions that retrieve or adjust continuous values within allowable ranges are usually represented by a
+            pair of properties: value and limits. The limits property returns the Limits structure that defines the 
+            upper and lower value thresholds.
+        </p>
+        <li><strong>Settings structures</strong></li>
+        <p>
+            Functions that take numerous optional input parameters are designed to accept a single "settings" parameter,
+            as an instance of a data class with optional items. This approach allows the settings structures to be easily
+            expanded with new items without having to change function signatures.
+            The naming convention for the settings structure often mirrors the name of the function for which it is
+            intended. For example, RunStemAutoFocusSettings is a settings structure intended for the
+            auto_functions.run_stem_auto_focus() function. However, there are exceptions to this convention, where 
+            the settings structure serves a broader purpose, for instance is utilized for multiple functions.
+        </p>
+    </ol>
+
+    <h2>Synchronicity</h2>
+    <p>
+        By default, functions in the API are designed to be synchronous, meaning they return whenever all effects of the
+        action on the microscope hardware and software have subsided. There are some exceptions to this rule, whenever an
+        asynchronous version of the function is available, it is usually named with the word <strong>"Start"</strong> to
+        denote the asynchronicity. For example microscope.specimen.stage.start_jogging() starts the jogging process and
+        returns control immediately back to the script (without waiting for the jogging to finish).
+    </p>
+
+    <h2>Breaking change strategy</h2>
+    <p>
+        The following breaking change strategy provides a structured approach to manage intentional changes that could
+        impact existing users:
+    </p>
+    <ol>
+        <li>Documentation:</li>
+        <p>All intentional breaking changes are documented in the Release notes.</p>
+        <li>Smaller breaking changes:</li>
+        <p>Smaller changes or fixes are usually documented without additional actions.</p>
+        <li>Larger breaking changes:</li>
+        <ul>
+            <li>Old functionality is marked as obsolete.</li>
+            <li>A recommended alternative is provided.</li>
+            <li>At least four full version releases have to pass before the old feature is removed.</li>
+            <li>Obsoleted parts of the API are removed.</li>
+        </ul>
+    </ol>
+
+    <h3>Changes considered as breaking</h3>
+    <ol>
+        <li>Removal or renaming of any part of the API. This includes groups, functions, enums, structures, etc.</li>
+        <li>Changing the order of function arguments.</li>
+        <li>Changing the order of arguments in structure initializations.</li>
+        <li>Removing or changing part of metadata.</li>
+        <li>
+            Removing support for file formats. Specific image encodings and bit-depth combinations, emd file versions,
+            etc.
+        </li>
+        <li>
+            Upgrading Python version in the pre-installed environment. This usually means a large number of packages is
+            upgraded as well.
+        </li>
+    </ol>
+
+    <h3>Changes <i>not</i> considered as breaking</h3>
+    <ol>
+        <li>Addition of new optional function argument or structure parameter.</li>
+        <li>Changing a generic error to a specific one.</li>
+        <li>Fixing the behavior of a function that resulted in an error.</li>
+        <li>Addition of a new enumeration value.</li>
+        <li>Upgrade of a Python package to its newest version in the pre-installed environment.</li>
+    </ol>
+
+    <h2>Exceptions</h2>
+    <p>
+        When a function call encounters an error, an exception is raised in the user code.
+        Exceptions originating from the AutoScript server are consistently of the
+        <code>ApplicationServerException</code> type.
+        However, exceptions originating from the AutoScript client can vary in type. While <code>ApiException</code> is
+        common, sometimes a more specific exception, like <code>ValueError</code> or <code>IndexError</code>, is thrown to
+        better detail the error.
+    </p>
+    <p>
+        Regardless of the type, every exception includes a message explaining the error in a human-readable way.
+    </p>
+
+    <h2>Enumerations</h2>
+    <p>
+        Functions in the AutoScript API intentionally avoid using parameters of enumeration type
+        (i.e., classes derived from the Enum class in Python) to describe states, opting instead for simple types like
+        <code>int</code> or <code>string</code>.
+        This design choice is made to ensure flexibility in both AutoScript and the underlying software platform release
+        cycles. In scenarios where a newer version of the microscope platform introduces new states that are unknown to an older
+        version of AutoScript, these new modes can be still provided as parameters to functions as plain strings or integers.
+    </p>
+    <p>
+        However, AutoScript does define 
+        <a href="../../../autoscript_tem_microscope_client/enumerations/index.html">enumeration classes</a>,
+        which provide named constants to be used in place of strings or integers.
+        This approach helps prevent typos and enhances the readability of the code.
+    </p>
+    <pre><code class="language-python">
+        # The following lines are equivalent, the latter is preferred
+        microscope.optics.lenses.get_lens("C2")
+        microscope.optics.lenses.get_lens(LensType.C2)
+    </code></pre>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>detectors.get_camera_detector</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/detectors.html">detectors</a>.<a class="header-path" href="../../../tem_microscope/_detectors/Detectors/get_camera_detector.html">get_camera_detector</a></h1>
+    <p>Retrieves a camera detector by name.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">get_camera_detector(detector_name)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>detector_name</td>
+            <td>str</td>
+            <td>The name of the camera. Enumeration <a href="../../../enumerations/CameraType/CameraType.html">CameraType</a> can be used.</td>
+        </tr>
+    </table>
+    <h2>Return value</h2>
+    <table>
+        <tr>
+            <td><a href="../../../_dynamic_object_proxies/CameraDetector/CameraDetector.html">CameraDetector</a></td>
+            <td>The camera detector.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <!--<h2>Remarks</h2>-->
+
+    <h2>Examples</h2>
+    <p>The following example shows how to create a camera detector object for all available camera detectors:</p>
+    <pre><code class="language-python">
+        for camera_name in microscope.detectors.camera_detectors:
+            camera = microscope.detectors.get_camera_detector(camera_name)
+            
+            # print the name of the camera
+            print(camera.display_name)
+    </code></pre>
+
+    <p>The following example shows how access the properties of a detector and it's methods:</p>
+    <pre><code class="language-python">
+        # Get a Ceta camera object
+        camera = microscope.detectors.get_camera_detector(CameraType.BM_CETA)
+        print(camera.name)
+        
+        # Insert the camera (if already inserted, do nothing)
+        camera.insert()
+        print(camera.insertion_state)
+        
+        # Retract the camera (if already retracted, do nothing)
+        camera.retract()
+        print(camera.insertion_state)
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../../tem_microscope/_detectors/Detectors/camera_detectors.html">detectors.camera_detectors</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

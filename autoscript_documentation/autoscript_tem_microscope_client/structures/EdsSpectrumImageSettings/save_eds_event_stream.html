@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EdsSpectrumImageSettings.save_eds_event_stream</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../structures/EdsSpectrumImageSettings/EdsSpectrumImageSettings.html">EdsSpectrumImageSettings</a>.<a class="header-path" href="../../structures/EdsSpectrumImageSettings/save_eds_event_stream.html">save_eds_event_stream</a></h1>
+    <p>Defines whether EDS data events are to be saved. True by default.</p>
+    <h2>Data type</h2>
+    <em>[Optional]</em> bool
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        Disabling this option will prevent EDS data events from being stored individually in the output file.
+        As a result, the file size is significantly reduced, allowing for faster transportation to the client.
+        However, the data will only be accessible in a compressed format using proprietary compression algorithm.
+        This means that only Velox can be used for further analysis of the acquired data. Additionally, certain analysis features,
+        such as frame removal, will no longer be possible without the individual data events.
+    </p>
+    <p>
+        When EDS events are enabled, one summed spectrum per segment (stream) is also saved to the EMD file.
+    </p>
+
+    <!--<h2>Examples</h2>-->
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

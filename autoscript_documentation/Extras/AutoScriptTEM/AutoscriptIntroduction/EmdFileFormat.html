@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>About the EMD file format</h1>
+    <p>
+        The EMD file format stands for <strong>E</strong>lectron <strong>M</strong>icroscopy <strong>D</strong>ata and
+        is also known as the Velox experiment file. This file contains not only images, but it is a proprietary
+        container that can contain the following:
+    </p>
+    <ul>
+        <li>Acquisition results, such as images, spectras, plots, and maps.</li>
+        <li>Post-processing results.</li>
+        <li>Experiment log.</li>
+    </ul>
+    <p>
+        The EMD file is based on the open format <a href="https://www.hdfgroup.org/" target="_blank">HDF5</a>
+        (<strong>H</strong>iearchic <strong>D</strong>ata <strong>F</strong>ormat Version <strong>5</strong>).
+        It is possible to use HDF5 software or libraries to read the EMD files (e.g. h5py package in Python).
+        However, it is recommended not to use the libraries to write or modify the EMD files, as this may corrupt
+        the file and make it unreadable by Velox or AutoScript. See snippets for examples of how to read EMD files
+        with the h5py package.
+    </p>
+
+    <h1>EMD version support</h1>
+    <h2>Backward compatibility</h2>
+    <p>
+        The EMD file format evolves with the new versions of Velox and has its own version. Backward compatibility is achieved by 
+        converting the files to a newer version. Velox does this automatically by saving the old file version in a new format.
+        In AutoScript, a <a href="../../../autoscript_tem_microscope_client/_structures_emd_file/EmdFile/convert.html">conversion function</a> 
+        must be called explicitly to convert the file to the new EMD version.
+    </p>
+    <p>
+        EMD file format version used by this version of AutoScript is <strong>4.3</strong>.
+    </p>
+    <h2>Forward compatibility</h2>
+    <p>
+        Forward compatibility is not supported. This means that older versions of AutoScript and Velox will not be able to open files 
+        that were saved in the newer versions of both applications.
+    </p>
+    <h2>AutoScript and Velox release cycles</h2>
+    <p>
+        AutoScript and Velox release cycles are synced, and the newest version of AutoScript will always support the files saved by the
+        newest version of Velox and vice-versa. The newest versions of both Velox and AutoScript are available 
+        <a href="https://www.fei-software-center.com/tem-apps/tem-applications-update-page/" target="_blank">here</a>.
+    </p>
+</body>
+</html>

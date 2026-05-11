@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>StemAcquisitionSettings</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../structures/StemAcquisitionSettings/StemAcquisitionSettings.html">StemAcquisitionSettings</a></h1>
+    <p>Contains advanced settings for scanning detector image acquisition.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../structures/StemAcquisitionSettings/dwell_time.html">dwell_time</a></td>
+            <td>float</td>
+            <td>STEM dwell time in seconds.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/StemAcquisitionSettings/detector_types.html">detector_types</a></td>
+            <td><em>[Optional]</em> List[str]</td>
+            <td>The name(s) of the detector(s) used for the acquisition. Enumeration <a href="../../enumerations/DetectorType/DetectorType.html">DetectorType</a> can be used.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/StemAcquisitionSettings/detector_segments.html">detector_segments</a></td>
+            <td><em>[Optional]</em> List[<a href="../../_dynamic_object_proxies/DetectorSegment/DetectorSegment.html">DetectorSegment</a>]</td>
+            <td>The detector segment(s) used for the acquisition.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/StemAcquisitionSettings/region.html">region</a></td>
+            <td><em>[Optional]</em> <a href="../../structures/Region/Region.html">Region</a></td>
+            <td>Acquisition area to be scanned. Use <a href="../../structures/Region/Region.html">Region</a>.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/StemAcquisitionSettings/size.html">size</a></td>
+            <td><em>[Optional]</em> int</td>
+            <td>Square image size in pixels. Enumeration <a href="../../enumerations/ImageSize/ImageSize.html">ImageSize</a> can be used.</td>
+        </tr>
+        <tr>
+            <td><a href="../../structures/StemAcquisitionSettings/auto_beam_blank.html">auto_beam_blank</a></td>
+            <td><em>[Optional]</em> bool</td>
+            <td>Automatic beam blanking. False by default. <br><b>[The property is deprecated and will be removed in version 1.21]</b></td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        This structure contains a set of settings used for the advanced stem acquisition. Not all settings are intercompatible.
+        A valid Settings structure must adhere to the following criteria: 
+    </p>
+    <ul>
+        <li>
+            <a href="../../structures/StemAcquisitionSettings/dwell_time.html">dwell_time</a> must be specified.
+        </li>
+        <li>
+            Either <a href="../../structures/StemAcquisitionSettings/size.html">size</a> or <a href="../../structures/StemAcquisitionSettings/region.html">region</a> must be specified.
+            If both are specified, the region must fit into the size dimensions. If the size is not specified, the maximum scan size of the system is assumed.
+        </li>
+        <li>
+            <a href="../../structures/StemAcquisitionSettings/region.html">region</a> has to contain exactly one shape.
+        </li>
+        <li>
+            Either <a href="../../structures/StemAcquisitionSettings/detector_types.html">detector_types</a> or <a href="../../structures/StemAcquisitionSettings/detector_segments.html">detector_segments</a> must be specified.
+            If both are given, they cannot overlap. In other words, segments from a detector listed in detector types can't be used.
+        </li>
+    </ul>
+    <p>
+        Beware that auto beam blanking is False by default. 
+    </p>
+    <p>
+        When a region is specified, both the scanning area and scanning time are reduced. This technique can be utilized for 
+        optimization purposes. Additionally, the resulting images will have a smaller size, as they will be cropped to match the 
+        specified region area.
+    </p>
+
+    <!--<h2>Examples</h2>-->
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../tem_microscope/_acquisition/Acquisition/acquire_stem_images_advanced.html">acquisition.acquire_stem_images_advanced()</a><br>
+        <a href="../../structures/Region/Region.html">Region</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

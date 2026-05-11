@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EmdFile</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_structures_emd_file/EmdFile/EmdFile.html">EmdFile</a></h1>
+    <p>Describes one Emd experiment file.</p>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_emd_file/EmdFile/close.html">close()</a></td>
+            <td>Closes the Emd file and releases all resources.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_emd_file/EmdFile/convert.html">convert()</a></td>
+            <td>Converts an Emd experiment file to a new format version.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_emd_file/EmdFile/create.html">create()</a></td>
+            <td>Creates a new Emd experiment file.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_emd_file/EmdFile/open.html">open()</a></td>
+            <td>Opens an Emd experiment file.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_emd_file/EmdFile/read_all_images.html">read_all_images()</a></td>
+            <td>Reads all images from the Emd file and converts them to <a href="../../_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a>.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        The Emd file holds experiment data from Velox or Metrios applications. It has <em>*.emd</em> file extension.
+        AutoScript can read images from the file and convert them to <a href="../../_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a>
+        objects.
+    </p>
+    <p>
+        Note that not all Emd file formats are supported.
+        The format evolves with new versions of Velox and Metrios applications. It is being optimized for real-time data storage use cases,
+        and its structure is being extended to accommodate new data types. In AutoScript, support for older Emd formats is limited.
+        See the <a href="../../../Extras/AutoScriptTEM/AutoScriptIntroduction/EmdFileFormat.html">Emd file format</a> page or the <a href="convert.html">convert()</a> 
+        function for more information.
+    </p>
+    <p>
+        The current functionality is limited to reading and writing images and metadata from the Emd file. See snippets for examples of how to read spectra from the Emd file.
+    </p>
+
+    <h2>Examples</h2>
+    <p>To open an Emd file you can use the static function <a href="open.html">open()</a> or a constructor. The two options are equivalent.</p>
+    <pre><code class="language-python">
+        path = r"C:\emd_file.emd"
+        
+        # Open emd file with open()
+        emd_file = EmdFile.open(path)
+        
+        # Open emd file with constructor
+        emd_file = EmdFile(path)
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a><br>
+        <a href="open.html">EmdFile.open</a><br>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

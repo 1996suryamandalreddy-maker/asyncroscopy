@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>Installation configurations</h1>
+    <p>
+        Two essential components of the AutoScript TEM product are <strong>the server</strong> and <strong>the client</strong>.
+        The product installer provides the possibility to install these components in different configurations with respect to the 
+        typical network architecture of TEM systems.
+        The specifics of each configuration are described below.
+    </p>
+
+    <h2>Remote scripting configuration</h2>
+    <p>
+        This is the preferred and most common installation configuration for systems with a standalone <strong>Support PC</strong>,
+        which is connected to the <strong>Microscope PC</strong> via the Support network.
+    </p>
+    <img src="../Resources/RemoteScripting.png">
+    <p>
+        The AutoScript server component is installed on the Microscope PC and the client is installed on the Support PC
+        along with the <a href="../../../Extras/AutoScriptTEM/ProductComponents/PythonDistribution.html">Python distribution</a> and <a href="../../../Extras/AutoScriptTEM/ProductComponents/PyCharm.html">PyCharm Editor</a>.
+    </p>
+    <p>
+        Python scripts are executed on the Support PC, passing the IP address of the Microscope PC to the <a href="../../../autoscript_tem_microscope_client/TemMicroscopeClient/connect.html">connect()</a>
+        function on the <a href="../../../autoscript_tem_microscope_client/TemMicroscopeClient/TemMicroscopeClient.html">TemMicroscopeClient</a> object.
+    </p>
+    <p>
+        The advantage of this configuration is that the Python development environment does not interfere with the rest of
+        the microscope software ecosystem on the Microscope PC.
+    </p>
+
+    <h2>Local scripting configuration</h2>
+    <p>
+    In this configuration, all product components are installed on the <strong>Microscope PC</strong> and the Python scripts are
+    executed from there.
+    </p>
+    <img src="../Resources/LocalScripting.png">
+
+    <p>
+        The <a href="../../../autoscript_tem_microscope_client/TemMicroscopeClient/TemMicroscopeClient.html">TemMicroscopeClient</a> object must be connected 
+        to the locally running server with the hostname "localhost", as described in the <a href="../../UserGuide/ClientStartup.html">user guide</a>.
+    </p>
+    <p>This is not a preferred configuration, it is often used as a workaround when the Support PC is not available on the TEM system.</p>
+
+    <h2>Offline configuration</h2>
+    <p>
+        In this configuration, all product components are installed on any (non-MPC) computer, such as a personal laptop, and the Offline product license is activated there.
+        The offline environment provides a safe environment for development and debugging of scripts without any effects on the real system.
+    </p>
+    <p>For more information about the offline mode, see the <a href="OfflineMode.html">Offline mode</a> page.</p>
+    <img src="../Resources/OfflineScripting.png">
+
+    <h2>Client-only configuration</h2>
+    <p>
+        With this configuration, only the AutoScript TEM client is installed on an arbitrary PC and the server installation is skipped completely.
+    </p>
+    <img src="../Resources/ClientOnlyScripting.png">
+    <p>
+        The client component alone gives you the opportunity to explore the capabilities and "feel" of AutoScript TEM at an elementary level
+        without actually being able to run the scripts.
+    </p>
+    <p>
+        The Python editor will provide standard syntax checks and code completion hints for the API calls. 
+        Tools for managing the <a href="../../../Extras/AutoScriptTEM/ProductComponents/PythonDistribution/EnvironmentManagement.html">Python environment</a>, all documentation and the database of code examples
+        (<a href="../../../Extras/AutoScriptTEM/ProductComponents/AutoScriptTools/AutoScriptSnippets.html">AutoScript Snippets</a>) will also be fully functional.
+    </p>
+    <p>
+        This configuration does not include any form of microscope simulation.
+        No product license is required for this installation setup.
+    </p>
+</body>
+</html>

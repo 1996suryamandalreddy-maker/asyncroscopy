@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Point</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_structures_primitives/Point/Point.html">Point</a></h1>
+    <p>Defines the X and Y coordinates of a point in 2D space.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_primitives/Point/x.html">x</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>X coordinate of the point.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/Point/y.html">y</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Y coordinate of the point.</td>
+        </tr>
+    </table>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_primitives/Point/angle.html">angle()</a></td>
+            <td>Returns the angle of the point in radians.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/Point/create_from.html">create_from()</a></td>
+            <td>Creates a new instance of the structure from a collection object.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/Point/magnitude.html">magnitude()</a></td>
+            <td>Returns the magnitude of the point which is the distance from 0, 0.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Overloaded operators</h2>
+    <table>
+        <tr>
+            <td>Indexer</td>
+            <td>Values are indexed in following order: <code class="language-python">x, y</code>.</td>
+        </tr>
+        <tr>
+            <td>Addition</td>
+            <td>A scalar value or a point-like object is supported (indexable object with a length of 2).</td>
+        </tr>
+        <tr>
+            <td>Subtraction</td>
+            <td>A scalar value or a point-like object is supported (indexable object with a length of 2).</td>
+        </tr>
+        <tr>
+            <td>Multiplication</td>
+            <td>A scalar value or a point-like object is supported (indexable object with a length of 2). Returns dot product in case of point-like object.</td>
+        </tr>
+        <tr>
+            <td>Division</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Floor division</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Equality</td>
+            <td>A point-like object is supported (indexable object with a length of 2). Tests approximate equality with maximum tolerance of 1e-9.</td>
+        </tr>
+    </table>
+
+    <!--<h2>Remarks</h2>-->
+
+    <h2>Examples</h2>
+    <p>Overloaded operator examples:</p>
+    <pre><code class="language-python">
+        point_a = Point(2, 2)
+        point_b = Point(1, 1)
+
+        print(point_a[0])          # 2
+        print(point_a + point_b)   # Point(3, 3)
+        print(point_a + 5)         # Point(7, 7)
+        print(point_a - point_b)   # Point(1, 1)
+        print(point_a - 3)         # Point(-1, -1)
+        print(point_a * 2)         # Point(4, 4)
+        print(point_a * point_b)   # 4 (dot product)
+        print(point_a / 2)         # Point(1, 1)
+        print(point_a // 3)        # Point(0, 0)
+        print(point_a == point_b)  # False
+    </code></pre>
+
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

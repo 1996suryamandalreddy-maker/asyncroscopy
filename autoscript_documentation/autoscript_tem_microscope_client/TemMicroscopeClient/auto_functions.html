@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>auto_functions</title>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../TemMicroscopeClient/auto_functions.html">auto_functions</a></h1>
+    <p>Enables execution of the microscope autofunctions.</p>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="../tem_microscope/_auto_functions/AutoFunctions/run_auto_coma_correction.html">run_auto_coma_correction()</a></td>
+            <td>Performs automatic coma correction. Available only in TEM mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_auto_functions/AutoFunctions/run_beam_tilt_auto_focus.html">run_beam_tilt_auto_focus()</a></td>
+            <td>Runs a routine to automatically focus using the beam tilt method. Available only in TEM mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_auto_functions/AutoFunctions/run_objective_auto_stigmator.html">run_objective_auto_stigmator()</a></td>
+            <td>Performs automatic defocus and objective astigmatism correction. Available only in TEM mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_auto_functions/AutoFunctions/run_opti_stem.html">run_opti_stem()</a></td>
+            <td>Runs OptiStem corrections with the specified parameters. Only available in STEM mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../tem_microscope/_auto_functions/AutoFunctions/run_stem_auto_focus.html">run_stem_auto_focus()</a></td>
+            <td>Runs a routine to automatically focus in STEM optical mode.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+        
+    <span class="disclaimer">
+        <p><strong>Functions in this group on AutoScript API are considered experimental.</strong></p>
+        <p>
+            The function signatures are not guaranteed to be stable across AutoScript product versions. 
+            Behavior of the functions may vary depending on TEM system type and server software version.
+            Both function signatures and behavior may evolve as new, optimized and more robust autofunctions are developed.
+        </p>
+        <p>
+            Each autofunction is designed to operate under specific optical conditions and with specific sample types.
+            The functions may fail under other conditions or with other samples. 
+            For troubleshooting purposes each autofunction provides a return value that contains diagnostic information.
+        </p>
+    </span>
+
+    <p>
+        Autofunctions do not respect the configured auto beam blank <a href="../tem_microscope/optics/blanker/_auto_beam_blank/AutoBeamBlank/mode.html">mode</a>,
+        may manipulate the blanker manually and not return to the initial state which may therefore expose the sample for longer periods of time. 
+        Some autofunction's preconditions require the beam to be unblanked in which case the auto beam blank has to be set to 
+        <a href="../enumerations/AutoBeamBlankMode/OFF.html">OFF</a>.
+    </p>
+
+    <!--<h2>Examples</h2>-->
+    <h2>See also</h2>
+    <p><a href="../tem_microscope/optics/blanker/_auto_beam_blank/AutoBeamBlank/mode.html">auto_beam_blank.mode</a></p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

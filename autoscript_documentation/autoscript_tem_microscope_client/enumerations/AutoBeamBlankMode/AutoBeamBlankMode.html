@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AutoBeamBlankMode</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../enumerations/AutoBeamBlankMode/AutoBeamBlankMode.html">AutoBeamBlankMode</a></h1>
+    <p>
+        Defines auto beam blank modes.
+    </p>
+    <h2>Values</h2>
+    <table>
+        <tr>
+            <td><a href="../../enumerations/AutoBeamBlankMode/BLANK_WHEN_IDLE.html">BLANK_WHEN_IDLE</a></td>
+            <td>"BlankWhenIdle"</td>
+            <td>Auto beam blank enabled.</td>
+        </tr>
+        <tr>
+            <td><a href="../../enumerations/AutoBeamBlankMode/BLANK_WHEN_IDLE_TEM.html">BLANK_WHEN_IDLE_TEM</a></td>
+            <td>"BlankWhenIdle_TEM"</td>
+            <td>Blanks in TEM only.</td>
+        </tr>
+        <tr>
+            <td><a href="../../enumerations/AutoBeamBlankMode/OFF.html">OFF</a></td>
+            <td>"Off"</td>
+            <td>Auto beam blank disabled.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <ul>
+        <li>
+            <p> <a href="../../enumerations/AutoBeamBlankMode/OFF.html">OFF</a>:<br>
+                Automatic beam blanking is completely disabled. No blanking or unblanking takes place without manual user interventions.
+            </p>
+        </li>
+        <li>
+            <p><a href="../../enumerations/AutoBeamBlankMode/BLANK_WHEN_IDLE_TEM.html">BLANK_WHEN_IDLETEM</a>:<br>
+                When selected the blanking is automatically triggered under these circumstances:
+                <ul>
+                    <li>When no cameras are in the beam's path anymore the beam is blanked.</li>
+                    <li>When the fluorescent screen is inserted into the beam's path the beam unblanks.</li>
+                    <li>When a camera is inserted into the beam's path the beam is blanked.</li>
+                    <li>When the system exits TEM mode the beam is unblanked.</li>
+                </ul>
+            </p>
+        </li>
+        <li>
+            <p><a href="../../enumerations/AutoBeamBlankMode/BLANK_WHEN_IDLE.html"">BLANK_WHEN_IDLE</a>:<br>
+                When selected the system automatically unblanks before an acquisition starts and blanks when the last acquisition finishes.
+                This mode is only available for systems with the NanoPulser hardware.
+            </p>
+        </li>
+    </ul>
+    <!--<h2>Examples</h2>-->
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

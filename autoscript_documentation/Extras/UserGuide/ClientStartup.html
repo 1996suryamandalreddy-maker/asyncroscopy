@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+
+<h1><a class="header-path" href="UserGuide.html">User guide: </a> <a class="header-path" href="#">Client startup</a></h1>
+
+<p>This chapter shows how to <strong>start</strong> an AutoScript client<strong> </strong>
+and <strong>connect </strong>it to a microscope.</p>
+<p>Before proceeding with code snippets below, <strong>import AutoScript packages</strong> using the following code:</p>
+
+<pre><code class="language-python">
+    from autoscript_tem_microscope_client import TemMicroscopeClient
+    from autoscript_tem_microscope_client.enumerations import *
+    from autoscript_tem_microscope_client.structures import *</code></pre>
+<p style="height:1px"/>
+    
+    
+<p>First, <strong>create a microscope client</strong> object:</p>
+    
+<pre><code class="language-python">
+    microscope = TemMicroscopeClient()</code></pre>
+<p style="height:1px"/>
+
+
+<p><strong>Connect the client</strong> to the AutoScript server running on the microscope computer with an IP address of <code>192.168.0.1</code>:</p>
+
+<pre><code class="language-python">
+    microscope.connect("192.168.0.1")
+</code></pre>
+<p style="height:1px"/>
+
+
+<p>or<strong> connect the client</strong> to the server at the local computer:</p>
+
+<pre><code class="language-python">
+    microscope.connect("localhost")
+</code></pre>
+<p style="height:1px"/>
+
+
+<p>By default, the client attempts to connect to the standard address <code>192.168.0.1</code>:</p>
+
+<pre><code class="language-python">
+    microscope.connect()
+</code></pre>
+<p style="height:1px"/>
+
+
+<p><strong>Connect the client</strong> to the server with certain host name, e.g. <code>MPC-TALOS-A2</code>:</p>
+
+<pre><code class="language-python">
+    microscope.connect("MPC-TALOS-A1")
+</code></pre>
+<p style="height:1px"/>
+
+
+<p>To <strong>disconnect</strong> the client:</p>
+
+<pre><code class="language-python">
+    microscope.disconnect()
+</code></pre>
+
+</body>
+</html>

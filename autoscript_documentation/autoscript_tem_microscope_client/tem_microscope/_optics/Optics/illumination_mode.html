@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>optics.illumination_mode</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/optics.html">optics</a>.<a class="header-path" href="../../../tem_microscope/_optics/Optics/illumination_mode.html">illumination_mode</a></h1>
+    <p>The illumination mode of the condenser system. Maps to <a href="../../../enumerations/IlluminationMode/IlluminationMode.html">IlluminationMode</a> enumeration. Only available on systems with three condenser lenses.</p>
+    <h2>Data type</h2>
+    str
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        Some Titan systems have only two condenser lenses and this makes the illumination system similar to Talos.
+        On systems with three condenser lenses, lenses C2 or C3 can be switched off.
+    </p>
+    
+    <h2>Examples</h2>
+    <pre><code class="language-python">
+        # Switch illumination condenser mode into two lens and turn C3 lens off
+        microscope.optics.illumination_mode = IlluminationMode.C3_OFF
+        
+        # Switch illumination condenser mode into probe and angle range to large
+        microscope.optics.illumination_mode = IlluminationMode.PROBE_LARGE_ANGLE
+        
+        # Switch illumination condenser mode back to parallel
+        microscope.optics.illumination_mode = IlluminationMode.PARALLEL
+    </code></pre>
+    
+    <h2>See also</h2>
+    <p><a href="../../../enumerations/IlluminationMode/IlluminationMode.html">IlluminationMode</a></p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

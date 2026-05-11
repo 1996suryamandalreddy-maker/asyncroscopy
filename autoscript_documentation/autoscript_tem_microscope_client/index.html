@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Microscope API</title>
+    <link rel="stylesheet" type="text/css" href="../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../Resources/syntax-highlight-style.css">
+
+    <script src="../Resources/common.js"></script>
+    <script src="../Resources/page.js"></script>
+    <script src="../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../Resources/page_jupyter_checking.js"></script>
+    <script src="../Resources/prism.js"></script>
+    <script src="../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../Resources/prism-c.js"></script>
+    <script src="../Resources/prism-cpp.js"></script>
+    <script src="../Resources/prism-csharp.js"></script>
+    <script src="../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>Microscope API</h1>
+<!-- Custom part - START -->
+    <p>
+        AutoScript TEM is a comprehensive software package from Thermo Fisher Scientific designed to facilitate Transmission Electron Microscope scripting and related data processing utilities in a Python 3 language environment.
+    </p>
+
+    <p>
+        The most important class in this package is <a href="TemMicroscopeClient/TemMicroscopeClient.html">TemMicroscopeClient</a>, which after instantiation and connection
+        to an <em>AutoScript server</em> provides a wide range of functions through its&nbsp;members (child objects, properties and functions) organized
+        in a <a class="toplevel" href="tem_microscope/Index.html">static tree</a>.
+    </p>
+
+    <p>
+        The package contains also other classes. <strong>Data structures</strong> make parameters and return values of static tree methods more comprehensive,
+        while <strong>enumerations</strong> can save some time and help avoid typos when used instead of string or integer values.
+        <strong>Dynamic objects</strong> are objects whose lifetime is expected to be shorter than the lifetime of <code class="language-python">TemMicroscopeClient</code>
+        and which often have to be created explicitly during script execution. Detectors may serve as a good example of dynamic objects.
+    </p>
+
+    <p>In the following sections you will find detailed information on all the above mentioned parts:</p>
+
+<!-- Custom part - END -->
+    <table>
+        <tr><td><a href="TemMicroscopeClient/TemMicroscopeClient.html">TemMicroscopeClient object</a></td></tr>
+        <tr><td><a href="tem_microscope/index.html">Static tree</a></td></tr>
+        <tr><td><a href="_dynamic_object_proxies/index.html">Dynamic objects</a></td></tr>
+        <tr><td><a href="structures/index.html">Data structures</a></td></tr>
+        <tr><td><a href="enumerations/index.html">Enumerations</a></td></tr>
+    </table>
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

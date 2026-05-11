@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>StagePosition</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_structures_primitives/StagePosition/StagePosition.html">StagePosition</a></h1>
+    <p>Defines a stage position.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_primitives/StagePosition/x.html">x</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>X coordinate in meters.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/StagePosition/y.html">y</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Y coordinate in meters.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/StagePosition/z.html">z</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Z coordinate in meters.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/StagePosition/a.html">a</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Alpha coordinate in radians.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/StagePosition/b.html">b</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Beta coordinate in radians.</td>
+        </tr>
+    </table>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_primitives/StagePosition/create_from.html">create_from()</a></td>
+            <td>Creates a new instance of the structure from a collection object.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Overloaded operators</h2>
+    <table>
+        <tr>
+            <td>Indexer</td>
+            <td>
+                Lower or upper case names, values from <a href="../../enumerations/StageAxis/StageAxis.html">StageAxis</a> enumerations, 
+                or integers can be used as an index:
+                <code class="language-python">'x' == 'X' == StageAxis.X == 0</code>.
+                Integer indexes have following order: <code class="language-python">x, y, z, a, b</code>.
+            </td>
+        </tr>
+        <tr>
+            <td>Addition</td>
+            <td>A scalar value or a position-like object is supported (indexable object with up to 5 values).</td>
+        </tr>
+        <tr>
+            <td>Subtraction</td>
+            <td>A scalar value or a position-like object is supported (indexable object with up to 5 values).</td>
+        </tr>
+        <tr>
+            <td>Multiplication</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Division</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Floor division</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Equality</td>
+            <td>A position-like object is supported (indexable object with up to 5 values). Tests approximate equality with maximum tolerance of 1e-6.</td>
+        </tr>
+    </table>
+
+    <!--<h2>Remarks</h2>-->
+
+    <h2>Examples</h2>
+
+    <p>Following example shows different ways of creating stage position:</p>
+    <pre><code class="language-python">
+        import math
+        
+        StagePosition(0.001, 0.002, 0.003, 0.4, 0.5)  # x = 0.001 m, y = 0.002 m, z = 0.003 m, alpha = 0.4 rad, beta = 0.5 rad
+        StagePosition(z=0.003)  # z = 0.003 m, other axes are None
+
+        # Conversion from degrees to radians
+        StagePosition(a=math.radians(5))  # alpha = 5 deg
+
+        # Get current stage position and update it
+        position = microscope.specimen.stage.position
+        position.x = 0.005
+        position.y = 0.006
+    </code></pre>
+
+    <p>Overloaded operator examples:</p>
+    <pre><code class="language-python">
+        position_a = StagePosition(2, 3, 4, 5, 6)
+        position_b = StagePosition(1, 2, 3, 4, 5)
+
+        print(position_a[2])            # 4
+        print(position_a[StageAxis.Y])  # 3
+        print(position_a["b"])          # 6
+        print(position_a + position_b)  # StagePosition(3, 5, 7, 9, 11)
+        print(position_a + 5)           # StagePosition(7, 8, 9, 10, 11)
+        print(position_a - position_b)  # StagePosition(1, 1, 1, 1, 1)
+        print(position_a - 3)           # StagePosition(-1, 0, 1, 2, 3)
+        print(position_a * 2)           # StagePosition(4, 6, 8, 10, 12)
+        print(position_a / 2)           # StagePosition(1, 1.5, 2, 2.5, 3)
+        print(position_a // 3)          # StagePosition(0, 1, 1, 1, 2)
+        print(position_a == position_b) # False
+    </code></pre>
+
+    <h2>See also</h2>
+    <p><a href="../../tem_microscope/_specimen/Specimen/stage.html">stage</a>, <a href="../../_structures_metadata/AdornedImageMetadataStagePosition/AdornedImageMetadataStagePosition.html">AdornedImageMetadataStagePosition</a>, <a href="../../_structures_primitives/StageVelocity/StageVelocity.html">StageVelocity</a>.</p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

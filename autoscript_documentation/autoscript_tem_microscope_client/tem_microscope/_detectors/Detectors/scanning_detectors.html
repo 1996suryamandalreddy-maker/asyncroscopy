@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>detectors.scanning_detectors</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/detectors.html">detectors</a>.<a class="header-path" href="../../../tem_microscope/_detectors/Detectors/scanning_detectors.html">scanning_detectors</a></h1>
+    <p>Returns the list of available scanning detectors on the microscope. Uses values from <a href="../../../enumerations/DetectorType/DetectorType.html">DetectorType</a>.</p>
+    <h2>Data type</h2>
+    <em>[Read only]</em> List[str]
+<!-- Custom part - START -->
+    <!--<h2>Remarks</h2>-->
+
+    <h2>Examples</h2>
+    <p>The following example shows how to obtain and work with the BF-S detector and it's first inner segment:</p>
+    <pre><code class="language-python">
+        detector = microscope.detectors.get_scanning_detector(DetectorType.BF_S)
+
+        print(detector.name)
+        print(detector.insertion_state)
+
+        segment = detector.get_segment(DetectorSegmentType.INNER1)
+
+        print(segment.detector_name)
+        print(segment.name)
+        print(segment.is_enabled)
+        print(segment.gain)
+        print(segment.offset)
+    </code></pre>
+
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="#">blanker_context</a></h1>
+    <p>
+        Unblanks the beam blanker inside the with block by calling 
+        <a href="../../autoscript_tem_microscope_client/tem_microscope/optics/_blanker/Blanker/unblank.html">blanker.unblank()</a> and blanks it using 
+        <a href="../../autoscript_tem_microscope_client/tem_microscope/optics/_blanker/Blanker/blank.html">blanker.blank()</a> upon exit from the <em>with</em> block.
+    </p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">blanker_context(blanker)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>blanker</td>
+            <td><a href="../../autoscript_tem_microscope_client/tem_microscope/_optics/Optics/blanker.html">Blanker</a></td>
+            <td>Microscope blanker object</td>
+        </tr>
+    </table>
+
+    <h2>Examples</h2>
+    <pre><code class="language-python">
+        # blanked
+        
+        with blanker_context(microscope.optics.blanker):
+            # unblanked
+            images = microscope.acquisition.acquire_stem_images_advanced(settings)
+            ...
+        
+        # blanked again
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../context_managers/index.html">Context managers</a><br>
+        <a href="../../autoscript_tem_microscope_client/tem_microscope/_optics/Optics/blanker.html">Blanker</a>
+    </p>
+</body>
+</html>

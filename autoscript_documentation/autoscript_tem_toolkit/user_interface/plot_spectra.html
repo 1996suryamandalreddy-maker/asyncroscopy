@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="#">plot_spectra</a></h1>
+    <p>Opens a pop-up window displaying a plot where the provided spectra, given as AdornedSpectrum instances, are overlaid in a single figure.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">plot_spectra(spectra, labels)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>spectra</td>
+            <td>List[<a href="../../autoscript_tem_microscope_client/_structures_adorned_spectrum/AdornedSpectrum/AdornedSpectrum.html">AdornedSpectrum</a>]</td>
+            <td>Spectra to be plotted.</td>
+        </tr>
+        <tr>
+            <td>labels</td>
+            <td>[Optional] List[str]</td>
+            <td>Labels of the plots. If None, the labels are automatically generated.</td>
+        </tr>
+    </table>
+
+    <h2>Remarks</h2>
+    <p>
+        The function converts the raw data to primary electron counts and scale and offset corrected intensity values.
+        For this conversion to be possible, the spectra have to have valid metadata. If the metadata are not valid, an error is raised.
+        The number of labels can't be greater than the number of spectra, if any labels are missing, they are automatically generated.
+    </p>
+    <p>
+        The plot is interactive and allows the user to zoom in and out, pan, and save the plot as an image file.
+    </p>
+
+    <h2>Examples</h2>
+    <p>The following example shows how to plot acquired EDS spectra with custom labels:</p>
+    <pre><code class="language-python">
+        # Get the first EDS detector
+        eds_detector_name = microscope.detectors.eds_detectors[0]
+        eds_detector = microscope.detectors.get_eds_detector(eds_detector_name)
+
+        spectra = []
+        labels = []
+
+        # Acquire three spectra with different dispersions and shaping times
+        for i in range(3):
+            # Configure the acquisition
+            settings = EdsAcquisitionSettings()
+            settings.eds_detector = eds_detector_name
+            settings.dispersion = eds_detector.dispersions[i]
+            settings.shaping_time = eds_detector.shaping_times[i]
+            settings.exposure_time = 3e-3
+            settings.exposure_time_type = ExposureTimeType.LIVE_TIME
+
+            # Run the spectrum acquisition
+            spectra.append(microscope.analysis.eds.acquire_spectrum(settings))
+            labels.append(f"EDS spectrum {i + 1}")
+
+        # Plot the spectra
+        ui_toolkit.plot_spectra(spectra, labels)
+    </code></pre>
+    <p>The next example shows how to plot acquired EELS spectra:</p>
+    <pre><code class="language-python">
+        # EELS acquisition settings with multiple exposures
+        settings = EelsAcquisitionSettings(
+            eels_detector=EelsDetectorType.ZEBRA,
+            eels_exposure_settings=[
+                EelsExposureSettings(exposure_time=1),
+                EelsExposureSettings(exposure_time=5),
+                EelsExposureSettings(exposure_time=10)
+        ])
+
+        # Run the acquisition
+        spectra = microscope.analysis.eels.acquire_spectra(settings)
+
+        # Plot the spectra with default labels
+        ui_toolkit.plot_spectra(spectra)
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="plot_image.html">plot_image()</a><br>
+        <a href="plot_images.html">plot_images()</a><br>
+        <a href="plot_spectrum.html">plot_spectrum()</a>
+    </p>
+</body>
+</html>

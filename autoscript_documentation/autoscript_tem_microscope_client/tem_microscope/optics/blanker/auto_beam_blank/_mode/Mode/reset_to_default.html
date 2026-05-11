@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>optics.blanker.auto_beam_blank.mode.reset_to_default</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../../../../Resources/common.js"></script>
+    <script src="../../../../../../../Resources/page.js"></script>
+    <script src="../../../../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../../../../Resources/prism.js"></script>
+    <script src="../../../../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../../../../Resources/prism-c.js"></script>
+    <script src="../../../../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../../../../TemMicroscopeClient/optics.html">optics</a>.<a class="header-path" href="../../../../../../tem_microscope/_optics/Optics/blanker.html">blanker</a>.<a class="header-path" href="../../../../../../tem_microscope/optics/_blanker/Blanker/auto_beam_blank.html">auto_beam_blank</a>.<a class="header-path" href="../../../../../../tem_microscope/optics/blanker/_auto_beam_blank/AutoBeamBlank/mode.html">mode</a>.<a class="header-path" href="../../../../../../tem_microscope/optics/blanker/auto_beam_blank/_mode/Mode/reset_to_default.html">reset_to_default</a></h1>
+    <p>Resets the Auto Beam Blank mode to its default value.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">reset_to_default()</code></pre>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <span class="disclaimer">
+        <p>
+            Auto beam blank mode is reset back to default  
+            <strong>
+                even without explicitly calling reset_to_default()
+            </strong> 
+            in under 30s after script after script completion.
+        </p>
+    </span>
+    <p>The default mode differs based on system hardware configuration.</p>
+    <h2>Examples</h2>
+    <p>
+        Calling reset to default restores the default mode.
+    </p>
+    <pre><code class="language-python">
+        beam_blank_mode = microscope.optics.blanker.auto_beam_blank.mode
+
+        beam_blank_mode.value = AutoBeamBlankMode.OFF
+        print(beam_blank_mode.value)  # OFF
+        
+        beam_blank_mode.reset_to_default()
+        print(beam_blank_mode.value)  # BLANK_WHEN_IDLETEM
+    </code></pre>
+    <p>
+        Reset to default is called implicitly when exiting the with block of the 
+        <a href="../../../../../../../autoscript_tem_toolkit/context_managers/auto_beam_blank_mode_context.html">auto_beam_blank_mode_context</a> context manager.
+    </p>
+    <h2>See also</h2>
+    <a href="../../../../../../../autoscript_tem_toolkit/context_managers/auto_beam_blank_mode_context.html">auto_beam_blank_mode_context</a>
+
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

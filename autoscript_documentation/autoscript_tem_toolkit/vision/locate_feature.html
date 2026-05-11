@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="#">locate_feature</a></h1>
+    <p>Finds the position of the specified template image in an image.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">
+        locate_feature(searched_image, feature_template, [template_matcher, original_feature_center])
+    </code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>searched_image</td>
+            <td><a href="../../autoscript_tem_microscope_client/_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a></td>
+            <td>Image to be searched for feature.</td>
+        </tr>
+        <tr>
+            <td>feature_template</td>
+            <td><a href="../../autoscript_tem_microscope_client/_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a></td>
+            <td>Template of the feature to be located.</td>
+        </tr>
+        <tr>
+            <td>template_matcher</td>
+            <td><a href="../template_matchers/TemplateMatcher.html">TemplateMatcher</a></td>
+            <td>Template matcher to be used when matching template against the searched image. See the Remarks section for more information.</td>
+        </tr>
+        <tr>
+            <td>original_feature_center</td>
+            <td><a href="../../autoscript_tem_microscope_client/_structures_primitives/Point/Point.html">Point</a> or a point-like object.</td>
+            <td>Center of the original feature location, in pixels. The information is used for shift calculation.</td>
+        </tr>
+    </table>
+    <h2>Return value</h2>
+    <table>
+        <tr>
+            <td><a href="FeatureLocation.html">FeatureLocation</a></td>
+            <td>A structure with details of the feature location.</td>
+        </tr>
+    </table>
+
+    <h2>Remarks</h2>
+    <p>
+        The optional <code>template_matcher</code> parameter can provide an object derived from the 
+        <a href="../template_matchers/TemplateMatcher.html">TemplateMatcher</a> class.
+        If not provided, the default template matcher <a href="../template_matchers/OpencvTemplateMatcher.html">OpencvTemplateMatcher</a> is used.
+        For more information, see the documentation for the <a href="../template_matchers/Index.html">Template matchers</a> module.
+    </p>
+    <p>
+        The optional <code>original_feature_center</code> parameter serves as input for calculating the image shift.
+        If provided, the resulting <a href="FeatureLocation.html">FeatureLocation</a>
+        structure will contain the feature shift data. When not provided, only the current feature position is returned.
+    </p>
+    <p>
+        The result contains properties in meters (<code class="language-python">center_in_meters</code>, <code class="language-python">shift_in_meters</code>) 
+        only if the given image contains pixel size metadata.
+    </p>
+
+    <h2>Examples</h2>
+    <p>The following example shows how to use the locate feature functionality with various template matchers:</p>
+    <pre><code class="language-python">
+        # Acquire a full frame image and prepare a feature template
+        image = microscope.acquisition.acquire_camera_image(CameraType.BM_CETA, ImageSize.PRESET_4096, 1)
+        template = vision_toolkit.cut_image(image, relative_center=[0.40, 0.40], relative_size=[0.20, 0.20])
+
+        # Locate the feature in the original image using the default (OpenCV based) template matcher
+        opencv_location = vision_toolkit.locate_feature(image, template)
+
+        # Locate the feature in the original image using the Histogram of Gradients template matcher
+        hog_location = vision_toolkit.locate_feature(image, template, HogMatcher(microscope))
+
+        # Inspect the results
+        opencv_location.print_all_information()
+        hog_location.print_all_information()
+
+        # Plot the results using the plot_match function
+        ui_toolkit.plot_match(image, template, opencv_location.center_in_pixels)
+        ui_toolkit.plot_match(image, template, hog_location.center_in_pixels)
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../template_matchers/index.html">template_matchers</a><br>
+        <a href="../user_interface/plot_match.html">plot_match()</a>
+    </p>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>specimen.piezo_stage.relative_move</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../../Resources/common.js"></script>
+    <script src="../../../../../Resources/page.js"></script>
+    <script src="../../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../../Resources/prism.js"></script>
+    <script src="../../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../../Resources/prism-c.js"></script>
+    <script src="../../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../../TemMicroscopeClient/specimen.html">specimen</a>.<a class="header-path" href="../../../../tem_microscope/_specimen/Specimen/piezo_stage.html">piezo_stage</a>.<a class="header-path" href="../../../../tem_microscope/specimen/_piezo_stage/PiezoStage/relative_move.html">relative_move</a></h1>
+    <p>Moves the piezo stage relatively to the current position.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">relative_move(relative_position)
+relative_move(relative_position, max_velocity)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>relative_position</td>
+            <td><a href="../../../../_structures_primitives/StagePosition/StagePosition.html">StagePosition</a> | list | tuple</td>
+            <td>The delta position by which the piezo stage should move.</td>
+        </tr>
+        <tr>
+            <td>max_velocity</td>
+            <td><a href="../../../../_structures_primitives/StageVelocity/StageVelocity.html">StageVelocity</a> | list | tuple</td>
+            <td>Maximum velocity of the relative move, default value is 2e-6 m/s.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        Axes with value <code class="language-python">None</code> will not be affected by the move. The function checks the limits of all affected axes before moving.
+        Use <a href="../../../../tem_microscope/specimen/_piezo_stage/PiezoStage/get_axis_limits.html">get_axis_limits()</a> function to get the limits. If the velocity is specified, 
+        the dimensions of the specified velocity and the position must match (i.e. if the position specifies the X and Y axes, the velocity must also specify the X and Y axes).
+    </p>
+    <p>Unlike <a href="../../../../tem_microscope/specimen/_piezo_stage/PiezoStage/start_jogging.html">start_jogging()</a>, the relative move function is not asynchronous and the function is not finished until the movement is complete.</p>
+
+    <h2>Examples</h2>
+    <p>The next example shows relative move with and without specified velocity:</p>
+    <pre><code class="language-python">
+        # Relative move with default velocity
+        microscope.specimen.piezo_stage.relative_move(StagePosition(1e-6, 1e-6, 0.5e-6))
+
+        # Print the changed position
+        print(microscope.specimen.piezo_stage.position)
+
+        # Relative move with specified velocity
+        microscope.specimen.piezo_stage.relative_move(StagePosition(1e-6, 1e-6, 0.5e-6), StageVelocity(1e-6, 1e-6, 1e-6))
+
+        # Print the changed position
+        print(microscope.specimen.piezo_stage.position)
+
+        # A list or tuple can be used to specify piezo stage position or velocity
+        microscope.specimen.piezo_stage.relative_move([1e-6, 1e-6, 0.5e-6], (1e-6, 1e-6, 1e-6))
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../../../tem_microscope/specimen/_piezo_stage/PiezoStage/position.html">specimen.piezo_stage.position</a><br>
+        <a href="../../../../tem_microscope/specimen/_piezo_stage/PiezoStage/reset_position.html">specimen.piezo_stage.reset_position()</a><br>
+        <a href="../../../../tem_microscope/specimen/_piezo_stage/PiezoStage/get_axis_limits.html">specimen.piezo_stage.get_axis_limits()</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

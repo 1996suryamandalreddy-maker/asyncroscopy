@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ApertureMechanism.retract</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_dynamic_object_proxies/ApertureMechanism/ApertureMechanism.html">ApertureMechanism</a>.<a class="header-path" href="../../_dynamic_object_proxies/ApertureMechanism/retract.html">retract</a></h1>
+    <p>Retracts this aperture mechanism.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">retract()</code></pre>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>No aperture is selected after the aperture mechanism is retracted. Mechanism must be enabled and retractable to retract it.</p>
+    
+    <h2>Examples</h2>
+    <p>Retract the SA aperture mechanism:</p>
+    <pre><code class="language-python">
+        microscope.optics.aperture_mechanisms.SA.retract()
+    </code></pre>
+    <p>Retracts aperture mechanism if it is retractable:</p>
+    
+    <pre><code class="language-python">
+        if microscope.optics.aperture_mechanisms.C1.is_retractable:
+            microscope.optics.aperture_mechanisms.C1.retract()
+            print(microscope.optics.aperture_mechanisms.C1.insertion_state)
+        else:
+            print("Aperture mechanism is not retractable.")
+    </code></pre>
+    
+    <h2>See also</h2>
+    <p>
+        <a href="insert.html">ApertureMechanism.insert()</a><br>
+        <a href="../../_dynamic_object_proxies/ApertureMechanism/insertion_state.html">insertion_state</a><br>
+        <a href="../../_dynamic_object_proxies/ApertureMechanism/enable.html">ApertureMechanism.enable()</a><br>
+        <a href="../../_dynamic_object_proxies/ApertureMechanism/is_retractable.html">ApertureMechanism.is_retractable</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

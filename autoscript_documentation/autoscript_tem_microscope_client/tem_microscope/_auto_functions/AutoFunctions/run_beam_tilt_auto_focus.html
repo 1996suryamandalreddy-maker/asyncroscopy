@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>auto_functions.run_beam_tilt_auto_focus</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/auto_functions.html">auto_functions</a>.<a class="header-path" href="../../../tem_microscope/_auto_functions/AutoFunctions/run_beam_tilt_auto_focus.html">run_beam_tilt_auto_focus</a></h1>
+    <p>Runs a routine to automatically focus using the beam tilt method. Available only in TEM mode.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">run_beam_tilt_auto_focus(settings)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>settings</td>
+            <td><a href="../../../structures/RunBeamTiltAutoFocusSettings/RunBeamTiltAutoFocusSettings.html">RunBeamTiltAutoFocusSettings</a></td>
+            <td>Settings for the automatic focus routine.</td>
+        </tr>
+    </table>
+    <h2>Return value</h2>
+    <table>
+        <tr>
+            <td><a href="../../../structures/RunBeamTiltAutoFocusResults/RunBeamTiltAutoFocusResults.html">RunBeamTiltAutoFocusResults</a></td>
+            <td>A structure capturing results of the autofunction run.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        Most of the parameters in <code>RunBeamTiltAutoFocusSettings</code> have default values and can be omitted.
+        The first three parameters are linked to image acquisition and have the same meaning as the arguments to the 
+        <a href="../../../tem_microscope/_acquisition/Acquisition/acquire_camera_image.html">acquire_camera_image()</a> function.
+        The default values are documented on the <a href="../../../structures/RunBeamTiltAutoFocusSettings/RunBeamTiltAutoFocusSettings.html">RunBeamTiltAutoFocusSettings</a> page.
+    </p>
+    <p>
+        For information on supported camera types, see the members of the <a href="../../../enumerations/CameraType/CameraType.html">CameraType</a> enumeration.
+        Running this autofunction with the <a href="../../../enumerations/CameraType/FLUCAM.html">FLUCAM</a> camera type is not supported.
+    </p>
+    <p>
+        The screen doesn't have to be retracted before calling this auto function; the acquisition part of the task manages it automatically. 
+        The chosen detector is inserted automatically as well.
+    </p>
+    <p>Preconditions and recommendations:</p>
+    <ul>
+        <li><a href="../../../tem_microscope/_optics/Optics/optical_mode.html">optical_mode</a> must be <a href="../../../enumerations/OpticalMode/TEM.html">TEM</a>. To run auto focus in STEM mode, use <a href="../../../tem_microscope/_auto_functions/AutoFunctions/run_stem_auto_focus.html">run_stem_auto_focus()</a>.</li>
+        <li><a href="../../../tem_microscope/_optics/Optics/projector_mode.html">projector_mode</a> must be <a href="../../../enumerations/ProjectorMode/IMAGING.html">IMAGING</a>.</li>
+        <li>Calibration of the auto function must be performed on the microscope beforehand ("Focus TEM Stigmator" calibration).</li>
+        <li>A sample must be present and positioned at eucentric height.</li>
+        <li>
+            If the auto function results with an error <em>'Auto Focus did not converge.'</em>, 
+            try setting the <a href="../../../structures/RunBeamTiltAutoFocusSettings/maximum_iterations.html">maximum_iterations</a> parameter to a higher value.
+        </li>
+    </ul>
+
+    <h2>Examples</h2>
+
+    <p>The following example shows how to run the autofocus routine with default parameters:</p>
+    <pre><code class="language-python">
+        # Save settings into a variable with all optional settings left as defaults
+        settings = RunBeamTiltAutoFocusSettings(CameraType.BM_CETA)
+        # Run the auto focus routine with the created settings
+        result = microscope.auto_functions.run_beam_tilt_auto_focus(settings)
+
+    </code></pre>
+
+    <p>Optional parameters can be added to the structure. Parameter names need not to be specified if the order is kept.</p>
+    <pre><code class="language-python">
+        settings = RunBeamTiltAutoFocusSettings(CameraType.BM_CETA, 2, FocusMethod.STAGE_Z, maximum_iterations=10)
+        microscope.auto_functions.run_beam_tilt_auto_focus(settings)
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../../structures/RunBeamTiltAutoFocusSettings/RunBeamTiltAutoFocusSettings.html">RunBeamTiltAutoFocusSettings</a><br> 
+        <a href="../../../tem_microscope/_acquisition/Acquisition/acquire_camera_image.html">acquisition.acquire_camera_image()</a><br> 
+        <a href="../../../tem_microscope/_optics/Optics/defocus.html">optics.defocus</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

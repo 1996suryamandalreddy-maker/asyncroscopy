@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>StageVelocity</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_structures_primitives/StageVelocity/StageVelocity.html">StageVelocity</a></h1>
+    <p>Defines a stage velocity.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_primitives/StageVelocity/x.html">x</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>X axis in meters per second.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/StageVelocity/y.html">y</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Y axis in meters per second.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/StageVelocity/z.html">z</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Z axis in meters per second.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/StageVelocity/a.html">a</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Alpha axis in radians per second.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/StageVelocity/b.html">b</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>Beta axis in radians per second.</td>
+        </tr>
+    </table>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_primitives/StageVelocity/create_from.html">create_from()</a></td>
+            <td>Creates a new instance of the structure from a collection object.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Overloaded operators</h2>
+    <table>
+        <tr>
+            <td>Indexer</td>
+            <td>
+                Lower or upper case names, values from <a href="../../enumerations/StageAxis/StageAxis.html">StageAxis</a> enumerations, 
+                or integers can be used as an index:
+                <code class="language-python">'x' == 'X' == StageAxis.X == 0</code>.
+                Integer indexes have following order: <code class="language-python">x, y, z, a, b</code>.
+            </td>
+        </tr>
+        <tr>
+            <td>Addition</td>
+            <td>A scalar value or a velocity-like object is supported (indexable object with up to 5 values).</td>
+        </tr>
+        <tr>
+            <td>Subtraction</td>
+            <td>A scalar value or a velocity-like object is supported (indexable object with up to 5 values).</td>
+        </tr>
+        <tr>
+            <td>Multiplication</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Division</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Floor division</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Equality</td>
+            <td>A velocity-like object is supported (indexable object with up to 5 values). Tests approximate equality with maximum tolerance of 1e-6.</td>
+        </tr>
+    </table>
+
+    <!--<h2>Remarks</h2>-->
+
+    <h2>Examples</h2>
+
+    <p>Following example shows different ways of creating stage velocity:</p>
+    <pre><code class="language-python">
+        import math
+        
+        StageVelocity(1e-6, 2e-6, 3e-6)  # x = 1e-6 m/s, y = 2e-6 m/s, z = 3e-6 m/s
+        StageVelocity(z=4e-6)  # z = 4e-6 m/s, other axes are None
+
+        # Conversion from degrees to radians
+        StageVelocity(a=math.radians(5))  # alpha = 5 deg/s
+
+        # Get current piezo stage jogging velocity and update it
+        velocity = microscope.specimen.stage.jogging_velocity
+        velocity.x = 5e-6
+        velocity.y = 6e-6
+    </code></pre>
+
+    <p>Overloaded operator examples:</p>
+    <pre><code class="language-python">
+        velocity_a = StageVelocity(2, 3, 4, 5, 6)
+        velocity_b = StageVelocity(1, 2, 3, 4, 5)
+
+        print(velocity_a[2])            # 4
+        print(velocity_a[StageAxis.Y])  # 3
+        print(velocity_a["b"])          # 6
+        print(velocity_a + velocity_b)  # StageVelocity(3, 5, 7, 9, 11)
+        print(velocity_a + 5)           # StageVelocity(7, 8, 9, 10, 11)
+        print(velocity_a - velocity_b)  # StageVelocity(1, 1, 1, 1, 1)
+        print(velocity_a - 3)           # StageVelocity(-1, 0, 1, 2, 3)
+        print(velocity_a * 2)           # StageVelocity(4, 6, 8, 10, 12)
+        print(velocity_a / 2)           # StageVelocity(1, 1.5, 2, 2.5, 3)
+        print(velocity_a // 3)          # StageVelocity(0, 1, 1, 1, 2)
+        print(velocity_a == velocity_b) # False
+    </code></pre>
+
+    <h2>See also</h2>
+    <p><a href="../../tem_microscope/_specimen/Specimen/piezo_stage.html">piezo_stage</a>, <a href="../../tem_microscope/_specimen/Specimen/stage.html">stage</a>, <a href="../../_structures_primitives/StagePosition/StagePosition.html">StagePosition</a>.</p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

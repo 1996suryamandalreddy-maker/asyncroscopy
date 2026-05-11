@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>acquisition.acquire_camera_series</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/acquisition.html">acquisition</a>.<a class="header-path" href="../../../tem_microscope/_acquisition/Acquisition/acquire_camera_series.html">acquire_camera_series</a></h1>
+    <p>Acquires a series of images from a camera.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">acquire_camera_series(camera_detector, size, exposure_time, length)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>camera_detector</td>
+            <td>str</td>
+            <td>The name of the detector. Enumeration <a href="../../../enumerations/CameraType/CameraType.html">CameraType</a> can be used.</td>
+        </tr>
+        <tr>
+            <td>size</td>
+            <td>int</td>
+            <td>Square image size in pixels. Enumeration <a href="../../../enumerations/ImageSize/ImageSize.html">ImageSize</a> can be used.</td>
+        </tr>
+        <tr>
+            <td>exposure_time</td>
+            <td>float</td>
+            <td>The exposure time in seconds.</td>
+        </tr>
+        <tr>
+            <td>length</td>
+            <td>int</td>
+            <td>The number of images to acquire.</td>
+        </tr>
+    </table>
+    <h2>Return value</h2>
+    <table>
+        <tr>
+            <td>List[<a href="../../../_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a>]</td>
+            <td>The image series.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        The entire series of images must fit into memory. The maximum number of images returned in one call is 64.
+        To take and process a longer stream of images, you must call the function in a loop and process the images in batches.
+        See the example below.
+    </p>
+    <p>
+        For information about supported image sizes see <a href="../../../_dynamic_object_proxies/CameraDetector/get_supported_image_sizes.html">get_supported_image_sizes()</a> method.
+    </p>
+    <p>
+        The screen does not have to be retracted before calling this function; the acquisition manages it automatically. 
+        The selected detector is also inserted automatically.
+    </p>
+
+    <h2>Examples</h2>
+    <p>Take 5 images with Flucam and save them to disk with increasing index in the filename.</p>
+    <pre><code class="language-python">
+        images = microscope.acquisition.acquire_camera_series(CameraType.FLUCAM, ImageSize.PRESET_1024, 0.5, 5)
+        
+        index = 1
+        for image in images:
+            image.save(f"c:\\image{index}.tiff")
+            index += 1
+    </code></pre>
+    <p>
+        Acquire 100 images with Ceta camera and save them with increasing index in the filename.
+        Note that we need to implement a processing loop to overcome the limit of 64 images in a single acquisition call.
+    </p>
+    <pre><code class="language-python">
+        index = 1
+        for loops in range(1, 10):
+            images = microscope.acquisition.acquire_camera_series(CameraType.BM_CETA, 1024, 1.0, 10)
+            for image in images:
+                print("Saving image", index)
+                image.save(f"c:\\image{index}.tiff")
+                index += 1
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="acquire_camera_image.html">acquisition.acquire_camera_image()</a><br>
+        <a href="../../../tem_microscope/_detectors/Detectors/screen.html">screen</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

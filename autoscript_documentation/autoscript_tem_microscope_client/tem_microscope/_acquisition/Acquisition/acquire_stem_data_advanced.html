@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>acquisition.acquire_stem_data_advanced</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/acquisition.html">acquisition</a>.<a class="header-path" href="../../../tem_microscope/_acquisition/Acquisition/acquire_stem_data_advanced.html">acquire_stem_data_advanced</a></h1>
+    <p>Triggers a scan task without returning the data.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">acquire_stem_data_advanced(settings)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>settings</td>
+            <td><a href="../../../structures/StemDataSettings/StemDataSettings.html">StemDataSettings</a></td>
+            <td>Advanced settings structure.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        The function extends the <a href="../../../tem_microscope/_acquisition/Acquisition/acquire_stem_data.html">acquire_stem_data</a> function by allowing the user to control the acquisition
+        in more detail. The data is not returned, but stored on a different computer (offloaded), depending on the camera type used:
+    </p>
+    <ul>
+        <li>
+            <a href="../../../enumerations/CameraType/BM_EMPAD.html">BM_EMPAD</a> or <a href="../../../enumerations/CameraType/SH_EMPAD.html">SH_EMPAD</a>:
+            <p>
+                The resulting data are stored on the EMPAD PC. Size of the image from each scan point is 128x128 and cannot be changed.
+                For experiments with EMPAD, it is recommended to upgrade to the latest available version of the TEM server software and the EMPAD control software. Older versions are known to have issues with
+                storing acquired images on the EMPAD computer.
+            </p>
+        </li>
+        <li>
+            <a href="../../../enumerations/CameraType/BM_CETA.html">BM_CETA</a>:
+            <p>
+                The resulting data are stored on the storage server. Size of the image from each scan point is 256x256 and cannot be changed.
+            </p>
+        </li>
+        <li>
+            Other detector types are not supported.
+        </li>
+        <li>
+            If the detector type is not provided, the function will run an "empty" scan that can be used for third-party detector acquisition. AutoScript cannot access the data,
+            and the detector must be hardware synchronized in this case.
+        </li>
+    </ul>
+    <p>
+        Keep in mind that after the function returns, it may take some time before the data is actually stored and can be accessed. The time depends on the size of the resulting data.
+    </p>
+
+    <h2>Examples</h2>
+    <p>The following example shows how to trigger a 4D STEM acquisition with the EMPAD detector:</p>
+    <pre><code class="language-python">
+        # Change optical mode to STEM
+        microscope.optics.optical_mode = OpticalMode.STEM
+
+        # Trigger EMPAD scan
+        microscope.acquisition.acquire_stem_data_advanced(StemDataSettings(dwell_time=1e-3, size=ImageSize.PRESET_128, detector_types=[CameraType.BM_EMPAD]))
+    </code></pre>
+
+    <p>The next example shows how to trigger a 4D STEM acquisition with the Ceta detector:</p>
+    <pre><code class="language-python">
+        # Change optical mode to STEM
+        microscope.optics.optical_mode = OpticalMode.STEM
+
+        # Trigger scan
+        microscope.acquisition.acquire_stem_data_advanced(StemDataSettings(dwell_time=10e-3, size=ImageSize.PRESET_128, detector_types=[CameraType.BM_CETA]))
+    </code></pre>
+
+    <p>The next example show how to trigger acquisition with a region and a 3rd party detector:</p>
+    <pre><code class="language-python">
+        # Change optical mode to STEM
+        microscope.optics.optical_mode = OpticalMode.STEM
+
+        # Create settings structure
+        settings = StemDataSettings(dwell_time=1e-3, size=ImageSize.PRESET_512,
+                                    region=Region(RegionCoordinateSystem.PIXELS, rectangle=(0, 0, 30, 30)))
+
+        # Trigger scan
+        microscope.acquisition.acquire_stem_data_advanced(settings)
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../../../Extras/AutoScriptTEM/AutoscriptIntroduction/Scanning.html">Scanning</a><br>
+        <a href="../../../tem_microscope/_acquisition/Acquisition/acquire_stem_data.html">acquire_stem_data()</a><br>
+        <a href="../../../tem_microscope/_optics/Optics/optical_mode.html">optics.optical_mode</a><br>
+        <a href="../../../enumerations/CameraType/CameraType.html">CameraType</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

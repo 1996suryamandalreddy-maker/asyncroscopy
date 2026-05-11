@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>auto_functions.run_auto_coma_correction</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/auto_functions.html">auto_functions</a>.<a class="header-path" href="../../../tem_microscope/_auto_functions/AutoFunctions/run_auto_coma_correction.html">run_auto_coma_correction</a></h1>
+    <p>Performs automatic coma correction. Available only in TEM mode.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">run_auto_coma_correction(settings)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>settings</td>
+            <td><a href="../../../structures/RunAutoComaCorrectionSettings/RunAutoComaCorrectionSettings.html">RunAutoComaCorrectionSettings</a></td>
+            <td>Settings for the auto coma routine.</td>
+        </tr>
+    </table>
+    <h2>Return value</h2>
+    <table>
+        <tr>
+            <td><a href="../../../structures/RunAutoComaCorrectionResults/RunAutoComaCorrectionResults.html">RunAutoComaCorrectionResults</a></td>
+            <td>A structure capturing results of the autofunction run.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>The autofunction consists of two steps:</p>
+    <ul>
+        <li>Measure coma by fitting Thon rings of a beam tilt tableau.</li>
+        <li>Automatically correct for measured coma error.</li>
+    </ul>
+    <p>
+        Most of the parameters in <code>RunAutoComaCorrectionSettings</code> have default values and can be omitted.
+        The first three parameters are linked to image acquisition and have the same meaning as the arguments to the
+        <a href="../../../tem_microscope/_acquisition/Acquisition/acquire_camera_image.html">acquire_camera_image()</a> function.
+        The default values are documented on the <a href="../../../structures/RunAutoComaCorrectionSettings/RunAutoComaCorrectionSettings.html">RunAutoComaCorrectionSettings</a> page.
+    </p>
+    <p>
+        For information on supported camera types see members of the <a href="../../../enumerations/CameraType/CameraType.html">CameraType</a> enumeration.
+        Running this autofunction with the
+        <a href="../../../enumerations/CameraType/FLUCAM.html">FLUCAM</a> camera type is not supported.
+    </p>
+    <p>
+        The screen does not need to be retracted before calling this auto function; the acquisition part of the task manages it automatically. 
+        The selected detector is also inserted automatically.
+    </p>
+    <p>Preconditions and recommendations:</p>
+    <ul>
+        <li>Only available on systems without Image Corrector.</li>
+        <li><a href="../../../tem_microscope/_optics/Optics/optical_mode.html">optical_mode</a> must be <a href="../../../enumerations/OpticalMode/TEM.html">TEM</a>.</li>
+        <li><a href="../../../tem_microscope/_optics/Optics/projector_mode.html">projector_mode</a> must be <a href="../../../enumerations/ProjectorMode/IMAGING.html">IMAGING</a>.</li>
+        <li>The microscope is properly aligned. Check the Direct Alignments (especially rotation center) and roughly correct objective astigmatism.</li>
+        <li>EPU / Auto Functions / Autofocus calibration has been performed.</li>
+        <li>Magnification calibrations have been performed.</li>
+        <li>
+            A specimen is loaded which enables the display of Thon rings in the power spectrum of the TEM image.
+            This is typically a thin amorphous carbon film, such as Quantifoil, Lacey Carbon, or a Cross Grating sample.
+        </li>
+        <li>Spot size is 3 or higher.</li>
+        <li>Defocus is between -1 &#181;m and -3 &#181;m.</li>
+        <li>Magnification is approximately 150 kX.</li>
+        <li>The beam diameter can be narrowed a bit to increase signal strength.</li>
+        <li>Accurately set the specimen to eucentric height, using the Stage Alpha tilt wobbler.</li>
+    </ul>
+    <p>
+        If the coma error cannot be corrected within a specified number of iterations,
+        the optical settings are reset to the state before the start of the correction procedure.
+    </p>
+
+    <h2>Examples</h2>
+
+    <p>The following example shows how to run the auto coma correction routine with default parameters:</p>
+    <pre><code class="language-python">
+        # Save settings into a variable with all optional settings left as defaults
+        settings = RunAutoComaCorrectionSettings(CameraType.BM_CETA)
+        # Run the auto coma correction routine with the created settings
+        result = microscope.auto_functions.run_auto_coma_correction(settings)
+    </code></pre>
+
+    <p>Optional parameters can be added to the structure: </p>
+    <pre><code class="language-python">
+        settings = RunAutoComaCorrectionSettings(CameraType.BM_CETA, 1024, 2, 5, tile_size=1024)
+        microscope.auto_functions.run_auto_coma_correction(settings)
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../../structures/RunAutoComaCorrectionSettings/RunAutoComaCorrectionSettings.html">RunAutoComaCorrectionSettings</a><br> 
+        <a href="../../../tem_microscope/_acquisition/Acquisition/acquire_camera_image.html">acquisition.acquire_camera_image()</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

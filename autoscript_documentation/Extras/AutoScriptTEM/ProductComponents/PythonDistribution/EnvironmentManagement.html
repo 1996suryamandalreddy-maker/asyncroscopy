@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>Python environment management</h1>
+    <p>
+        In this chapter, we elaborate on the methods for creating and removing virtual environments within the Python
+        distribution included with AutoScript.
+    </p>
+    <p>
+        The recommended method for managing virtual environments is to use the
+        <a href="https://docs.enthought.com/edm" target="_blank">Enthought Deployment Manager</a> (EDM) tool.
+        It offers a variety of built-in functions tailored for this task.
+        While other popular managers like <em>Venv, virtualenv, Pipenv</em>, or <em>Poetry</em> exist, they may not
+        consistently deliver reliable results across all scenarios when used with the Enthought-based Python distribution.
+    </p>
+    <p>
+        The AutoScript installation creates a default environment named <em>AutoScript</em> that contains all necessary packages
+        and some common scientific libraries. However, this environment is deleted and re-created with each AutoScript upgrade, so any
+        additional packages or modifications are lost. Therefore, it is recommended to create a new environment for working with
+        AutoScript.
+    </p>
+    <p>
+        The Python version of the environment cannot be changed after creation. If a Python upgrade is needed, a new environment
+        must be created. The AutoScript Package Manager always creates environments with the current AutoScript Python version (3.11).
+    </p>
+    <p>
+        There are two options for managing environments:
+    </p>
+    <p>
+        <ol>
+            <li><a href="#option1" onclick="ScrollTo('option1')">AutoScript Package Manager</a> (preferred method)</li>
+            <li><a href="#option2" onclick="ScrollTo('option2')">EDM command-line interface</a></li>
+        </ol>
+    </p>
+
+    <h2 id="option1">1. AutoScript Package Manager</h2>
+    <p>
+        <strong>Example 1:</strong> Create a new environment "Test" and initialize it with AutoScript packages.
+    </p>
+    <ol>
+        <li>
+            <p>
+                Launch the Package Manager from the Start menu <em>Thermo Scientific AutoScript</em>
+                <em>AutoScript Package Manager</em>.
+            </p>
+            <p>
+                On startup, the application scans the available and installed packages.
+                The name of the active environment is displayed in the drop-down box <strong>(1)</strong>.
+            </p>
+            <img src="../../Resources/EnvironmentManager_Example1.svg">
+        </li>
+        <li>
+            <p>
+                Click on the <strong>Environment</strong> button <strong>(2)</strong> and choose <strong>Create Environment</strong>.
+                A dialog box opens.
+            </p>
+            <img src="../../Resources/EnvironmentManager_Example2.png">
+            <p>
+                Enter the name of the environment and click on the <strong>Create</strong> button.
+                The name of the environment must be unique, and it must be a valid file name supported by the file
+                system.
+            </p>
+            <p>
+                Check the <em>'Initialize with AutoScript packages'</em> checkbox to install AutoScript client packages
+                and all their dependencies into the newly created environment. This process may take some time,
+                as the packages are downloaded from the Internet.
+            </p>
+        </li>
+        <li>
+            <p>
+                The environment has been created and set active. Note that the environment is only set active for the
+                Package Manager, it is not a system-wide setting.
+            </p>
+        </li>
+    </ol>
+    <p>
+        <strong>Example 2:</strong> Remove the "Test" environment.
+    </p>
+    <ol>
+        <li>
+            <p>
+                Activate the "Test" environment by selecting it in the drop-down box <strong>(1)</strong>.
+            </p>
+        </li>
+        <li>
+            <p>
+                Click on the <strong>Environment</strong> button <strong>(2)</strong> and choose <strong>Remove Environment</strong>.
+                In the confirmation dialog, press <strong>Yes</strong>.
+            </p>
+        </li>
+    </ol>
+
+    <h2 id="option2">2. EDM command-line interface</h2>
+    <p>
+        <strong>Example 1:</strong> Create a new environment "Test" and initialize it with AutoScript packages. Follow these
+        steps in the <strong>AutoScript EDM Shell</strong> prompt:
+    </p>
+    <ol>
+        <li>
+            <p>
+                Create the new environment:
+            </p>
+            <pre>edm env create Test --version 3.11</pre>
+        </li>
+        <li>
+            <p>
+                Activate the new environment:
+            </p>
+            <pre>edm shell -e Test</pre>
+        </li>
+        <li>
+            <p>
+                Initialize the environment with minimum mandatory dependencies of the AutoScript client packages:
+            </p>
+            <pre>edm install colorama numpy pillow_simd opencv_python matplotlib</pre>
+        </li>
+        <li>
+            <p>
+                Install the AutoScript client packages using pip. The AutoScript client packages are provided in the form of
+                *.whl (wheel) packages.
+                The files are placed in the product installation directory under
+                <em>c:\Program Files\Thermo Scientific AutoScript\PythonPackages</em>.
+            </p>
+            <pre>pip install "c:\Program Files\Thermo Scientific AutoScript\PythonPackages\*.whl"</pre>
+        </li>
+    </ol>
+    <p>
+        <strong>Example 2:</strong> Remove the "Test" environment.
+    </p>
+    <ol>
+        <li>
+            <p>
+                Activate the "AutoScript" environment:
+            </p>
+            <pre>edm shell -e AutoScript</pre>
+        </li>
+        <li>
+            <p>
+                Delete the "Test" environment:
+            </p>
+            <pre>edm env remove Test</pre>
+        </li>
+    </ol>
+</body>
+</html>

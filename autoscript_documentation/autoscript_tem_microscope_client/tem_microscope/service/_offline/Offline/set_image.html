@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>service.offline.set_image</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../../Resources/common.js"></script>
+    <script src="../../../../../Resources/page.js"></script>
+    <script src="../../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../../Resources/prism.js"></script>
+    <script src="../../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../../Resources/prism-c.js"></script>
+    <script src="../../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../../TemMicroscopeClient/service.html">service</a>.<a class="header-path" href="../../../../tem_microscope/_service/Service/offline.html">offline</a>.<a class="header-path" href="../../../../tem_microscope/service/_offline/Offline/set_image.html">set_image</a></h1>
+    <p>Uploads an image into the offline simulator. AutoScript will return this image in all subsequent image acquisitions.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">set_image(image)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>image</td>
+            <td><a href="../../../../_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a></td>
+            <td>The image to set as the new source for simulated image acquisitions.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        The image will be resized to match the size specified in acquisition function parameters, but 
+        image metadata will not reflect this resizing.
+    </p>
+
+    <h2>Examples</h2>
+    <pre><code class="language-python">
+        # Load an image from disk, check its size and upload it to the simulator 
+        loaded_image = AdornedImage.load(r"C:\image.tiff")
+        print(loaded_image.width)  # 1024
+        print(loaded_image.height)  # 1024
+        microscope.service.offline.set_image(loaded_image)
+
+        # Required size is the same, the simulator will provide the original image
+        image = microscope.acquisition.acquire_camera_image(CameraType.BM_CETA, 1024, 1.0)
+
+        # Required size differs, the simulator will resize the image to 2048x2048
+        image = microscope.acquisition.acquire_camera_image(CameraType.BM_CETA, 2048, 1.0)
+    </code></pre>
+
+    <h2>See also</h2>
+    <a href="../../../../TemMicroscopeClient/acquisition.html">acquisition</a><br>
+    <a href="../../../../tem_microscope/service/autoscript/_server/Server/is_offline.html">service.autoscript.server.is_offline</a><br>
+    <a href="../../../../tem_microscope/service/_offline/Offline/reset_image.html">service.offline.reset_image()</a>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

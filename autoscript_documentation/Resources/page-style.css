@@ -1,0 +1,87 @@
+a {
+    text-decoration: none;
+}
+
+a, a:link {
+    color: #1e75bb;
+}
+
+a:visited {
+    color: #00188f;
+}
+
+a:hover {
+    color: #00bcf2;
+}
+
+a.header-path {
+    color: inherit;
+    border-bottom: 1px dotted #9B9B9B;
+    text-decoration: none;
+}
+
+a.header-path:hover {
+    color: #00bcf2;
+}
+
+h1 {
+    font-size: 29px;
+    color: #505050;
+    font-weight: bold;
+    margin-top: 0;
+}
+
+h2 {
+    font-size: 22px;
+    color: #303030;
+    margin: 20px 0;
+    font-weight: normal;
+}
+
+table {
+    border-spacing: 0;
+    width: 100%;
+}
+
+td:first-child, th:first-child {
+    padding-left: 0;
+    width: 20%;
+}
+
+td, th {
+    display: table-cell;
+    word-wrap: break-word;
+    padding: 12px;
+    vertical-align: top;
+    border-style: dotted;
+    border-color: lightgray;
+    border-width: 1px 0 0 0;
+    text-align: left;
+}
+
+.link-jupyter::before {
+    content: "";
+    background: url(logo-jupyter.svg) center left no-repeat;
+    background-size: cover;
+    padding-left: 18px;
+    width: 30px;
+    height: 30px;
+}
+
+img {
+    max-width: fit-content;
+    max-height: fit-content;
+    width: 100%;
+    height: auto;
+}
+
+.highlight {
+    background: rgba(255, 255, 0, 0.4);
+}
+
+/* IE 10 & IE 11 styles*/
+@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {  
+    img {
+        width: auto;
+    }
+}

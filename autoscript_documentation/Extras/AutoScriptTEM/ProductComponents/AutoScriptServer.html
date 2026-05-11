@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html');
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>AutoScript TEM Server Control Panel</h1>
+    <p>
+        The AutoScript server is a service running on the microscope computer, responsible for executing scripting
+        commands received over the TCP/IP network from Python scripts.
+        It is configured to start automatically on startup of the operating system. Its status is indicated by an icon in
+        the system tray, displaying the letters "AS".
+    </p>
+    <img src="../Resources/Intro_ASIconInTray.png">
+    <p>
+        A blue icon signifies that the server is ready to accept scripting commands, while a gray icon indicates a not-ready
+        state. Which may be caused by a lack of proper licensing, inactive microscope server software, or a manually stopped
+        AutoScript server.
+    </p>
+    <p>
+        The <strong>AutoScript Server Control Panel</strong> provides insights into the server's internal state.
+        You can open this panel by either double-clicking the "AS" icon or navigating to
+        <em>Start > Thermo Scientific AutoScript > AutoScript Server</em>.
+    </p>
+    <h2>Control Panel context menu </h2>
+    <p>
+        By right-clicking the "AS" icon, you can access a context menu that contains useful links to the reference manual,
+        other AutoScript components, and a link that copies the current IP address of the microscope computer to the clipboard.
+    </p>
+    <p>
+        The Open Log button is only available with an active internal license.
+    </p>
+    <img src="../Resources/TrayIconContextMenu.png" alt="Tray icon context menu">
+    <h2>Overview</h2>
+    <p>
+        On the <strong>Overview</strong> page, a summary of the server's state is displayed, featuring three sections marked
+        with green check marks under normal conditions. In the event of an error, a red cross mark appears along with an 
+        error description.
+    </p>
+    <img src="../Resources/ControlPanel_Overview.png">
+    <h2>Licensing</h2>
+    <p>
+        The <strong>Licensing</strong> page presents a list of active product and feature licenses and tools for managing them.
+    </p>
+    <img src="../Resources/ControlPanel_Licensing.png">
+    <p>
+        To apply a product license key, it must first be registered for use on the microscope computer by clicking the
+        <strong>Register</strong> button
+        and entering the key. Subsequently, the key must be activated by pressing the <strong>Activate</strong> button,
+        which opens a popup window requiring user details. Activation data need to be submitted to the online licensing
+        server, which requires access to a computer connected to the internet, like a personal laptop.
+    </p>
+    <p>
+        To apply a feature license key choose the desired feature from the dropdown list and then follow the same procedure
+        as for the product license key.
+    </p>
+    <p>
+        Before uninstalling, the key should be deactivated using the <strong>Deactivate</strong> button.
+    </p>
+    <p>
+        Additionally, AutoScript can be activated for a 90-day trial period by clicking the
+        <strong>Activate Trial License</strong> button.
+    </p>
+    <p>
+        For more detailed information on licensing procedures, refer to the AutoScript installation manual or
+        contact Thermo Fisher Scientific service team.
+    </p>
+    <h2>Networking</h2>
+    <p>
+        The <strong>Networking</strong> page enables configuration of the TCP/IP port on which the AutoScript server listens
+        for incoming scripting commands. While typically unnecessary to change the port under normal circumstances,
+        it can be useful in resolving conflicts with other software using the same TCP/IP port on the computer where
+        AutoScript client is installed.
+    </p>
+    <p>
+        To change the port, first, stop the server by pressing <strong>Stop</strong>, enter the new port number,
+        and then resume the server by pressing <strong>Start</strong>.
+    </p>
+    <p>
+        The IP address panel allows for quick copying of the IP address the servers runs on. If there are multiple, the selected one is copied.
+        This selection is shared with the tray menu 'Copy IP Address' button and is remembered through server restarts.
+    </p>
+    <img src="../Resources/ControlPanel_Networking.png">
+
+</body>
+</html>

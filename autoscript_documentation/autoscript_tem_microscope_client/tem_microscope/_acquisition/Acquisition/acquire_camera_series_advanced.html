@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>acquisition.acquire_camera_series_advanced</title>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../Resources/common.js"></script>
+    <script src="../../../../Resources/page.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../Resources/prism.js"></script>
+    <script src="../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../Resources/prism-c.js"></script>
+    <script src="../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../TemMicroscopeClient/acquisition.html">acquisition</a>.<a class="header-path" href="../../../tem_microscope/_acquisition/Acquisition/acquire_camera_series_advanced.html">acquire_camera_series_advanced</a></h1>
+    <p>Acquires a series of images from a camera with advanced settings.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">acquire_camera_series_advanced(settings, length)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>settings</td>
+            <td><a href="../../../structures/CameraAcquisitionSettings/CameraAcquisitionSettings.html">CameraAcquisitionSettings</a></td>
+            <td>Advanced settings structure.</td>
+        </tr>
+        <tr>
+            <td>length</td>
+            <td>int</td>
+            <td></td>
+        </tr>
+    </table>
+    <h2>Return value</h2>
+    <table>
+        <tr>
+            <td>List[<a href="../../../_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a>]</td>
+            <td>The image series.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        The entire series of images must fit into memory. The maximum number of images returned in one call is 64.
+        To take and process a longer stream of images, you must call the function in a loop and process the images in batches.
+        See the example in <a href="acquire_camera_series.html">acquire_camera_series()</a>.
+    </p>
+    <p>
+        For information about supported image sizes see <a href="../../../_dynamic_object_proxies/CameraDetector/get_supported_image_sizes.html">get_supported_image_sizes()</a> method.
+    </p>
+    <p>
+        The screen does not have to be retracted before calling this function; the acquisition manages it automatically. 
+        The selected detector is also inserted automatically.
+    </p>
+
+    <h2>Examples</h2>
+    <p>Take 5 images with Ceta with advanced acquisition settings and save them to disk with increasing index in the filename.</p>
+    <pre><code class="language-python">
+        settings = CameraAcquisitionSettings(CameraType.BM_CETA, ImageSize.PRESET_1024, 0.5,
+            fixed_readout_area=FixedReadoutArea.HALF, frame_combining=6)
+        images = microscope.acquisition.acquire_camera_series_advanced(settings, 5)
+        
+        index = 1
+        for image in images:
+            image.save(f"c:\\image{index}.tiff")
+            index += 1
+    </code></pre>
+    
+    <h2>See also</h2>
+    <p>
+        <a href="../../../structures/CameraAcquisitionSettings/CameraAcquisitionSettings.html">CameraAcquisitionSettings</a><br>
+        <a href="acquire_camera_image_advanced.html">acquisition.acquire_camera_image_advanced()</a><br>
+        <a href="acquire_camera_series.html">acquisition.acquire_camera_series()</a><br>
+        <a href="../../../tem_microscope/_detectors/Detectors/screen.html">screen</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

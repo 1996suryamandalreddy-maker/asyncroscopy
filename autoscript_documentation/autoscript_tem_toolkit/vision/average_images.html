@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="#">average_images</a></h1>
+    <p>Averages the pixel values of multiple images.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">average_images(images)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>images</td>
+            <td>List[<a href="../../autoscript_tem_microscope_client/_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a>]</td>
+            <td>List of images to average.</td>
+        </tr>
+    </table>
+    <h2>Return value</h2>
+    <table>
+        <tr>
+            <td><a href="../../autoscript_tem_microscope_client/_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a></td>
+            <td>A new image with the averaged pixel values.</td>
+        </tr>
+    </table>
+
+    <h2>Remarks</h2>
+    <p>
+        The images must have the same dimensions, encoding, and bit depth. Only grayscale images are supported. Each pixel that exceeds
+        the maximum value of the data type is set to the maximum value.
+    </p>
+    <p>
+        The given images are not modified. The result is a new image with the same dimensions, encoding, and bit depth as the input images.
+        The result doesn't contain any metadata.
+    </p>
+
+    <h2>Examples</h2>
+    <p>The following example shows how to create average image from the STEM segment ring:</p>
+    <pre><code class="language-python">
+        # Configure the BF-S detector and enable the whole inner ring (4 segments)
+        detector = microscope.detectors.get_scanning_detector(DetectorType.BF_S)
+        detector.set_enabled_segments(DetectorSegmentType.INNER_RING)
+        segments = detector.get_enabled_segments()
+
+        # Run the acquisition and average the recieved images
+        inner_ring_images = microscope.acquisition.acquire_stem_segment_images(segments, ImageSize.PRESET_512, 1e-6)
+        inner_ring_average = vision_toolkit.average_images(inner_ring_images)
+
+        # Show the result
+        pyplot.imshow(inner_ring_average.data, cmap="gray")
+        pyplot.show()
+    </code></pre>
+
+    <!--<h2>See also</h2>-->
+</body>
+</html>

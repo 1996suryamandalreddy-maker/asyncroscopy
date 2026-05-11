@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>analysis.eds.acquire_spectrum</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../../Resources/common.js"></script>
+    <script src="../../../../../Resources/page.js"></script>
+    <script src="../../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../../Resources/prism.js"></script>
+    <script src="../../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../../Resources/prism-c.js"></script>
+    <script src="../../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../../TemMicroscopeClient/analysis.html">analysis</a>.<a class="header-path" href="../../../../tem_microscope/_analysis/Analysis/eds.html">eds</a>.<a class="header-path" href="../../../../tem_microscope/analysis/_eds/Eds/acquire_spectrum.html">acquire_spectrum</a></h1>
+    <p>Acquires a single EDS spectrum.</p>
+    <h2>Syntax</h2>
+    <pre><code class="language-python">acquire_spectrum(settings)</code></pre>
+    <h2>Parameters</h2>
+    <table>
+        <tr>
+            <td>settings</td>
+            <td><a href="../../../../structures/EdsAcquisitionSettings/EdsAcquisitionSettings.html">EdsAcquisitionSettings</a></td>
+            <td>EDS settings structure.</td>
+        </tr>
+    </table>
+    <h2>Return value</h2>
+    <table>
+        <tr>
+            <td><a href="../../../../_structures_adorned_spectrum/AdornedSpectrum/AdornedSpectrum.html">AdornedSpectrum</a></td>
+            <td>The object containing both the EDS spectrum data and metadata describing the system state.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        The single spectrum acquisition only contains spectral data (1D array of energy values), no images are acquired.
+        Information on which EDS segments were enabled during the acquisition can be found in the custom section of the spectrum metadata.
+    </p>
+
+    <h2>Examples</h2>
+    <p>The following example shows EDS acquisition with the Super-X detector:</p>
+    <pre><code class="language-python">
+        # Get the EDS detector object
+        eds_detector = microscope.detectors.get_eds_detector(EdsDetectorType.SUPER_X)
+
+        # Configure the EDS acquisition
+        settings = EdsAcquisitionSettings()
+        settings.eds_detector = eds_detector.name
+        settings.dispersion = eds_detector.dispersions[0]
+        settings.shaping_time = eds_detector.shaping_times[0]
+        settings.exposure_time = 3e-3
+        settings.exposure_time_type = ExposureTimeType.REAL_TIME
+
+        spectrum = microscope.analysis.eds.acquire_spectrum(settings)
+    </code></pre>
+    <p>The next example shows the usage of detector segments:</p>
+    <pre><code class="language-python">
+        # Get the EDS detector object
+        eds_detector = microscope.detectors.get_eds_detector(EdsDetectorType.SUPER_X)
+
+        # Configure the EDS acquisition - same as in previous example
+        settings = EdsAcquisitionSettings()
+        # ...
+
+        # Configure the detector segments, enable first two segments only
+        eds_detector.set_enabled_segments([EdsDetectorSegmentType.SEGMENT1, EdsDetectorSegmentType.SEGMENT2])
+        settings.detector_segments = eds_detector.get_enabled_segments()
+
+        # There is still only one spectrum result, but it was captured with only two segments
+        spectrum = microscope.analysis.eds.acquire_spectrum(settings)
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../../../tem_microscope/analysis/_eels/Eels/acquire_spectra.html">eels.acquire_spectra()</a><br>
+        <a href="../../../../enumerations/EdsDetectorType/EdsDetectorType.html">EdsDetectorType</a><br>
+        <a href="../../../../tem_microscope/_detectors/Detectors/get_eds_detector.html">detectors.get_eds_detector</a><br>
+        <a href="../../../../tem_microscope/_detectors/Detectors/eds_detectors.html">detectors.eds_detectors</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

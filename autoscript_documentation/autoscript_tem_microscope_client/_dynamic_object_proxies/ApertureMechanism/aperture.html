@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ApertureMechanism.aperture</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_dynamic_object_proxies/ApertureMechanism/ApertureMechanism.html">ApertureMechanism</a>.<a class="header-path" href="../../_dynamic_object_proxies/ApertureMechanism/aperture.html">aperture</a></h1>
+    <p>Gets or sets the selected aperture on this mechanism.</p>
+    <h2>Data type</h2>
+    <a href="../../structures/Aperture/Aperture.html">Aperture</a>
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        An aperture has a pre-defined position where it is located. This location can be modified by changing the value 
+        of the position property with the given aperture selected. You can change the selected aperture only when the aperture mechanism is enabled. 
+        Setting the aperture property will insert the aperture mechanism that contains it into the column (if retracted). None is returned if no aperture is selected.
+    </p>
+    
+    <h2>Examples</h2>
+    <p>Select the second aperture on the SA aperture mechanism and inspect its name, type and diameter:</p>
+    <pre><code class="language-python">
+        # Select the second aperture
+        apertures = microscope.optics.aperture_mechanisms.SA.apertures
+        microscope.optics.aperture_mechanisms.SA.aperture = apertures[1]
+        
+        # Read and print aperture properties
+        aperture = microscope.optics.aperture_mechanisms.SA.aperture
+        print("Name: ", aperture.name)
+        print("Type: ", aperture.type)
+        print("Diameter:", aperture.diameter)
+    </code></pre>
+    
+    <h2>See also</h2>
+    <p>
+        <a href="../../_dynamic_object_proxies/ApertureMechanism/apertures.html">ApertureMechanism.apertures</a>
+        <br>
+        <a href="../../_dynamic_object_proxies/ApertureMechanism/position.html">ApertureMechanism.position</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

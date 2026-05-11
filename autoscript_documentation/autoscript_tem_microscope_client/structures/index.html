@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Data structures</title>
+    <link rel="stylesheet" type="text/css" href="../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../Resources/syntax-highlight-style.css">
+
+    <script src="../../Resources/common.js"></script>
+    <script src="../../Resources/page.js"></script>
+    <script src="../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../Resources/prism.js"></script>
+    <script src="../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../Resources/prism-c.js"></script>
+    <script src="../../Resources/prism-cpp.js"></script>
+    <script src="../../Resources/prism-csharp.js"></script>
+    <script src="../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1>Data structures</h1>
+<!-- Custom part - START -->
+    <p>
+        Data structures are simple objects for transporting data. They usually contain some helper functions and/or overloaded 
+        operators for convenience. Structures are often used to combine multiple arguments or return values (e.g. 
+        <a href="../structures/CameraAcquisitionSettings/CameraAcquisitionSettings.html">CameraAcquisitionSettings</a>), 
+        or to represent data formats (e.g. <a href="../_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a>, 
+        <a href="../_structures_emd_file/EmdFile/EmdFile.html">EmdFile</a>).
+    </p>
+
+    <p>
+        Structures can be created on the client as well as on the server. 
+        When the structure is passed as a parameter to the function call, the entire structure is serialized and sent to the server.
+        When accepting structures from the server, some structures may not be fully deserialized until their data is accessed, i.e., 
+        lazy deserialization.
+    </p>
+
+<!-- Custom part - END -->
+    <table>
+        <tr>
+            <td><a href="../_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a></td>
+            <td>Contains microscope image data along with metadata describing the state of the microscope under which the image was acquired.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadata/AdornedImageMetadata.html">AdornedImageMetadata</a></td>
+            <td>A structure representing metadata of <a href="../_structures_adorned_image/AdornedImage/AdornedImage.html">AdornedImage</a>.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataAcquisition/AdornedImageMetadataAcquisition.html">AdornedImageMetadataAcquisition</a></td>
+            <td>Image metadata structure for acquisition values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataAnalyticalDetector/AdornedImageMetadataAnalyticalDetector.html">AdornedImageMetadataAnalyticalDetector</a></td>
+            <td>Image metadata structure representing an analytical detector.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataBinaryResult/AdornedImageMetadataBinaryResult.html">AdornedImageMetadataBinaryResult</a></td>
+            <td>Image metadata structure for binary result values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataCore/AdornedImageMetadataCore.html">AdornedImageMetadataCore</a></td>
+            <td>Image metadata structure for core metadata values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataCustomProperties/AdornedImageMetadataCustomProperties.html">AdornedImageMetadataCustomProperties</a></td>
+            <td>Image metadata structure representing a list of custom properties.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataCustomProperty/AdornedImageMetadataCustomProperty.html">AdornedImageMetadataCustomProperty</a></td>
+            <td>Image metadata structure representing a custom property.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataCustomSection/AdornedImageMetadataCustomSection.html">AdornedImageMetadataCustomSection</a></td>
+            <td>Image metadata structure representing a custom xml section.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataEnergyFilterSettings/AdornedImageMetadataEnergyFilterSettings.html">AdornedImageMetadataEnergyFilterSettings</a></td>
+            <td>Image metadata structure for energy filter values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataGasInjectionSystem/AdornedImageMetadataGasInjectionSystem.html">AdornedImageMetadataGasInjectionSystem</a></td>
+            <td>Image metadata structure for gas injection system values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataGasInjectionSystemGas/AdornedImageMetadataGasInjectionSystemGas.html">AdornedImageMetadataGasInjectionSystemGas</a></td>
+            <td>Image metadata structure representing a gas in gas injection system.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataImagingDetector/AdornedImageMetadataImagingDetector.html">AdornedImageMetadataImagingDetector</a></td>
+            <td>Image metadata structure representing an imaging detector.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataInstrument/AdornedImageMetadataInstrument.html">AdornedImageMetadataInstrument</a></td>
+            <td>Image metadata structure for instrument values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataOptics/AdornedImageMetadataOptics.html">AdornedImageMetadataOptics</a></td>
+            <td>Image metadata structure for optics values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataOpticsAperture/AdornedImageMetadataOpticsAperture.html">AdornedImageMetadataOpticsAperture</a></td>
+            <td>Image metadata structure representing an aperture.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataOpticsBeamModulator/AdornedImageMetadataOpticsBeamModulator.html">AdornedImageMetadataOpticsBeamModulator</a></td>
+            <td>BeamModulator structure for the beam modulator.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataReferenceTransformation/AdornedImageMetadataReferenceTransformation.html">AdornedImageMetadataReferenceTransformation</a></td>
+            <td>Image metadata structure representing a reference transformation matrix.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataSample/AdornedImageMetadataSample.html">AdornedImageMetadataSample</a></td>
+            <td>Image metadata structure for sample values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataScanningDetector/AdornedImageMetadataScanningDetector.html">AdornedImageMetadataScanningDetector</a></td>
+            <td>Image metadata structure representing a scanning detector.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataScanSettings/AdornedImageMetadataScanSettings.html">AdornedImageMetadataScanSettings</a></td>
+            <td>Image metadata structure for scan settings values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataStagePosition/AdornedImageMetadataStagePosition.html">AdornedImageMetadataStagePosition</a></td>
+            <td>Image metadata structure representing a stage position.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataStageSettings/AdornedImageMetadataStageSettings.html">AdornedImageMetadataStageSettings</a></td>
+            <td>Image metadata structure for stage settings values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_metadata/AdornedImageMetadataVacuumProperties/AdornedImageMetadataVacuumProperties.html">AdornedImageMetadataVacuumProperties</a></td>
+            <td>Image metadata structure for vacuum values.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_adorned_spectrum/AdornedSpectrum/AdornedSpectrum.html">AdornedSpectrum</a></td>
+            <td>Contains EDS spectrum data and metadata.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/Aperture/Aperture.html">Aperture</a></td>
+            <td>Contains properties of an aperture.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/CameraAcquisitionSettings/CameraAcquisitionSettings.html">CameraAcquisitionSettings</a></td>
+            <td>Contains settings for image acquisition from a camera detector.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/CameraImageSize/CameraImageSize.html">CameraImageSize</a></td>
+            <td>Represents a size of a camera image with square pixel value and a fixed readout area.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/CameraLengthData/CameraLengthData.html">CameraLengthData</a></td>
+            <td>Contains properties of a camera length.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/CenteringResult/CenteringResult.html">CenteringResult</a></td>
+            <td>Single centering result with the name of the centered element and its off-center distance.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/EdsAcquisitionSettings/EdsAcquisitionSettings.html">EdsAcquisitionSettings</a></td>
+            <td>Contains settings for single spectrum EDS acquisition.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/EdsSpectrumImageSettings/EdsSpectrumImageSettings.html">EdsSpectrumImageSettings</a></td>
+            <td>Contains settings for EDS spectrum image acquisition.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/EelsAcquisitionSettings/EelsAcquisitionSettings.html">EelsAcquisitionSettings</a></td>
+            <td>Contains settings for EELS spectrum acquisition.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/EelsExposureSettings/EelsExposureSettings.html">EelsExposureSettings</a></td>
+            <td>Contains settings for EELS spectrum exposure.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/EelsSpectrumImageSettings/EelsSpectrumImageSettings.html">EelsSpectrumImageSettings</a></td>
+            <td>Contains settings for EELS spectrum image acquisition.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_emd_file/EmdFile/EmdFile.html">EmdFile</a></td>
+            <td>Describes one Emd experiment file.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_emd_file/EmdStemFeature/EmdStemFeature.html">EmdStemFeature</a></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/ImageMatch/ImageMatch.html">ImageMatch</a></td>
+            <td>Contains the result of matching a template in an image.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/Limits/Limits.html">Limits</a></td>
+            <td>Defines maximum and minimum values of a scalar quantity.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/MagnificationData/MagnificationData.html">MagnificationData</a></td>
+            <td>Contains properties of a TEM magnification.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/MoveToPixelSettings/MoveToPixelSettings.html">MoveToPixelSettings</a></td>
+            <td>Additional settings for move to pixel functionality.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/Point/Point.html">Point</a></td>
+            <td>Defines the X and Y coordinates of a point in 2D space.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/Rectangle/Rectangle.html">Rectangle</a></td>
+            <td>Defines a rectangular shape.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/Region/Region.html">Region</a></td>
+            <td>Defines a generic region shape.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunAutoComaCorrectionResults/RunAutoComaCorrectionResults.html">RunAutoComaCorrectionResults</a></td>
+            <td>Contains result data from the auto coma correction routine.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunAutoComaCorrectionSettings/RunAutoComaCorrectionSettings.html">RunAutoComaCorrectionSettings</a></td>
+            <td>Contains settings for the auto coma correction routine.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunBeamTiltAutoFocusResults/RunBeamTiltAutoFocusResults.html">RunBeamTiltAutoFocusResults</a></td>
+            <td>Contains result data from the beam tilt auto focus routine.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunBeamTiltAutoFocusSettings/RunBeamTiltAutoFocusSettings.html">RunBeamTiltAutoFocusSettings</a></td>
+            <td>Contains settings for the beam tilt automatic focus routine.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunObjectiveAutoStigmatorResults/RunObjectiveAutoStigmatorResults.html">RunObjectiveAutoStigmatorResults</a></td>
+            <td>Contains result data from the objective auto stigmator routine.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunObjectiveAutoStigmatorSettings/RunObjectiveAutoStigmatorSettings.html">RunObjectiveAutoStigmatorSettings</a></td>
+            <td>Contains settings for the objective auto stigmator routine.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunOptiStemResults/RunOptiStemResults.html">RunOptiStemResults</a></td>
+            <td>Contains result data from the OptiStem routine.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunOptiStemSettings/RunOptiStemSettings.html">RunOptiStemSettings</a></td>
+            <td>Contains settings for the OptiStem routine.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunStemAutoFocusResults/RunStemAutoFocusResults.html">RunStemAutoFocusResults</a></td>
+            <td>Contains result data from the STEM auto focus routine.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/RunStemAutoFocusSettings/RunStemAutoFocusSettings.html">RunStemAutoFocusSettings</a></td>
+            <td>Contains settings for the automatic focus routine in STEM optical mode.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/StagePosition/StagePosition.html">StagePosition</a></td>
+            <td>Defines a stage position.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/StageVelocity/StageVelocity.html">StageVelocity</a></td>
+            <td>Defines a stage velocity.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/StemAcquisitionSettings/StemAcquisitionSettings.html">StemAcquisitionSettings</a></td>
+            <td>Contains advanced settings for scanning detector image acquisition.</td>
+        </tr>
+        <tr>
+            <td><a href="../structures/StemDataSettings/StemDataSettings.html">StemDataSettings</a></td>
+            <td>Contains advanced settings for scan trigger acquisition.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/Unit/Unit.html">Unit</a></td>
+            <td>Describes a unit with prefix.</td>
+        </tr>
+        <tr>
+            <td><a href="../_structures_primitives/ValueAndType/ValueAndType.html">ValueAndType</a></td>
+            <td>Defines a value with its type.</td>
+        </tr>
+    </table>
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

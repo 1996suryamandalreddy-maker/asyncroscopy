@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>optics.camera_length.available_values</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../../../Resources/common.js"></script>
+    <script src="../../../../../Resources/page.js"></script>
+    <script src="../../../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../../../Resources/prism.js"></script>
+    <script src="../../../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../../../Resources/prism-c.js"></script>
+    <script src="../../../../../Resources/prism-cpp.js"></script>
+    <script src="../../../../../Resources/prism-csharp.js"></script>
+    <script src="../../../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../../../TemMicroscopeClient/optics.html">optics</a>.<a class="header-path" href="../../../../tem_microscope/_optics/Optics/camera_length.html">camera_length</a>.<a class="header-path" href="../../../../tem_microscope/optics/_camera_length/CameraLength/available_values.html">available_values</a></h1>
+    <p>Returns the full collection of camera lengths for the current optical state.</p>
+    <h2>Data type</h2>
+    <em>[Read only]</em> List[<a href="../../../../structures/CameraLengthData/CameraLengthData.html">CameraLengthData</a>]
+<!-- Custom part - START -->
+    <h2>Remarks</h2>
+    <p>
+        It is recommended to fetch a new list of available values after every optical mode change 
+        (<a href="../../../../tem_microscope/_optics/Optics/objective_lens_mode.html">objective_lens_mode</a>, <a href="../../../../tem_microscope/_optics/Optics/projector_mode.html">projector_mode</a>, <a href="../../../../tem_microscope/_optics/Optics/is_eftem_on.html">is_eftem_on</a>).
+    </p>
+    <p>Returns an empty collection if the <a href="../../../../tem_microscope/_optics/Optics/projector_mode.html">projector_mode</a> is <a href="../../../../enumerations/ProjectorMode/IMAGING.html">IMAGING</a>.</p>
+
+    <h2>Examples</h2>
+    <pre><code class="language-python">
+        # Set all available camera lengths in a loop
+        for available_camera_length in microscope.camera_length.available_values:
+            microscope.camera_length.value = available_camera_length
+            
+            # Do some work per camera length
+    </code></pre>
+
+    <h2>See also</h2>
+    <p>
+        <a href="../../../../enumerations/ObjectiveLensMode/ObjectiveLensMode.html">ObjectiveLensMode enumeration</a><br>
+        <a href="../../../../tem_microscope/optics/_camera_length/CameraLength/value.html">optics.camera_length_value</a><br>
+        <a href="../../../../tem_microscope/_optics/Optics/is_eftem_on.html">optics.is_eftem_on</a>
+    </p>
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->

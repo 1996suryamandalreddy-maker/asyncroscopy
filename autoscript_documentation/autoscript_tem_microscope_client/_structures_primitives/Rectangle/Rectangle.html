@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rectangle</title>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/common-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-custom-style.css">
+    <link rel="stylesheet" type="text/css" href="../../../Resources/syntax-highlight-style.css">
+
+    <script src="../../../Resources/common.js"></script>
+    <script src="../../../Resources/page.js"></script>
+    <script src="../../../Resources/page_jupyter_checking_ie.js"></script>
+    <script src="../../../Resources/page_jupyter_checking.js"></script>
+    <script src="../../../Resources/prism.js"></script>
+    <script src="../../../Resources/prism-normalize-whitespace.js"></script>
+    <script src="../../../Resources/prism-c.js"></script>
+    <script src="../../../Resources/prism-cpp.js"></script>
+    <script src="../../../Resources/prism-csharp.js"></script>
+    <script src="../../../Resources/prism-python.js"></script>
+
+    <script>
+        addLoadEvent('../../../shell.html'); 
+    </script>
+
+    <!-- For old IE browsers: IE 9 and lower -->
+    <!--[if IE]>
+    <link rel="stylesheet" type="text/css" href="../../../Resources/page-style-old-ie.css">
+    <![endif]-->
+</head>
+<body>
+    <h1><a class="header-path" href="../../_structures_primitives/Rectangle/Rectangle.html">Rectangle</a></h1>
+    <p>Defines a rectangular shape.</p>
+    <h2>Items</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_primitives/Rectangle/left.html">left</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>The left side of a rectangle.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/Rectangle/top.html">top</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>The top side of a rectangle.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/Rectangle/width.html">width</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>The width of a rectangle.</td>
+        </tr>
+        <tr>
+            <td><a href="../../_structures_primitives/Rectangle/height.html">height</a></td>
+            <td><em>[Optional]</em> float</td>
+            <td>The height of a rectangle.</td>
+        </tr>
+    </table>
+    <h2>Methods</h2>
+    <table>
+        <tr>
+            <td><a href="../../_structures_primitives/Rectangle/create_from.html">create_from()</a></td>
+            <td>Creates a new instance of the structure from a collection object.</td>
+        </tr>
+    </table>
+<!-- Custom part - START -->
+    <h2>Overloaded operators</h2>
+    <table>
+        <tr>
+            <td>Indexer</td>
+            <td>Values are indexed in following order: <code class="language-python">left, top, width, height</code>.</td>
+        </tr>
+        <tr>
+            <td>Addition</td>
+            <td>A scalar value or a rectangle-like object is supported (indexable object with a length of 4).</td>
+        </tr>
+        <tr>
+            <td>Subtraction</td>
+            <td>A scalar value or a rectangle-like object is supported (indexable object with a length of 4).</td>
+        </tr>
+        <tr>
+            <td>Multiplication</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Division</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Floor division</td>
+            <td>A scalar value is supported.</td>
+        </tr>
+        <tr>
+            <td>Equality</td>
+            <td>A rectangle-like object is supported (indexable object with a length of 4). Tests approximate equality with maximum tolerance of 1e-9.</td>
+        </tr>
+    </table>
+
+    <!--<h2>Remarks</h2>-->
+
+    <h2>Examples</h2>
+    <p>Overloaded operator examples:</p>
+    <pre><code class="language-python">
+        rectangle_a = Rectangle(2, 2, 2, 2)
+        rectangle_b = Rectangle(1, 1, 1, 1)
+
+        print(rectangle_a[0])               # 2
+        print(rectangle_a + rectangle_b)    # Rectangle(3, 3, 3, 3)
+        print(rectangle_a + 5)              # Rectangle(7, 7, 7, 7)
+        print(rectangle_a - rectangle_b)    # Rectangle(1, 1, 1, 1)
+        print(rectangle_a - 3)              # Rectangle(-1, -1, -1, -1)
+        print(rectangle_a * 2)              # Rectangle(4, 4, 4, 4)
+        print(rectangle_a / 2)              # Rectangle(1, 1, 1, 1)
+        print(rectangle_a // 3)             # Rectangle(0, 0, 0, 0)
+        print(rectangle_a == rectangle_b)   # False
+    </code></pre>
+
+    <!--<h2>See also</h2>-->
+<!-- Custom part - END -->
+</body>
+</html>
+<!-- This file was automatically generated. Content between custom parts will not be regenerated. Remove this line if you want the generator to completely ignore this file. -->
