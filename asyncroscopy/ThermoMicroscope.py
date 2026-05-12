@@ -12,8 +12,8 @@ and falls back to simulated acquisition. To enable real hardware:
 
 Return convention for real image commands
 -----------------------------------------
-Real AutoScript image commands save the adorned object on disk and return a
-JSON string descriptor that can be resolved through Tiled.
+Real AutoScript image commands save the adorned object on disk and return the
+saved file path. The Tiled device can read that path.
 """
 
 import math
@@ -23,12 +23,11 @@ import time
 import numpy as np
 import tango
 from tango import AttrWriteType, DevState
-from tango.server import attribute, command, device_property
+from tango.server import attribute, device_property
 
 from asyncroscopy.Microscope import Microscope
 from asyncroscopy.tiled_helpers import (
     DEFAULT_ACQUISITION_DIR,
-    DEFAULT_TILED_URI,
     acquisition_config,
     save_adorned_acquisition,
 )
@@ -46,8 +45,6 @@ try:
     _AUTOSCRIPT_AVAILABLE = True
 except ImportError:
     _AUTOSCRIPT_AVAILABLE = False
-
-print(_AUTOSCRIPT_AVAILABLE)
 
 class ThermoMicroscope(Microscope):
     """
@@ -73,16 +70,6 @@ class ThermoMicroscope(Microscope):
         dtype=str,
         default_value=DEFAULT_ACQUISITION_DIR,
         doc="Directory where AutoScript acquisitions are saved before Tiled serves them.",
-    )
-    tiled_server_uri = device_property(
-        dtype=str,
-        default_value=DEFAULT_TILED_URI,
-        doc="Base URI for the Tiled server that serves saved acquisitions.",
-    )
-    tiled_root_path = device_property(
-        dtype=str,
-        default_value="",
-        doc="Optional Tiled path prefix corresponding to acquisition_save_directory.",
     )
     acquisition_file_format = device_property(
         dtype=str,
@@ -142,7 +129,6 @@ class ThermoMicroscope(Microscope):
             "camera": self.camera_device_address,
             "tiled": self.tiled_device_address,
         }
-        print(addresses)
         for name, address in addresses.items():
             if not address:   # <-- minimal fix
                 self.info_stream(f"Skipping {name}: no address configured")
@@ -162,173 +148,104 @@ class ThermoMicroscope(Microscope):
         # TODO: query self._microscope.optics.mode when AutoScript available
         return self._manufacturer
 
-    @command(dtype_in=str, dtype_out=str)
-    def configure_tiled_acquisition(self, config_json: str) -> str:
+    def _configure_tiled_acquisition(self, config_json: str) -> str:
         """
-        Configure where acquisitions are saved and how descriptors point at Tiled.
+        Configure where acquisitions are saved before Tiled serves them.
 
-        Pass JSON with any of: save_directory, tiled_uri, tiled_root_path,
-        file_format. Returns the complete active config as JSON.
+        Pass JSON with any of: save_directory, file_format.
+        Returns the complete active config as JSON.
         """
         incoming = json.loads(config_json) if config_json else {}
         current = self._ensure_tiled_acquisition_config()
         current.update({key: value for key, value in incoming.items() if value is not None})
         self._tiled_acquisition_config = acquisition_config(
             save_directory=current.get("save_directory"),
-            tiled_uri=current.get("tiled_uri"),
-            tiled_root_path=current.get("tiled_root_path"),
             file_format=current.get("file_format"),
         )
         return json.dumps(self._tiled_acquisition_config)
 
-    @command(dtype_out=str)
-    def get_tiled_acquisition_config(self) -> str:
+    def _get_tiled_acquisition_config(self) -> str:
         """Return the active Tiled acquisition config as JSON."""
         return json.dumps(self._ensure_tiled_acquisition_config())
-
-    @command(dtype_out=str)
-    def get_scanned_image(self) -> str:
-        """Acquire a STEM image, save it, and return a Tiled dataset descriptor."""
-        scan = self._detector_proxies.get("scan")
-        if scan is None:
-            self._raise_missing_detector("scan", "get_scanned_image()")
-
-        dwell_time = scan.dwell_time
-        imsize = scan.imsize
-        return self._acquire_stem_image(imsize, dwell_time, ["haadf"])
-
-    @command(dtype_out=str)
-    def get_camera_image(self) -> str:
-        """Acquire a camera image, save it, and return a Tiled dataset descriptor."""
-        camera = self._detector_proxies.get("camera")
-        if camera is None:
-            self._raise_missing_detector("camera", "get_camera_image()")
-
-        return self._acquire_camera_image(
-            imsize=camera.imsize,
-            exposure_time=camera.exposure_time,
-            detector="BM-Ceta",
-            readout_area=camera.readout_area,
-        )
-
-    @command(dtype_in=("str",), dtype_out=str)
-    def get_images(self, detector_names: list[str]) -> str:
-        """Acquire STEM images, save them, and return Tiled dataset descriptors."""
-        scan = self._detector_proxies.get("scan")
-        if scan is None:
-            self._raise_missing_detector("scan", "get_images()")
-
-        descriptors = self._acquire_stem_image_advanced(
-            imsize=scan.imsize,
-            dwell_time=scan.dwell_time,
-            detector_list=[name.strip() for name in detector_names],
-            scan_region=[0.0, 0.0, 1.0, 1.0],
-        )
-        datasets = [json.loads(descriptor) for descriptor in descriptors]
-        return json.dumps({"datasets": datasets, "count": len(datasets)})
 
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    # TODO:if self._microscope is not None: checks should go to init functions than sitting in commands 
-
     def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> str:
         """
-        Call AutoScript acquisition, save the adorned image, and return a descriptor.
+        Call AutoScript acquisition, save the adorned image, and return its path.
         """
         if self._microscope is None:
             self._raise_hardware_unavailable("_acquire_stem_image()")
 
-        if self._microscope is not None:
-            # check detectors in detector_list
-            detector_list = [d.upper() for d in detector_list] # must be caps for AutoScript
-            detector_type = 'HAADF'
-
-            # take image
-            adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
-            return self._save_adorned_acquisition(
-                adorned,
-                acquisition_type="stem_image",
-                detector=detector_type,
-                parameters={
-                    "imsize": imsize,
-                    "dwell_time": dwell_time,
-                    "detectors": detector_list,
-                },
-            )
+        detector_type = detector_list[0].upper() if detector_list else "HAADF"
+        adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
+        return self._save_adorned_acquisition(
+            adorned,
+            acquisition_type="stem_image",
+            detector=detector_type,
+        )
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
-        Call AutoScript acquisition, save the adorned image, and return a descriptor.
+        Call AutoScript acquisition, save the adorned image, and return its path.
         this is the advanced version
         """
         if self._microscope is None:
             self._raise_hardware_unavailable("_acquire_camera_image()")
 
-        
-        detector = 'BM-Ceta' # or "Flucam"
-
-        settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize,
-            exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
+        settings = CameraAcquisitionSettings(
+            camera_detector=detector,
+            size=imsize,
+            exposure_time=exposure_time,
+            fixed_readout_area=readout_area,
+            frame_combining=1,
+        )
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
         return self._save_adorned_acquisition(
             adorned,
             acquisition_type="camera_image",
             detector=detector,
-            parameters={
-                "imsize": imsize,
-                "exposure_time": exposure_time,
-                "readout_area": readout_area,
-            },
         )
 
 
     def _acquire_stem_image_advanced(self, imsize: int, dwell_time: float, detector_list: list, scan_region: list[float]) -> list[str]:
         """
-        Call AutoScript acquisition, save adorned images, and return descriptors.
+        Call AutoScript acquisition, save adorned images, and return their paths.
         """
         if self._microscope is None:
             self._raise_hardware_unavailable("_acquire_stem_image_advanced()")
 
-        if self._microscope is not None:
-            # check detectors in detector_list
-            detector_list = [d.upper() for d in detector_list] # must be caps for AutoScript
-            detector_type = 'HAADF'
+        detector_list = [d.upper() for d in detector_list]
+        detector_type = "HAADF"
 
-            # Create scan region
-            custom_region = Region(
-                RegionCoordinateSystem.RELATIVE,
-                Rectangle(
-                    scan_region[0],  # left
-                    scan_region[1],  # top
-                    scan_region[2],  # width
-                    scan_region[3]   # height
-                )
+        custom_region = Region(
+            RegionCoordinateSystem.RELATIVE,
+            Rectangle(
+                scan_region[0],
+                scan_region[1],
+                scan_region[2],
+                scan_region[3],
             )
+        )
 
-            settings = StemAcquisitionSettings(
-                dwell_time=dwell_time,
-                detector_types=detector_list,
-                size=imsize,
-                region=custom_region,
+        settings = StemAcquisitionSettings(
+            dwell_time=dwell_time,
+            detector_types=detector_list,
+            size=imsize,
+            region=custom_region,
+        )
+        
+        adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
+        adorned_images = adorned if isinstance(adorned, list) else [adorned]
+        return [
+            self._save_adorned_acquisition(
+                image,
+                acquisition_type="stem_image",
+                detector=detector_type,
             )
-            
-            adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
-            adorned_images = adorned if isinstance(adorned, list) else [adorned]
-            return [
-                self._save_adorned_acquisition(
-                    image,
-                    acquisition_type="stem_image",
-                    detector=detector_type,
-                    parameters={
-                        "imsize": imsize,
-                        "dwell_time": dwell_time,
-                        "detectors": detector_list,
-                        "scan_region": scan_region,
-                    },
-                )
-                for image in adorned_images
-            ]
+            for image in adorned_images
+        ]
 
     def _save_adorned_acquisition(
         self,
@@ -336,14 +253,12 @@ class ThermoMicroscope(Microscope):
         *,
         acquisition_type: str,
         detector: str,
-        parameters: dict,
     ) -> str:
         return save_adorned_acquisition(
             adorned,
             acquisition_type=acquisition_type,
             detector=detector,
             config=self._ensure_tiled_acquisition_config(),
-            parameters=parameters,
         )
 
     def _ensure_tiled_acquisition_config(self) -> dict[str, str]:
@@ -351,8 +266,6 @@ class ThermoMicroscope(Microscope):
         if tiled_proxy is not None:
             self._tiled_acquisition_config = acquisition_config(
                 save_directory=tiled_proxy.save_path,
-                tiled_uri=tiled_proxy.get_uri(),
-                tiled_root_path=tiled_proxy.root_path,
                 file_format=self.acquisition_file_format,
             )
             return self._tiled_acquisition_config
@@ -361,14 +274,6 @@ class ThermoMicroscope(Microscope):
             save_directory=getattr(self, "_tiled_acquisition_config", {}).get(
                 "save_directory",
                 self.acquisition_save_directory,
-            ),
-            tiled_uri=getattr(self, "_tiled_acquisition_config", {}).get(
-                "tiled_uri",
-                self.tiled_server_uri,
-            ),
-            tiled_root_path=getattr(self, "_tiled_acquisition_config", {}).get(
-                "tiled_root_path",
-                self.tiled_root_path,
             ),
             file_format=getattr(self, "_tiled_acquisition_config", {}).get(
                 "file_format",
@@ -415,7 +320,11 @@ class ThermoMicroscope(Microscope):
                 spectrum = np.frombuffer(spectrum._raw_data, dtype=dt)
 
         else:
-            print(f"Detector {detector_name} not supported for spectroscopy")
+            tango.Except.throw_exception(
+                "UnsupportedDetector",
+                f"Detector {detector_name} not supported for spectroscopy",
+                "_acquire_spectrum()",
+            )
 
         return spectrum
 
@@ -427,7 +336,6 @@ class ThermoMicroscope(Microscope):
         if self._microscope is not None:
             x = float(position[0])
             y = float(position[1])
-            print(x,y)
             self._microscope.optics.paused_scan_beam_position = [x, y]
 
     def _set_fov(self, fov) -> None:
@@ -535,7 +443,6 @@ class ThermoMicroscope(Microscope):
         """Apply image shift in meters."""
         x_shift = float(shift[0])
         y_shift = float(shift[1])
-        print(shift)
         try:
             self._microscope.optics.deflectors.beam_shift = (x_shift, y_shift)
         except Exception as e:

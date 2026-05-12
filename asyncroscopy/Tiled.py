@@ -1,8 +1,8 @@
 """Tiled Tango device.
 
 This device owns notebook-facing access to the Tiled server. Acquisition
-commands can return descriptor strings, and notebooks can pass those descriptors
-to this device to resolve and read data through Tiled.
+commands return saved file paths, and notebooks can pass those paths to this
+device to resolve and read data through Tiled.
 """
 
 from __future__ import annotations
@@ -21,10 +21,7 @@ from asyncroscopy.tiled_helpers import (
     DEFAULT_ACQUISITION_DIR,
     DEFAULT_TILED_URI,
     connect_tiled_client,
-    descriptor_path_candidates,
-    get_tiled_dataset,
-    parse_descriptor,
-    tiled_path_candidates,
+    saved_path_candidates,
 )
 
 
@@ -161,47 +158,11 @@ class Tiled(Device):
         return self.list_entries("")
 
     @command(dtype_in=str, dtype_out=str)
-    def get_data(self, descriptor_or_path: str) -> str:
-        """Read data from Tiled using an asyncroscopy descriptor or Tiled path."""
-        node = self._node_for_descriptor_or_path(descriptor_or_path)
+    def get_data(self, saved_path_or_tiled_path: str) -> str:
+        """Read data from Tiled using a saved file path or Tiled path."""
+        node = self._node_for_path_or_saved_path(saved_path_or_tiled_path)
         data = self._read_node(node)
         return json.dumps(self._json_ready(data))
-
-    @command(dtype_in=str, dtype_out=str)
-    def inspect_descriptor(self, descriptor_json: str) -> str:
-        """Return local and Tiled path diagnostics for a descriptor."""
-        descriptor = parse_descriptor(descriptor_json)
-        candidates = descriptor_path_candidates(descriptor)
-        client = self._client()
-        resolved = []
-        failed = []
-        for candidate in candidates:
-            try:
-                self._walk_path(client, candidate)
-                resolved.append(candidate)
-            except Exception as exc:
-                failed.append({"candidate": candidate, "error": str(exc)})
-
-        root_entries = []
-        try:
-            root_entries = list(client)
-        except Exception as exc:
-            root_entries = [f"<could not list root: {exc}>"]
-
-        local_path = Path(descriptor.get("path", "")).expanduser()
-        return json.dumps(
-            {
-                "path": str(local_path),
-                "file_exists": local_path.exists(),
-                "file_size_bytes": local_path.stat().st_size if local_path.exists() else None,
-                "root_path": self._root_path,
-                "save_path": self._save_path,
-                "root_entries": root_entries,
-                "candidates": candidates,
-                "resolved": resolved,
-                "failed": failed[:20],
-            }
-        )
 
     @command(dtype_out=str)
     def get_recent(self) -> str:
@@ -247,19 +208,18 @@ class Tiled(Device):
     def _client(self):
         return connect_tiled_client(self._uri(), api_key=self._api_key)
 
-    def _node_for_descriptor_or_path(self, descriptor_or_path: str):
-        text = descriptor_or_path.strip()
-        if text.startswith("{"):
-            descriptor = parse_descriptor(text)
-            descriptor.setdefault("tiled_uri", self._uri())
-            if self._root_path and not descriptor.get("tiled_root_path"):
-                descriptor["tiled_root_path"] = self._root_path
-                descriptor["tiled_path_candidates"] = tiled_path_candidates(
-                    descriptor["relative_path"],
-                    self._root_path,
-                )
-            return get_tiled_dataset(descriptor, client=self._client())
-        return self._node_for_path(text)
+    def _node_for_path_or_saved_path(self, saved_path_or_tiled_path: str):
+        text = saved_path_or_tiled_path.strip()
+        client = self._client()
+        candidates = [text]
+        candidates.extend(saved_path_candidates(text, self._save_path, self._root_path))
+        errors = []
+        for candidate in list(dict.fromkeys(candidates)):
+            try:
+                return self._walk_path(client, candidate)
+            except Exception as exc:
+                errors.append(f"{candidate}: {exc}")
+        raise KeyError("Could not resolve path in Tiled. Tried: " + "; ".join(errors))
 
     def _node_for_path(self, tiled_path: str):
         return self._walk_path(self._client(), tiled_path)

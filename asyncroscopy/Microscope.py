@@ -6,16 +6,8 @@ so that each detector device is the single source of truth for its own params.
 
 Return convention for image commands
 -------------------------------------
-All image commands return DevEncoded = (str, bytes) where:
-  - str  : JSON string containing metadata (shape, dtype, dwell_time, …)
-  - bytes: raw numpy array bytes (reconstruct with np.frombuffer + reshape)
-
-Client-side reconstruction example::
-
-    import json, numpy as np
-    encoded = proxy.get_haadf_image()   # returns (json_str, raw_bytes)
-    meta    = json.loads(encoded[0])
-    image   = np.frombuffer(encoded[1], dtype=meta["dtype"]).reshape(meta["shape"])
+Image commands return a string. Hardware-backed microscopes should save the
+native adorned object on disk and return the saved path for Tiled to serve.
 """
 
 import json
@@ -107,15 +99,15 @@ class Microscope(Device, metaclass=CombinedMeta):
 
     @abstractmethod
     def _connect(self):
-        print(f"Must define a class-specific _connect() method")
+        pass
     
     @abstractmethod
     def _connect_hardware(self) -> None:
-        print(f"Must define a class-specific _connect_hardware() method")
+        pass
 
     @abstractmethod
     def _connect_detector_proxies(self) -> None:
-        print(f"Must define a class-specific _connect_detector_proxies() method")  
+        pass
 
     # ------------------------------------------------------------------
     # Attribute read methods
@@ -144,6 +136,15 @@ class Microscope(Device, metaclass=CombinedMeta):
         self.set_state(DevState.OFF)
         self.info_stream("Disconnected from microscope hardware")
 
+    @command(dtype_in=str, dtype_out=str)
+    def configure_tiled_acquisition(self, config_json: str) -> str:
+        """Configure where acquisitions are saved before Tiled serves them."""
+        return self._configure_tiled_acquisition(config_json)
+
+    @command(dtype_out=str)
+    def get_tiled_acquisition_config(self) -> str:
+        """Return the active Tiled acquisition config as JSON."""
+        return self._get_tiled_acquisition_config()
 
     @command(dtype_in=str, dtype_out=DevEncoded)
     def get_spectrum(self, detector_name: str) -> tuple[str, bytes]:
@@ -195,96 +196,40 @@ class Microscope(Device, metaclass=CombinedMeta):
 
         return json.dumps(metadata), raw_bytes
 
-    @command(dtype_out=DevEncoded)
-    def get_camera_image(self) -> tuple[str, bytes]:
-        """
-        get image on the camera
-        """
-
-        camera = self._detector_proxies.get("camera")
-        # use this to get params
-
-    @command(dtype_out=DevEncoded)#In PyTango, DevEncoded is a special Tango data type designed to send binary data + a small description string together as a single return value.
-    def get_scanned_image(self) -> tuple[str, bytes]:
-        """
-        Acquire a single STEM image from the named detector.
-
-        Parameters
-        ----------
-        detector_name:
-            Name of the detector, e.g. "haadf". Must match a key in
-            self._detector_proxies.
-
-        Returns
-        -------
-        DevEncoded = (json_metadata, raw_bytes)
-            json_metadata includes: shape, dtype, dwell_time, detector,
-            timestamp, and any other relevant metadata.
-            raw_bytes is the flat numpy array bytes; reshape using shape from metadata.
-        """
-        # check active detectors
+    @command(dtype_out=str)
+    def get_scanned_image(self) -> str:
+        """Acquire a STEM image using settings from the scan device."""
         scan = self._detector_proxies.get("scan")
+        if scan is None:
+            self._raise_missing_detector("scan", "get_scanned_image()")
 
-        # Read scan settings from the detector device
-        dwell_time=scan.dwell_time
-        imsize=scan.imsize
+        result = self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
+        if isinstance(result, str):
+            return result
 
-        image = self._acquire_stem_image(imsize, dwell_time, ['haadf'])
+        self._cached_images = [result]
+        img_data = result.data if hasattr(result, "data") else result
+        return json.dumps({
+            "detector": "haadf",
+            "shape": list(img_data.shape),
+            "dtype": str(img_data.dtype),
+            "cache_index": 0,
+            "data_command": "get_image_data_cached",
+        })
 
-        metadata = {
-            "detector": 'haadf',
-            "shape": [imsize, imsize],
-            "dtype": str(image.dtype),
-            "dwell_time": dwell_time,
-            "timestamp": time.time(),
-            # TODO: add metadata from adorned_image.metadata when using real AutoScript
-        }
-
-        return json.dumps(metadata), image.tobytes()
-    
-
-    @command(dtype_out=DevEncoded)
-    def get_camera_image(self) -> tuple[str, bytes]:
-        """
-        Acquire a single camera image from the named detector.
-
-        Parameters
-        ----------
-        detector_name:
-            Name of the detector, e.g. "BM-Ceta". Must match a key in
-            self._detector_proxies.
-
-        Returns
-        -------
-        DevEncoded = (json_metadata, raw_bytes)
-            json_metadata includes: shape, dtype, dwell_time, detector,
-            timestamp, and any other relevant metadata.
-            raw_bytes is the flat numpy array bytes; reshape using shape from metadata.
-        """
-
-        # check active detectors
+    @command(dtype_out=str)
+    def get_camera_image(self) -> str:
+        """Acquire a camera image using settings from the camera device."""
         camera = self._detector_proxies.get("camera")
+        if camera is None:
+            self._raise_missing_detector("camera", "get_camera_image()")
 
-        # Read settings from the detector
-        exposure_time=camera.exposure_time
-        imsize=camera.imsize
-        readout_area=camera.readout_area
-
-        image = self._acquire_camera_image(imsize=imsize, exposure_time=exposure_time,
-                                           detector='BM-Ceta', readout_area=readout_area)
-
-        metadata = {
-            "detector": 'Ceta',
-            "shape": [imsize, imsize],
-            "dtype": str(image.dtype),
-            "exposure_time": exposure_time,
-            "timestamp": time.time(),
-            "readout_area": readout_area,
-            # TODO: move this metadata packing into the _acquire_camera_image method
-            # when usingreal AutoScript,to include metadata from adorned_image.metadata
-        }
-
-        return json.dumps(metadata), image.tobytes()
+        return self._acquire_camera_image(
+            imsize=camera.imsize,
+            exposure_time=camera.exposure_time,
+            detector="BM-Ceta",
+            readout_area=camera.readout_area,
+        )
 
 
     @command(dtype_in=('str',), dtype_out=str)
@@ -298,48 +243,36 @@ class Microscope(Device, metaclass=CombinedMeta):
 
         Returns
         -------
-        JSON string with metadata for all images and retrieval instructions
-        
-        Usage: Call get_image_data(index) to retrieve each image's bytes
+        JSON string returned by the vendor-specific implementation. Hardware
+        microscopes should return saved paths; simulators may return cache
+        metadata for get_image_data_cached().
         """
-        # Normalize and validate
-        detector_names = [name.lower().strip() for name in detector_names]
-        
-        # Get settings from AdvancedAcquisition device
-        adv_acq_proxy = self._detector_proxies.get("AdvancedAcquistion")
-        dwell_time = adv_acq_proxy.dwell_time
-        base_resolution = adv_acq_proxy.base_resolution
-        scan_region = adv_acq_proxy.scan_region
-        auto_beam_blank = adv_acq_proxy.auto_beam_blank
-        
-        # Acquire all images
-        adorned_images = self._acquire_stem_image_advanced(
-            detector_names,
-            base_resolution,
-            scan_region,
-            dwell_time,
-            auto_beam_blank
+        detector_names = [name.strip() for name in detector_names]
+        scan = self._detector_proxies.get("scan")
+        if scan is None:
+            self._raise_missing_detector("scan", "get_images()")
+
+        results = self._acquire_stem_image_advanced(
+            imsize=scan.imsize,
+            dwell_time=scan.dwell_time,
+            detector_list=detector_names,
+            scan_region=[0.0, 0.0, 1.0, 1.0],
         )
-        
-        # Package results
-        # Cache and build metadata
-        self._cached_images = adorned_images
-        timestamp = time.time()
-        
-        metadata_list = []
-        for i, (name, adorned_img) in enumerate(zip(detector_names, adorned_images)):
-            # Access the numpy array from AdornedImage
-            img_data = adorned_img.data if hasattr(adorned_img, 'data') else adorned_img
-            
-            metadata_list.append({
-                "index": i,
-                "detector": name,
+
+        if all(isinstance(result, str) for result in results):
+            return json.dumps({"paths": results, "count": len(results)})
+
+        self._cached_images = results
+        metadata = []
+        for index, (detector, image) in enumerate(zip(detector_names, results)):
+            img_data = image.data if hasattr(image, "data") else image
+            metadata.append({
+                "index": index,
+                "detector": detector,
                 "shape": list(img_data.shape),
                 "dtype": str(img_data.dtype),
-                "timestamp": timestamp,
             })
-        
-        return json.dumps({"images": metadata_list, "count": len(adorned_images)})
+        return json.dumps({"images": metadata, "count": len(results)})
 
     @command(dtype_in=int, dtype_out=DevEncoded)
     def get_image_data_cached(self, index: int) -> tuple[str, bytes]:
@@ -350,11 +283,21 @@ class Microscope(Device, metaclass=CombinedMeta):
             tango.Except.throw_exception("InvalidIndex", f"Index {index} out of range", "get_image_data()")
         
         adorned_img = self._cached_images[index]
-        # Extract numpy array from AdornedImage
         img_data = adorned_img.data if hasattr(adorned_img, 'data') else adorned_img
         
         meta = {"shape": list(img_data.shape), "dtype": str(img_data.dtype)}
         return json.dumps(meta), img_data.tobytes()
+
+    def _raise_missing_detector(self, detector_name: str, origin: str) -> None:
+        available = ", ".join(sorted(self._detector_proxies.keys())) or "none"
+        tango.Except.throw_exception(
+            "UnknownDetector",
+            (
+                f"Detector '{detector_name}' is not configured or connected. "
+                f"Available detectors: {available}"
+            ),
+            origin,
+        )
     
     @command(dtype_in=DevVarFloatArray, dtype_out=None)
     def place_beam(self, position) -> None:
@@ -380,7 +323,6 @@ class Microscope(Device, metaclass=CombinedMeta):
         """
         set the field of view for the next acquisition
         """
-        print(fov)
         self._set_fov(fov)
 
     @command(dtype_out=DevFloat)
@@ -450,63 +392,88 @@ class Microscope(Device, metaclass=CombinedMeta):
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    @abstractmethod
-    def _acquire_stem_image():
-        print("Get image")
-        pass
+    def _configure_tiled_acquisition(self, config_json: str) -> str:
+        tango.Except.throw_exception(
+            "UnsupportedCommand",
+            "This microscope does not support Tiled acquisition configuration.",
+            "_configure_tiled_acquisition()",
+        )
+
+    def _get_tiled_acquisition_config(self) -> str:
+        tango.Except.throw_exception(
+            "UnsupportedCommand",
+            "This microscope does not support Tiled acquisition configuration.",
+            "_get_tiled_acquisition_config()",
+        )
 
     @abstractmethod
-    def _acquire_stem_image_advanced():
-        print("Get image with more flexible settings")
+    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list[str]):
+        """Vendor-specific STEM acquisition implementation."""
         pass
-    def _acquire_camera_image():
+
+    def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
+        """Vendor-specific camera acquisition implementation."""
+        tango.Except.throw_exception(
+            "UnsupportedCommand",
+            "This microscope does not support camera image acquisition.",
+            "_acquire_camera_image()",
+        )
+
+    @abstractmethod
+    def _acquire_stem_image_advanced(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector_list: list[str],
+        scan_region: list[float],
+    ) -> list:
+        """Vendor-specific multi-image acquisition implementation."""
+        pass
+
+    def _place_beam(self, position):
         # define in the inherit class
         pass
 
-    def _place_beam():
+    def _blank_beam(self):
         # define in the inherit class
         pass
 
-    def _blank_beam():
-        # define in the inherit class
-        pass
-
-    def _unblank_beam():
+    def _unblank_beam(self):
         # define in the inherit class
         pass
 
     @abstractmethod
-    def _set_screen_current():
+    def _set_screen_current(self, current):
         # define in the inherit class
         pass
 
     @abstractmethod
-    def _get_screen_current():
+    def _get_screen_current(self):
         pass
 
     @abstractmethod
-    def _move_stage():
+    def _move_stage(self, position):
         # define in the inherit class
         pass
 
     @abstractmethod
-    def _get_stage():
+    def _get_stage(self):
         pass
 
     @abstractmethod
-    def _set_fov():
+    def _set_fov(self, fov):
         pass
 
     @abstractmethod
-    def _get_fov():
+    def _get_fov(self):
         pass
 
     @abstractmethod
-    def _auto_focus():
+    def _auto_focus(self):
         pass
 
     @abstractmethod
-    def _set_image_shift():
+    def _set_image_shift(self, shift):
         pass
 # ----------------------------------------------------------------------
 # Server entry point

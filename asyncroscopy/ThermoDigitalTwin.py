@@ -459,15 +459,14 @@ class ThermoDigitalTwin(Microscope):
 
     def _acquire_stem_image_advanced(
         self,
-        detector_names: list[str],
-        base_resolution: int,
-        scan_region,
+        imsize: int,
         dwell_time: float,
-        auto_beam_blank: bool,
+        detector_list: list[str],
+        scan_region: list[float],
     ) -> list[np.ndarray]:
         """Perform advanced STEM acquisition returning multiple channels mapping to requested detectors."""
-        im = self._acquire_stem_image(int(base_resolution), float(dwell_time), detector_names)
-        return [im.copy() for _ in detector_names]
+        im = self._acquire_stem_image(int(imsize), float(dwell_time), detector_list)
+        return [im.copy() for _ in detector_list]
 
     def _acquire_spectrum(self, detector_name: str, exposure_time: float):
         """Simulate EDS spectrum acquisition at the current beam position weighted by surrounding particles."""

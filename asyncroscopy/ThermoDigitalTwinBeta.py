@@ -301,6 +301,18 @@ class ThermoDigitalTwin(Microscope):
         noisy_image += blur_noise * blur_noise_level
 
         return np.array(noisy_image, dtype=np.float32)
+
+    def _acquire_stem_image_advanced(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector_list: list[str],
+        scan_region: list[float],
+    ) -> list[np.ndarray]:
+        return [
+            self._acquire_stem_image(imsize, dwell_time, [detector])
+            for detector in detector_list
+        ]
     
     def _make_sample_recipe(self):
         """
