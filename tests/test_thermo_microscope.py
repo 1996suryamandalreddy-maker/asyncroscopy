@@ -1,5 +1,6 @@
 import json
-import numpy as np
+from pathlib import Path
+
 import pytest
 import tango
 
@@ -15,46 +16,82 @@ class TestThermoMicroscope:
         assert scan_proxy.dwell_time == pytest.approx(1e-6)
         assert scan_proxy.imsize == 512
 
-    def test_get_image_returns_valid_encoded_data(
-        self,
-        thermo_proxy: tango.DeviceProxy,
-        patched_single_image: pytest.MonkeyPatch,
-    ) -> None:
-        json_meta, raw_bytes = thermo_proxy.get_scanned_image()
-        meta = json.loads(json_meta)
-
-        assert meta["detector"] == "haadf"
-        assert meta["shape"] == [512, 512]
-        assert meta["dtype"] == "uint16"
-        assert meta["dwell_time"] == pytest.approx(1e-6)
-        assert "timestamp" in meta
-
-        image = np.frombuffer(raw_bytes, dtype=np.dtype(meta["dtype"])).reshape(meta["shape"])
-        assert image.shape == (512, 512)
-        assert image.dtype == np.uint16
-
-    def test_detector_settings_propagate_into_get_image(
+    def test_get_scanned_image_returns_saved_path(
         self,
         thermo_proxy: tango.DeviceProxy,
         scan_proxy: tango.DeviceProxy,
-        patched_single_image: pytest.MonkeyPatch,
+        patched_path_acquisition: list[dict],
+    ) -> None:
+        scan_proxy.dwell_time = 1e-6
+        scan_proxy.imsize = 512
+
+        saved_path = thermo_proxy.get_scanned_image()
+
+        assert isinstance(saved_path, str)
+        assert saved_path.endswith(".tiff")
+        assert Path(saved_path).read_bytes() == b"fake-tiff"
+        assert patched_path_acquisition == [
+            {
+                "imsize": 512,
+                "dwell_time": pytest.approx(1e-6),
+                "detector_list": ["haadf"],
+            }
+        ]
+
+    def test_scan_settings_propagate_into_acquisition(
+        self,
+        thermo_proxy: tango.DeviceProxy,
+        scan_proxy: tango.DeviceProxy,
+        patched_path_acquisition: list[dict],
     ) -> None:
         scan_proxy.dwell_time = 2e-6
         scan_proxy.imsize = 256
 
-        json_meta, raw_bytes = thermo_proxy.get_scanned_image()
-        meta = json.loads(json_meta)
+        saved_path = thermo_proxy.get_scanned_image()
 
-        assert meta["detector"] == "haadf"
-        assert meta["shape"] == [256, 256]
-        assert meta["dtype"] == "uint16"
-        assert meta["dwell_time"] == pytest.approx(2e-6)
+        assert Path(saved_path).exists()
+        assert patched_path_acquisition[-1] == {
+            "imsize": 256,
+            "dwell_time": pytest.approx(2e-6),
+            "detector_list": ["haadf"],
+        }
 
-        image = np.frombuffer(raw_bytes, dtype=np.dtype(meta["dtype"])).reshape(meta["shape"])
-        assert image.shape == (256, 256)
-        assert image.dtype == np.uint16
+    def test_camera_settings_propagate_into_acquisition(
+        self,
+        thermo_proxy: tango.DeviceProxy,
+        camera_proxy: tango.DeviceProxy,
+        patched_camera_path_acquisition: list[dict],
+    ) -> None:
+        camera_proxy.exposure_time = 0.25
+        camera_proxy.imsize = 2048
+        camera_proxy.readout_area = "Half"
 
-    def test_unknown_detector_raises(self, thermo_proxy: tango.DeviceProxy, patched_single_image: pytest.MonkeyPatch) -> None:
+        saved_path = thermo_proxy.get_camera_image()
+
+        assert Path(saved_path).read_bytes() == b"fake-camera-tiff"
+        assert patched_camera_path_acquisition == [
+            {
+                "imsize": 2048,
+                "exposure_time": pytest.approx(0.25),
+                "detector": "BM-Ceta",
+                "readout_area": "Half",
+            }
+        ]
+
+    def test_tiled_acquisition_config_uses_tiled_device_save_path(
+        self,
+        thermo_proxy: tango.DeviceProxy,
+        tiled_proxy: tango.DeviceProxy,
+        tiled_save_dir,
+    ) -> None:
+        tiled_proxy.save_path = str(tiled_save_dir)
+
+        config = json.loads(thermo_proxy.get_tiled_acquisition_config())
+
+        assert config["save_directory"] == str(tiled_save_dir)
+        assert config["file_format"] == "tiff"
+
+    def test_unknown_detector_raises(self, thermo_proxy: tango.DeviceProxy) -> None:
         with pytest.raises(tango.DevFailed) as exc:
             thermo_proxy.get_spectrum("void")
 

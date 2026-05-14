@@ -33,6 +33,13 @@ class ManagedProcess:
     process: subprocess.Popen[str]
 
 
+@pytest.mark.skip(
+    reason=(
+        "DB-mode Tango discovery cannot safely run in the same interpreter as "
+        "the in-process MultiDeviceTestContext. Server startup is covered by "
+        "tests/test_server_startup.py."
+    )
+)
 class TestMCPServerDBMode:
     """Test suite for MCP server in DB mode with ThermoDigitalTwin."""
 
