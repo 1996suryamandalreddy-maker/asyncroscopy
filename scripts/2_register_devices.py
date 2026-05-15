@@ -26,6 +26,10 @@ CAMERA_SERVER  = "CAMERA/camera_instance"
 CAMERA_CLASS   = "CAMERA" 
 CAMERA_DEVICE  = "asyncroscopy/camera/default"
 
+FLUCAM_SERVER  = "FLUCAM/flucam_instance"
+FLUCAM_CLASS   = "FLUCAM"
+FLUCAM_DEVICE  = "asyncroscopy/flucam/default"
+
 EDS_SERVER  = "EDS/eds_instance" 
 EDS_CLASS   = "EDS" 
 EDS_DEVICE  = "asyncroscopy/eds/default"
@@ -63,6 +67,7 @@ def main():
 
     add_device(db, SCAN_SERVER, SCAN_CLASS, SCAN_DEVICE)
     add_device(db, CAMERA_SERVER, CAMERA_CLASS, CAMERA_DEVICE)
+    add_device(db, FLUCAM_SERVER, FLUCAM_CLASS, FLUCAM_DEVICE)
     add_device(db, EDS_SERVER, EDS_CLASS, EDS_DEVICE)
     add_device(db, STAGE_SERVER, STAGE_CLASS, STAGE_DEVICE)
     add_device(db, CORRECTOR_SERVER, CORRECTOR_CLASS, CORRECTOR_DEVICE)
@@ -71,6 +76,7 @@ def main():
 
     db.put_device_property(MICRO_DEVICE, {"scan_device_address": [SCAN_DEVICE]})
     db.put_device_property(MICRO_DEVICE, {"camera_device_address": [CAMERA_DEVICE]})
+    db.put_device_property(MICRO_DEVICE, {"flucam_device_address": [FLUCAM_DEVICE]})
     db.put_device_property(MICRO_DEVICE, {"eds_device_address": [EDS_DEVICE]})
     db.put_device_property(MICRO_DEVICE, {"stage_device_address": [STAGE_DEVICE]})
     db.put_device_property(MICRO_DEVICE, {"corrector_device_address": [CORRECTOR_DEVICE]})
@@ -78,6 +84,7 @@ def main():
 
     print(f"  property:   scan_device_address = {SCAN_DEVICE}")
     print(f"  property:   camera_device_address = {CAMERA_DEVICE}")
+    print(f"  property:   flucam_device_address = {FLUCAM_DEVICE}")
     print(f"  property:   eds_device_address = {EDS_DEVICE}")
     print(f"  property:   stage_device_address = {STAGE_DEVICE}")
     print(f"  property:   corrector_device_address = {CORRECTOR_DEVICE}")
@@ -88,4 +95,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -14,9 +14,8 @@ import json
 import time
 from typing import Optional
 
-from abc import abstractmethod, ABC, ABCMeta
+from abc import abstractmethod, ABCMeta
 
-import numpy as np
 import tango
 from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat
 from tango.server import Device, DeviceMeta, attribute, command, device_property
@@ -62,6 +61,14 @@ class Microscope(Device, metaclass=CombinedMeta):
         doc="Tango device address for the CAMERA settings . "
             "DB mode: 'asyncroscopy/camera/default' "
             "No-DB mode: 'tango://127.0.0.1:8888/asyncroscopy/camera/default#dbase=no'",
+    )
+
+    flucam_device_address = device_property(
+        dtype=str,
+        default_value="",
+        doc="Tango device address for the FLUCAM settings device. "
+            "DB mode: 'asyncroscopy/flucam/default' "
+            "No-DB mode: 'tango://127.0.0.1:8888/asyncroscopy/flucam/default#dbase=no'",
     )
     testing_mode_bool = device_property(dtype=bool, 
                                         default_value=False,
@@ -220,17 +227,20 @@ class Microscope(Device, metaclass=CombinedMeta):
     @command(dtype_out=str)
     def get_camera_image(self) -> str:
         """Acquire a camera image using settings from the camera device."""
-        camera = self._detector_proxies.get("camera")
-        if camera is None:
-            self._raise_missing_detector("camera", "get_camera_image()")
-
-        return self._acquire_camera_image(
-            imsize=camera.imsize,
-            exposure_time=camera.exposure_time,
+        return self._get_configured_camera_image(
+            proxy_name="camera",
             detector="BM-Ceta",
-            readout_area=camera.readout_area,
+            origin="get_camera_image()",
         )
 
+    @command(dtype_out=str)
+    def get_flucam_image(self) -> str:
+        """Acquire a Flucam image using settings from the flucam device."""
+        return self._get_configured_camera_image(
+            proxy_name="flucam",
+            detector="Flucam",
+            origin="get_flucam_image()",
+        )
 
     @command(dtype_in=('str',), dtype_out=str)
     def get_images(self, detector_names: list[str]) -> str:
@@ -297,6 +307,18 @@ class Microscope(Device, metaclass=CombinedMeta):
                 f"Available detectors: {available}"
             ),
             origin,
+        )
+
+    def _get_configured_camera_image(self, proxy_name: str, detector: str, origin: str) -> str:
+        camera = self._detector_proxies.get(proxy_name)
+        if camera is None:
+            self._raise_missing_detector(proxy_name, origin)
+
+        return self._acquire_camera_image(
+            imsize=camera.imsize,
+            exposure_time=camera.exposure_time,
+            detector=detector,
+            readout_area=camera.readout_area,
         )
     
     @command(dtype_in=DevVarFloatArray, dtype_out=None)
