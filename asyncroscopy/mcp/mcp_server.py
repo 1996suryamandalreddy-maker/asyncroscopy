@@ -20,6 +20,8 @@ from typing import Any, Dict, Callable, Annotated
 from pydantic import Field
 import traceback
 
+import numpy as np
+
 from tango import Database, DeviceProxy, CommandInfo, CmdArgType
 from tango.utils import (
     TO_TANGO_TYPE,
@@ -265,8 +267,25 @@ class MCPServer:
         return Any
 
     @staticmethod
+    def _numpy_to_python(obj: Any) -> Any:
+        """Recursively convert numpy types to Python types for JSON serialization."""
+        if isinstance(obj, np.ndarray):
+            return MCPServer._numpy_to_python(obj.tolist())
+        if isinstance(obj, np.generic):
+            return obj.item()
+        if isinstance(obj, dict):
+            return {k: MCPServer._numpy_to_python(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            conv = [MCPServer._numpy_to_python(v) for v in obj]
+            return tuple(conv) if isinstance(obj, tuple) else conv
+        return obj
+
+    @staticmethod
     def _normalize_command_result(out_type: CmdArgType, result: Any) -> Any:
         """Convert Tango command output into JSON-safe data for MCP transport."""
+        
+        # Convert numpy types (including nested containers) to native Python types
+        result = MCPServer._numpy_to_python(result)
         if not MCPServer._is_dev_encoded_type(out_type):
             return result
 
