@@ -21,7 +21,7 @@ Connect using DeviceProxy
 
 2) in another terminal
 export TANGO_HOST=localhost:11000 
-uv run scripts/register_devices.py 
+uv run scripts/2_register_devices.py 
 - returns:
     - Connected: MacBook-Pro-649.local:11000
     - registered: test/haadf/1
@@ -32,13 +32,14 @@ uv run scripts/register_devices.py
 
 3) in another terminal
 export TANGO_HOST=localhost:11000 
-uv run python -m asyncroscopy.detectors.HAADF haadf_instance
+uv run python -m asyncroscopy.hardware.SCAN scan_instance
 - returns:
     - Ready to accept request
 
 4) in another terminal
 export TANGO_HOST=localhost:11000 
 uv run python -m asyncroscopy.ThermoMicroscope microscope_instance
+# uv run python -m asyncroscopy.ThermoDigitalTwin microscope_instance
 - returns:
     - True
         Client connecting to [localhost:9090]...

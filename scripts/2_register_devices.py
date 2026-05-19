@@ -41,6 +41,15 @@ CORRECTOR_DEVICE  = "test/corrector/1"
 MICRO_SERVER  = "ThermoMicroscope/microscope_instance"
 MICRO_CLASS   = "ThermoMicroscope"
 MICRO_DEVICE  = "test/microscope/1"
+
+MICRO_TWIN_SERVER  = "ThermoDigitalTwin/microscope_twin_instance"
+MICRO_TWIN_CLASS   = "ThermoDigitalTwin"
+MICRO_TWIN_DEVICE  = "test/microscope_twin/1"
+
+
+CORRECTOR_SERVER  = "CORRECTOR/corrector_instance"
+CORRECTOR_CLASS   = "CORRECTOR"
+CORRECTOR_DEVICE  = "test/corrector/1"
 # ──────────────────────────────────────────────────────────────
 
 
@@ -63,12 +72,21 @@ def main():
     add_device(db, STAGE_SERVER, STAGE_CLASS, STAGE_DEVICE)
     add_device(db, CORRECTOR_SERVER, CORRECTOR_CLASS, CORRECTOR_DEVICE)
     add_device(db, MICRO_SERVER, MICRO_CLASS, MICRO_DEVICE)
+    add_device(db, MICRO_TWIN_SERVER, MICRO_TWIN_CLASS, MICRO_TWIN_DEVICE)
+
+
 
     db.put_device_property(MICRO_DEVICE, {"scan_device_address": [SCAN_DEVICE]})
     db.put_device_property(MICRO_DEVICE, {"camera_device_address": [CAMERA_DEVICE]})
     db.put_device_property(MICRO_DEVICE, {"eds_device_address": [EDS_DEVICE]})
+    db.put_device_property(MICRO_DEVICE, {"corrector_device_address": [CORRECTOR_DEVICE]})
     db.put_device_property(MICRO_DEVICE, {"stage_device_address": [STAGE_DEVICE]})
     db.put_device_property(MICRO_DEVICE, {"corrector_device_address": [CORRECTOR_DEVICE]})
+
+    db.put_device_property(MICRO_TWIN_DEVICE, {"scan_device_address": [SCAN_DEVICE]})
+    db.put_device_property(MICRO_TWIN_DEVICE, {"eds_device_address": [EDS_DEVICE]})
+    db.put_device_property(MICRO_TWIN_DEVICE, {"corrector_device_address": [CORRECTOR_DEVICE]})
+    db.put_device_property(MICRO_TWIN_DEVICE, {"stage_device_address": [STAGE_DEVICE]})
 
     print(f"  property:   scan_device_address = {SCAN_DEVICE}")
     print(f"  property:   camera_device_address = {CAMERA_DEVICE}")
