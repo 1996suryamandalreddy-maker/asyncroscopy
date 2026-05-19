@@ -212,3 +212,4 @@ PythonPackages-AS-1.15/
 llm-context/
 # MyST build outputs
 _build
+tango_database.db
