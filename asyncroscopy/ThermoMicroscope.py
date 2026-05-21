@@ -13,12 +13,14 @@ and falls back to simulated acquisition. To enable real hardware:
 Return convention for real image commands
 -----------------------------------------
 Real AutoScript image commands save the adorned object on disk and return the
-saved file path. The DATA device can read that path through the Tiled server.
+DATA/Tiled unique id for that saved acquisition.
 """
 
 import math
 import json
 import time
+import uuid
+from pathlib import Path
 
 import numpy as np
 import tango
@@ -26,11 +28,8 @@ from tango import AttrWriteType, DevState
 from tango.server import attribute, device_property
 
 from asyncroscopy.Microscope import Microscope
-from asyncroscopy.software.DATA import (
-    DEFAULT_ACQUISITION_DIR,
-    acquisition_config,
-    save_adorned_acquisition,
-)
+
+DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
 # AutoScript imports — only available on the microscope PC.
 # Wrapped in try/except so the device can still be imported and tested
@@ -100,7 +99,6 @@ class ThermoMicroscope(Microscope):
     def _connect(self):
         self._connect_hardware()
         self._connect_detector_proxies()
-        self._ensure_tiled_acquisition_config()
         self.set_state(DevState.ON)
         self.screen_current_calibration = None
 
@@ -113,10 +111,13 @@ class ThermoMicroscope(Microscope):
             self._microscope = TemMicroscopeClient()
             self._microscope.connect(self.autoscript_host_ip, self.autoscript_host_port)
             self.info_stream(f"Connected to AutoScript at {self.autoscript_host_ip}:{self.autoscript_host_port}")
+            self.is_autoscript = True
         except Exception as e:
             self.error_stream(f"AutoScript connection failed: {e}")
             self.set_state(DevState.FAULT)
             self._microscope = None
+            self.is_autoscript = False
+
 
     def _connect_detector_proxies(self) -> None:
         """Build DeviceProxy objects for each configured detector device."""
@@ -157,39 +158,50 @@ class ThermoMicroscope(Microscope):
         Returns the complete active config as JSON.
         """
         incoming = json.loads(config_json) if config_json else {}
-        current = self._ensure_tiled_acquisition_config()
-        current.update({key: value for key, value in incoming.items() if value is not None})
-        self._tiled_acquisition_config = acquisition_config(
-            save_directory=current.get("save_directory"),
-            file_format=current.get("file_format"),
-        )
-        return json.dumps(self._tiled_acquisition_config)
+        if incoming.get("save_directory") is not None:
+            self.acquisition_save_directory = incoming["save_directory"]
+        if incoming.get("file_format") is not None:
+            self.acquisition_file_format = incoming["file_format"]
+        return self._get_tiled_acquisition_config()
 
     def _get_tiled_acquisition_config(self) -> str:
         """Return the active DATA acquisition config as JSON."""
-        return json.dumps(self._ensure_tiled_acquisition_config())
+        data_proxy = self._detector_proxies.get("data")
+        save_directory = self.acquisition_save_directory
+        if data_proxy is not None:
+            try:
+                save_directory = data_proxy.save_path
+            except tango.DevFailed as exc:
+                self.warn_stream(f"DATA device not ready: {exc}")
+
+        return json.dumps(
+            {
+                "save_directory": save_directory,
+                "file_format": self.acquisition_file_format.lower().lstrip("."),
+            }
+        )
 
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
     def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> str:
         """
-        Call AutoScript acquisition, save the adorned image, and return its path.
+        Call AutoScript acquisition, save the adorned image, and return its DATA id.
         """
         if self._microscope is None:
             self._raise_hardware_unavailable("_acquire_stem_image()")
 
         detector_type = detector_list[0].upper() if detector_list else "HAADF"
         adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
-        return self._save_adorned_acquisition(
-            adorned,
-            acquisition_type="stem_image",
-            detector=detector_type,
-        )
+        data_server = self._detector_proxies.get("data")
+        path = self._new_acquisition_path("stem_image", detector_type, data_server)
+        adorned.save(str(path))
+        unique_id = data_server.get_unique_id(str(path)) if data_server is not None else str(path)
+        return unique_id
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
-        Call AutoScript acquisition, save the adorned image, and return its path.
+        Call AutoScript acquisition, save the adorned image, and return its DATA id.
         this is the advanced version
         """
         if self._microscope is None:
@@ -203,22 +215,21 @@ class ThermoMicroscope(Microscope):
             frame_combining=1,
         )
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
-        return self._save_adorned_acquisition(
-            adorned,
-            acquisition_type="camera_image",
-            detector=detector,
-        )
+        data_server = self._detector_proxies.get("data")
+        path = self._new_acquisition_path("camera_image", detector, data_server)
+        adorned.save(str(path))
+        unique_id = data_server.get_unique_id(str(path)) if data_server is not None else str(path)
+        return unique_id
 
 
     def _acquire_stem_image_advanced(self, imsize: int, dwell_time: float, detector_list: list, scan_region: list[float]) -> list[str]:
         """
-        Call AutoScript acquisition, save adorned images, and return their paths.
+        Call AutoScript acquisition, save adorned images, and return their DATA ids.
         """
         if self._microscope is None:
             self._raise_hardware_unavailable("_acquire_stem_image_advanced()")
 
         detector_list = [d.upper() for d in detector_list]
-        detector_type = "HAADF"
 
         custom_region = Region(
             RegionCoordinateSystem.RELATIVE,
@@ -239,49 +250,36 @@ class ThermoMicroscope(Microscope):
         
         adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
         adorned_images = adorned if isinstance(adorned, list) else [adorned]
-        return [
-            self._save_adorned_acquisition(
-                image,
-                acquisition_type="stem_image",
-                detector=detector_type,
-            )
-            for image in adorned_images
-        ]
+        unique_ids = []
+        data_server = self._detector_proxies.get("data")
+        for image, detector in zip(adorned_images, detector_list):
+            path = self._new_acquisition_path("stem_image", detector, data_server)
+            image.save(str(path))
+            unique_id = data_server.get_unique_id(str(path)) if data_server is not None else str(path)
+            unique_ids.append(unique_id)
+        return unique_ids
 
-    def _save_adorned_acquisition(
-        self,
-        adorned,
-        *,
-        acquisition_type: str,
-        detector: str,
-    ) -> str:
-        return save_adorned_acquisition(
-            adorned,
-            acquisition_type=acquisition_type,
-            detector=detector,
-            config=self._ensure_tiled_acquisition_config(),
-        )
+    def _new_acquisition_path(self, acquisition_type: str, detector: str, data_server) -> Path:
+        save_directory = self.acquisition_save_directory
+        if data_server is not None:
+            try:
+                save_directory = data_server.save_path
+            except tango.DevFailed as exc:
+                self.warn_stream(f"DATA device not ready: {exc}")
 
-    def _ensure_tiled_acquisition_config(self) -> dict[str, str]:
-        data_proxy = self._detector_proxies.get("data")
-        if data_proxy is not None:
-            self._tiled_acquisition_config = acquisition_config(
-                save_directory=data_proxy.save_path,
-                file_format=self.acquisition_file_format,
-            )
-            return self._tiled_acquisition_config
+        file_format = self.acquisition_file_format.lower().lstrip(".")
+        if file_format not in {"tif", "tiff"}:
+            raise ValueError(f"Unsupported acquisition file format: {file_format}")
 
-        self._tiled_acquisition_config = acquisition_config(
-            save_directory=getattr(self, "_tiled_acquisition_config", {}).get(
-                "save_directory",
-                self.acquisition_save_directory,
-            ),
-            file_format=getattr(self, "_tiled_acquisition_config", {}).get(
-                "file_format",
-                self.acquisition_file_format,
-            ),
-        )
-        return self._tiled_acquisition_config
+        directory = Path(save_directory).expanduser()
+        directory.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y%m%dT%H%M%S", time.localtime())
+        name = f"{self._safe_name(acquisition_type)}_{self._safe_name(detector)}_{stamp}_{uuid.uuid4().hex[:8]}.tiff"
+        return directory / name
+
+    @staticmethod
+    def _safe_name(value: str) -> str:
+        return ("".join(char if char.isalnum() else "_" for char in str(value).strip().lower())).strip("_") or "acquisition"
 
     def _raise_missing_detector(self, detector_name: str, origin: str) -> None:
         available = ", ".join(sorted(self._detector_proxies.keys())) or "none"

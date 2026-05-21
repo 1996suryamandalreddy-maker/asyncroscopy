@@ -10,11 +10,13 @@ from __future__ import annotations
 import base64
 import json
 import os
-import tempfile
+import subprocess
+import sys
 import time
-import uuid
 from pathlib import Path, PureWindowsPath
 from typing import Any
+from urllib.error import URLError
+from urllib.request import urlopen
 
 import numpy as np
 from tango import AttrWriteType, DevState
@@ -22,34 +24,6 @@ from tango.server import Device, attribute, command
 
 DEFAULT_TILED_URI = "http://10.46.217.241:9091"
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
-
-
-def acquisition_config(
-    *,
-    save_directory: str | os.PathLike[str] | None = None,
-    file_format: str | None = None,
-) -> dict[str, str]:
-    return {
-        "save_directory": str(save_directory or os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR") or DEFAULT_ACQUISITION_DIR),
-        "file_format": (file_format or os.environ.get("ASYNCROSCOPY_ACQUISITION_FORMAT") or "tiff").lower().lstrip("."),
-    }
-
-
-def save_adorned_acquisition(adorned: Any, *, acquisition_type: str, detector: str, config: dict[str, str]) -> str:
-    save_directory = _path_from_user(config["save_directory"])
-    if isinstance(save_directory, Path):
-        save_directory.mkdir(parents=True, exist_ok=True)
-        _verify_writable_directory(save_directory)
-
-    file_format = config.get("file_format", "tiff").lower().lstrip(".")
-    if file_format not in {"tiff", "tif"}:
-        raise ValueError(f"Unsupported acquisition file format: {file_format}")
-
-    path = save_directory / f"{_safe_name(acquisition_type)}_{_safe_name(detector)}_{_stamp(time.time())}_{uuid.uuid4().hex[:8]}.tiff"
-    saved_path = _save_with_native_adorned_writer(adorned, path)
-    if not _path_exists(saved_path) and not (_is_windows_drive_path(saved_path) and os.name != "nt"):
-        raise FileNotFoundError(f"Acquisition save returned without creating a file. Expected path: {_path_text(saved_path)}.")
-    return _path_text(saved_path)
 
 
 def saved_path_candidates(saved_path: str, save_directory: str, tiled_root_path: str = "") -> list[str]:
@@ -98,6 +72,12 @@ class DATA(Device):
         access=AttrWriteType.READ_WRITE,
         doc="Optional path prefix inside Tiled corresponding to save_path.",
     )
+    tiled_server = attribute(
+        label="Tiled Server",
+        dtype=str,
+        access=AttrWriteType.READ,
+        doc="yes if the configured Tiled HTTP data server responds, otherwise no.",
+    )
 
     def init_device(self) -> None:
         Device.init_device(self)
@@ -106,6 +86,9 @@ class DATA(Device):
         self._save_path = os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR", DEFAULT_ACQUISITION_DIR)
         self._root_path = os.environ.get("ASYNCROSCOPY_TILED_ROOT_PATH", "").strip("/")
         self._api_key = os.environ.get("TILED_API_KEY")
+        self._tiled_process = None
+        self._tiled_server = "yes" if self._tiled_alive() else "no"
+        self._tiled_server_status = ""
         self.info_stream("DATA device initialised")
 
     def read_host(self) -> str:
@@ -131,6 +114,10 @@ class DATA(Device):
 
     def write_root_path(self, value: str) -> None:
         self._root_path = value.strip("/")
+
+    def read_tiled_server(self) -> str:
+        self._tiled_server = "yes" if self._tiled_alive() else "no"
+        return self._tiled_server
 
     @command(dtype_out=str)
     def get_uri(self) -> str:
@@ -163,9 +150,57 @@ class DATA(Device):
         self._api_key = None
         return self.get_config()
 
+    @command(dtype_out=str)
+    def start_tiled_server(self) -> str:
+        if self._tiled_alive():
+            self._tiled_server = "yes"
+            return self.get_config()
+
+        catalog = _path_text(Path(self._save_path).expanduser() / ".asyncroscopy_tiled_catalog.db")
+        api_key = self._api_key or os.environ.get("TILED_API_KEY", "secret")
+        try:
+            if not (_looks_like_windows_drive_path(self._save_path) and os.name != "nt"):
+                Path(self._save_path).expanduser().mkdir(parents=True, exist_ok=True)
+            subprocess.run([self._tiled_executable(), "catalog", "init", "--if-not-exists", catalog], check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        except Exception as exc:
+            self._tiled_server = "no"
+            self._tiled_server_status = str(exc)
+            return self.get_config()
+
+        command = [
+            self._tiled_executable(),
+            "serve",
+            "catalog",
+            catalog,
+            "--read",
+            self._save_path,
+            "--public",
+            "--api-key",
+            api_key,
+            "--host",
+            self._host,
+            "--port",
+            str(self._port),
+        ]
+        self._tiled_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and not self._tiled_alive():
+            if self._tiled_process.poll() is not None:
+                break
+            time.sleep(0.5)
+        self._tiled_server = "yes" if self._tiled_alive() else "no"
+        output = "" if self._tiled_process.poll() is None or self._tiled_process.stdout is None else self._tiled_process.stdout.read()
+        if self._tiled_server == "yes":
+            register = [self._tiled_executable(), "register", self._uri(), self._save_path, "--api-key", api_key, "--keep-ext"]
+            result = subprocess.run(register, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            self._tiled_server_status = "running; registered" if result.returncode == 0 else f"running; register failed; {result.stdout[-1000:]}"
+        else:
+            self._tiled_server_status = f"not running; exit_code={self._tiled_process.poll()}; {output[-1000:]}"
+        return self.get_config()
+
     @command(dtype_in=str, dtype_out=str)
     def list_entries(self, path: str = "") -> str:
-        return json.dumps({"path": path, "entries": list(self._node_for_path(path))})
+        return json.dumps({"path": path, "entries": list(self._walk_path(self._client(), path))})
 
     @command(dtype_out=str)
     def list_root(self) -> str:
@@ -174,6 +209,11 @@ class DATA(Device):
     @command(dtype_in=str, dtype_out=str)
     def get_data(self, saved_path_or_tiled_path: str) -> str:
         return json.dumps(self._json_ready(self._read_node(self._node_for_path_or_saved_path(saved_path_or_tiled_path))))
+
+    @command(dtype_in=str, dtype_out=str)
+    def get_unique_id(self, saved_path: str) -> str:
+        candidates = saved_path_candidates(saved_path.strip(), self._save_path, self._root_path)
+        return candidates[0] if candidates else _path_name(saved_path)
 
     @command(dtype_out=str)
     def get_recent(self) -> str:
@@ -205,6 +245,8 @@ class DATA(Device):
             "save_path": self._save_path,
             "root_path": self._root_path,
             "api_key_configured": bool(self._api_key),
+            "tiled_server": self._tiled_server,
+            "tiled_server_status": self._tiled_server_status,
         }
 
     def _uri(self) -> str:
@@ -212,6 +254,13 @@ class DATA(Device):
 
     def _client(self):
         return connect_tiled_client(self._uri(), api_key=self._api_key)
+
+    def _tiled_alive(self) -> bool:
+        try:
+            with urlopen(self._uri(), timeout=0.3):
+                return True
+        except (OSError, URLError):
+            return False
 
     def _node_for_path_or_saved_path(self, saved_path_or_tiled_path: str):
         client = self._client()
@@ -223,9 +272,6 @@ class DATA(Device):
             except Exception as exc:
                 errors.append(f"{candidate}: {exc}")
         raise KeyError("Could not resolve path in Tiled. Tried: " + "; ".join(errors))
-
-    def _node_for_path(self, tiled_path: str):
-        return self._walk_path(self._client(), tiled_path)
 
     @staticmethod
     def _walk_path(node, tiled_path: str):
@@ -283,51 +329,16 @@ class DATA(Device):
         host, _, port = without_scheme.partition(":")
         return host or "10.46.217.241", int(port or 9091)
 
+    @staticmethod
+    def _tiled_executable() -> str:
+        candidate = Path(sys.executable).with_name("tiled")
+        return str(candidate) if candidate.exists() else "tiled"
+
 
 def _tiled_path_candidates(relative_path: str, root_path: str = "") -> list[str]:
     path = Path(relative_path)
     candidates = [str(path.with_suffix("")).replace(os.sep, "/"), str(path).replace(os.sep, "/")]
     return [f"{root_path}/{candidate}" if root_path else candidate for candidate in dict.fromkeys(candidates)]
-
-
-def _save_with_native_adorned_writer(adorned: Any, path: Path | PureWindowsPath) -> Path | PureWindowsPath:
-    result = adorned.save(_path_text(path))
-    saved_path = _find_saved_path(path)
-    if saved_path is not None:
-        return saved_path
-    if _is_windows_drive_path(path) and os.name != "nt":
-        return path
-    raise FileNotFoundError(f"AutoScript adorned.save did not create {_path_text(path)}. Return value: {result!r}.")
-
-
-def _find_saved_path(path: Path | PureWindowsPath) -> Path | PureWindowsPath | None:
-    candidates = [path]
-    if _path_suffix(path).lower() == ".tiff":
-        candidates.append(path.with_suffix(".tif"))
-    if _path_suffix(path):
-        candidates.append(path.with_suffix(""))
-    return next((candidate for candidate in candidates if _path_exists(candidate)), None)
-
-
-def _verify_writable_directory(path: Path) -> None:
-    try:
-        with tempfile.NamedTemporaryFile(prefix=".asyncroscopy_write_test_", dir=path, delete=True):
-            pass
-    except Exception as exc:
-        raise PermissionError(f"Acquisition save directory is not writable: {path}") from exc
-
-
-def _safe_name(value: str) -> str:
-    return ("".join(char if char.isalnum() else "_" for char in str(value).strip().lower())).strip("_") or "acquisition"
-
-
-def _stamp(timestamp: float) -> str:
-    return time.strftime("%Y%m%dT%H%M%S", time.localtime(timestamp))
-
-
-def _path_from_user(value: str | os.PathLike[str]) -> Path | PureWindowsPath:
-    text = os.fspath(value)
-    return PureWindowsPath(text) if _looks_like_windows_drive_path(text) else Path(text).expanduser().resolve()
 
 
 def _looks_like_windows_drive_path(value: str) -> bool:
@@ -344,14 +355,6 @@ def _path_text(path: Path | PureWindowsPath) -> str:
 
 def _path_name(path: str) -> str:
     return PureWindowsPath(path).name if _looks_like_windows_drive_path(path) else Path(path).name
-
-
-def _path_suffix(path: Path | PureWindowsPath) -> str:
-    return PureWindowsPath(str(path)).suffix if _is_windows_drive_path(path) else path.suffix
-
-
-def _path_exists(path: Path | PureWindowsPath) -> bool:
-    return False if _is_windows_drive_path(path) and os.name != "nt" else Path(path).exists()
 
 
 if __name__ == "__main__":

@@ -6,8 +6,8 @@ so that each detector device is the single source of truth for its own params.
 
 Return convention for image commands
 -------------------------------------
-Image commands return a string. Hardware-backed microscopes should save the
-native adorned object on disk and return the saved path for the Tiled server.
+Image commands return a string supplied by the concrete microscope
+implementation, typically a DATA/Tiled unique id.
 """
 
 import json
@@ -187,19 +187,19 @@ class Microscope(Device, metaclass=CombinedMeta):
         # Read acquisition settings from the detector device
         exposure_time = proxy.exposure_time # float
 
-        adorned_spectrum = self._acquire_spectrum(detector_name, exposure_time)
+        spectrum = self._acquire_spectrum(detector_name, exposure_time)
 
         metadata = {
             "detector": detector_name,
             "dwell_time": exposure_time,
             "timestamp": time.time(),
-            # TODO: add metadata from adorned_spectrum.metadata when using real AutoScript
+            # TODO: add metadata from spectrum metadata when using real hardware
         }
 
-        if isinstance(adorned_spectrum, dict):
-            raw_bytes = json.dumps(adorned_spectrum).encode("utf-8")
+        if isinstance(spectrum, dict):
+            raw_bytes = json.dumps(spectrum).encode("utf-8")
         else:
-            raw_bytes = adorned_spectrum.tobytes()
+            raw_bytes = spectrum.tobytes()
 
         return json.dumps(metadata), raw_bytes
 
@@ -210,19 +210,27 @@ class Microscope(Device, metaclass=CombinedMeta):
         if scan is None:
             self._raise_missing_detector("scan", "get_scanned_image()")
 
-        result = self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
-        if isinstance(result, str):
-            return result
+        return self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
 
-        self._cached_images = [result]
-        img_data = result.data if hasattr(result, "data") else result
-        return json.dumps({
-            "detector": "haadf",
-            "shape": list(img_data.shape),
-            "dtype": str(img_data.dtype),
-            "cache_index": 0,
-            "data_command": "get_image_data_cached",
-        })
+    @command(dtype_out=str)
+    def get_scanned_image_advanced(self) -> str:
+        """Acquire a STEM image using advanced STEM settings from the scan device."""
+        scan = self._detector_proxies.get("scan")
+        if scan is None:
+            self._raise_missing_detector("scan", "get_scanned_image_advanced()")
+
+        detector_names = self._get_active_scan_detectors(scan)
+        unique_ids = self._acquire_stem_image_advanced(
+            scan.imsize,
+            scan.dwell_time,
+            detector_names,
+            self._get_scan_region(scan),
+        )
+        if isinstance(unique_ids, str):
+            return unique_ids
+
+        unique_ids = list(unique_ids)
+        return unique_ids[0] if len(unique_ids) == 1 else json.dumps(unique_ids)
 
     @command(dtype_out=str)
     def get_camera_image(self) -> str:
@@ -253,36 +261,23 @@ class Microscope(Device, metaclass=CombinedMeta):
 
         Returns
         -------
-        JSON string returned by the vendor-specific implementation. Hardware
-        microscopes should return saved paths; simulators may return cache
-        metadata for get_image_data_cached().
+        JSON string containing unique ids returned by the vendor-specific
+        implementation.
         """
         detector_names = [name.strip() for name in detector_names]
         scan = self._detector_proxies.get("scan")
         if scan is None:
             self._raise_missing_detector("scan", "get_images()")
 
-        results = self._acquire_stem_image_advanced(
+        unique_ids = self._acquire_stem_image_advanced(
             imsize=scan.imsize,
             dwell_time=scan.dwell_time,
             detector_list=detector_names,
             scan_region=[0.0, 0.0, 1.0, 1.0],
         )
-
-        if all(isinstance(result, str) for result in results):
-            return json.dumps({"paths": results, "count": len(results)})
-
-        self._cached_images = results
-        metadata = []
-        for index, (detector, image) in enumerate(zip(detector_names, results)):
-            img_data = image.data if hasattr(image, "data") else image
-            metadata.append({
-                "index": index,
-                "detector": detector,
-                "shape": list(img_data.shape),
-                "dtype": str(img_data.dtype),
-            })
-        return json.dumps({"images": metadata, "count": len(results)})
+        if isinstance(unique_ids, str):
+            return json.dumps([unique_ids])
+        return json.dumps(list(unique_ids))
 
     @command(dtype_in=int, dtype_out=DevEncoded)
     def get_image_data_cached(self, index: int) -> tuple[str, bytes]:
@@ -292,8 +287,8 @@ class Microscope(Device, metaclass=CombinedMeta):
         if index >= len(self._cached_images):
             tango.Except.throw_exception("InvalidIndex", f"Index {index} out of range", "get_image_data()")
         
-        adorned_img = self._cached_images[index]
-        img_data = adorned_img.data if hasattr(adorned_img, 'data') else adorned_img
+        cached_image = self._cached_images[index]
+        img_data = cached_image.data if hasattr(cached_image, 'data') else cached_image
         
         meta = {"shape": list(img_data.shape), "dtype": str(img_data.dtype)}
         return json.dumps(meta), img_data.tobytes()
@@ -320,6 +315,22 @@ class Microscope(Device, metaclass=CombinedMeta):
             detector=detector,
             readout_area=camera.readout_area,
         )
+
+    def _get_active_scan_detectors(self, scan) -> list[str]:
+        detector_names = []
+        for detector in ("haadf", "bf"):
+            try:
+                if bool(getattr(scan, detector)):
+                    detector_names.append(detector)
+            except (AttributeError, tango.DevFailed):
+                continue
+        return detector_names or ["haadf"]
+
+    def _get_scan_region(self, scan) -> list[float]:
+        try:
+            return list(scan.scan_region)
+        except (AttributeError, tango.DevFailed):
+            return [0.0, 0.0, 1.0, 1.0]
     
     @command(dtype_in=DevVarFloatArray, dtype_out=None)
     def place_beam(self, position) -> None:

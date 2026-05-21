@@ -234,6 +234,33 @@ def patched_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
 
 
 @pytest.fixture
+def patched_advanced_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    calls = []
+
+    def fake_acquire(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector_list: list,
+        scan_region: list[float],
+    ):
+        calls.append(
+            {
+                "imsize": imsize,
+                "dwell_time": dwell_time,
+                "detector_list": list(detector_list),
+                "scan_region": list(scan_region),
+            }
+        )
+        path = tmp_path / f"stem_advanced_{imsize}.tiff"
+        path.write_bytes(b"fake-advanced-tiff")
+        return [str(path)]
+
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_image_advanced", fake_acquire)
+    return calls
+
+
+@pytest.fixture
 def patched_camera_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
     calls = []
 

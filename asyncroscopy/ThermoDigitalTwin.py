@@ -13,7 +13,7 @@ import tango
 from ase import Atoms
 from ase.build import bulk
 from tango import AttrWriteType, DevState
-from tango.server import Device, attribute, device_property
+from tango.server import Device, attribute, command, device_property
 
 from asyncroscopy.Microscope import Microscope
 
@@ -412,6 +412,60 @@ class ThermoDigitalTwin(Microscope):
             raise ValueError(f"beam_pos values must be in [0.0, 1.0], got x={x}, y={y}")
         self._beam_pos_x = float(x)
         self._beam_pos_y = float(y)
+
+    @command(dtype_out=str)
+    def get_scanned_image(self) -> str:
+        """Acquire and cache a simulated STEM image."""
+        scan = self._detector_proxies.get("scan")
+        if scan is None:
+            self._raise_missing_detector("scan", "get_scanned_image()")
+
+        image = self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
+        return self._cache_image(image, "haadf")
+
+    @command(dtype_out=str)
+    def get_scanned_image_advanced(self) -> str:
+        """Acquire and cache simulated advanced STEM images."""
+        scan = self._detector_proxies.get("scan")
+        if scan is None:
+            self._raise_missing_detector("scan", "get_scanned_image_advanced()")
+
+        detector_names = self._get_active_scan_detectors(scan)
+        images = self._acquire_stem_image_advanced(
+            scan.imsize,
+            scan.dwell_time,
+            detector_names,
+            self._get_scan_region(scan),
+        )
+        return self._cache_images(images, detector_names)
+
+    def _cache_image(self, image, detector: str) -> str:
+        self._cached_images = [image]
+        image_data = image.data if hasattr(image, "data") else image
+        return json.dumps(
+            {
+                "detector": detector,
+                "shape": list(image_data.shape),
+                "dtype": str(image_data.dtype),
+                "cache_index": 0,
+                "data_command": "get_image_data_cached",
+            }
+        )
+
+    def _cache_images(self, images, detector_names: list[str]) -> str:
+        self._cached_images = list(images)
+        metadata = []
+        for index, (detector, image) in enumerate(zip(detector_names, self._cached_images)):
+            image_data = image.data if hasattr(image, "data") else image
+            metadata.append(
+                {
+                    "index": index,
+                    "detector": detector,
+                    "shape": list(image_data.shape),
+                    "dtype": str(image_data.dtype),
+                }
+            )
+        return json.dumps({"images": metadata, "count": len(metadata)})
 
     def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> np.ndarray:
         """Simulate STEM image acquisition using convolutions of the pseudo-potential and electron probe."""
