@@ -209,7 +209,10 @@ def popen(key: str, label: str, command: list[str], env: dict[str, str]) -> Mana
     )
     for stream in (process.stdout, process.stderr):
         if stream is not None:
-            os.set_blocking(stream.fileno(), False)
+            try:
+                os.set_blocking(stream.fileno(), False)
+            except (AttributeError, OSError):
+                pass
     return ManagedProcess(key=key, label=label, command=command, process=process, started_at=time.monotonic())
 
 
@@ -255,26 +258,89 @@ def terminate_all(processes: Iterable[ManagedProcess]) -> None:
 
 
 def process_port_pids(port: int) -> list[int]:
-    result = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
+    if os.name == "nt":
+        return process_port_pids_windows(port)
+
+    try:
+        result = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
+    except FileNotFoundError:
+        status_line("SKIP", f"database port {port}", "lsof is not installed")
+        return []
     return [int(line) for line in result.stdout.splitlines() if line.strip().isdigit()]
+
+
+def process_port_pids_windows(port: int) -> list[int]:
+    try:
+        result = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True, text=True)
+    except FileNotFoundError:
+        status_line("SKIP", f"database port {port}", "netstat is not available")
+        return []
+
+    pids: set[int] = set()
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) < 5 or parts[0].upper() != "TCP":
+            continue
+        local_address = parts[1]
+        state = parts[3].upper()
+        pid = parts[-1]
+        if state == "LISTENING" and local_address.rsplit(":", 1)[-1] == str(port) and pid.isdigit():
+            pids.add(int(pid))
+    return sorted(pids)
 
 
 def stop_pids(pids: Iterable[int]) -> int:
     stopped = 0
     for pid in pids:
-        try:
-            os.kill(pid, signal.SIGTERM)
-            stopped += 1
-        except ProcessLookupError:
-            pass
-        except PermissionError:
-            status_line("FAIL", f"PID {pid}", "permission denied")
+        if os.name == "nt":
+            try:
+                result = subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, text=True)
+            except FileNotFoundError:
+                status_line("SKIP", f"PID {pid}", "taskkill is not available")
+                continue
+            if result.returncode == 0:
+                stopped += 1
+            else:
+                status_line("FAIL", f"PID {pid}", (result.stderr or result.stdout).strip())
+        else:
+            try:
+                os.kill(pid, signal.SIGTERM)
+                stopped += 1
+            except ProcessLookupError:
+                pass
+            except PermissionError:
+                status_line("FAIL", f"PID {pid}", "permission denied")
     return stopped
 
 
 def pkill_pattern(pattern: str) -> bool:
-    result = subprocess.run(["pkill", "-f", pattern], capture_output=True, text=True)
+    if os.name == "nt":
+        return stop_windows_python_processes(pattern)
+
+    try:
+        result = subprocess.run(["pkill", "-f", pattern], capture_output=True, text=True)
+    except FileNotFoundError:
+        return False
     return result.returncode == 0
+
+
+def stop_windows_python_processes(pattern: str) -> bool:
+    powershell = "powershell.exe"
+    script = (
+        "$pattern = $args[0]; "
+        "Get-CimInstance Win32_Process | "
+        "Where-Object { $_.CommandLine -and $_.CommandLine.Contains($pattern) } | "
+        "ForEach-Object { Stop-Process -Id $_.ProcessId -Force; $_.ProcessId }"
+    )
+    try:
+        result = subprocess.run(
+            [powershell, "-NoProfile", "-Command", script, pattern],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return False
+    return result.returncode == 0 and bool(result.stdout.strip())
 
 
 def clear_old_processes(port: int, devices: list[DeviceServer]) -> None:
