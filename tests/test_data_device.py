@@ -90,27 +90,6 @@ class TestDataDevice:
                     "text": True,
                 },
             },
-            {
-                "command": [
-                    "tiled",
-                    "register",
-                    "http://127.0.0.1:9091",
-                    str(tmp_path),
-                    "--api-key",
-                    "secret",
-                    "--keep-ext",
-                    "--walker",
-                    "tiled.client.register:one_node_per_item",
-                    "--watch",
-                    "--prefix",
-                    "served",
-                ],
-                "kwargs": {
-                    "stdout": subprocess.DEVNULL,
-                    "stderr": subprocess.STDOUT,
-                    "text": True,
-                },
-            },
         ]
         assert run_commands == [
             [
@@ -206,3 +185,14 @@ class TestDataDevice:
 
         assert result["registered"] is True
         assert result["tiled_key"] == "frame.tiff"
+
+    def test_get_tiled_key_maps_saved_path_without_registering(
+        self,
+        data_proxy: tango.DeviceProxy,
+    ) -> None:
+        data_proxy.root_path = "served"
+
+        assert (
+            data_proxy.get_tiled_key("D:/microscopedata/tiled/ahoust17/frame.tiff")
+            == "served/frame.tiff"
+        )

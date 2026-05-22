@@ -141,7 +141,7 @@ class DATA(Device):
     def start_tiled_server(self) -> str:
         if self._tiled_alive():
             self._tiled_server = "yes"
-            self._ensure_tiled_watcher()
+            self._tiled_server_status = "running"
             return self.get_config()
 
         catalog = _path_text(
@@ -196,7 +196,7 @@ class DATA(Device):
             time.sleep(0.5)
         self._tiled_server = "yes" if self._tiled_alive() else "no"
         if self._tiled_server == "yes":
-            self._ensure_tiled_watcher(api_key=api_key)
+            self._tiled_server_status = "running"
         else:
             self._tiled_server_status = (
                 f"not running; exit_code={self._tiled_process.poll()}"
@@ -207,6 +207,10 @@ class DATA(Device):
     def register_path(self, path: str) -> str:
         result = self._register_path(path.strip())
         return json.dumps(result)
+
+    @command(dtype_in=str, dtype_out=str)
+    def get_tiled_key(self, path: str) -> str:
+        return self._tiled_key_for_path(path.strip())
 
     @command(dtype_out=str)
     def get_recent(self) -> str:
