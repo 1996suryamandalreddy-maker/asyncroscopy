@@ -7,7 +7,6 @@ devices.
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 import subprocess
@@ -18,31 +17,11 @@ from typing import Any
 from urllib.error import URLError
 from urllib.request import urlopen
 
-import numpy as np
 from tango import AttrWriteType, DevState
 from tango.server import Device, attribute, command
 
 DEFAULT_TILED_URI = "http://10.46.217.241:9091"
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
-
-
-def saved_path_candidates(saved_path: str, save_directory: str, tiled_root_path: str = "") -> list[str]:
-    saved = str(saved_path).replace("\\", "/")
-    save_root = str(save_directory).replace("\\", "/").rstrip("/")
-    root = tiled_root_path.strip("/")
-    relative = saved[len(save_root) + 1 :] if save_root and saved.lower().startswith(save_root.lower() + "/") else _path_name(saved)
-    candidates = _tiled_path_candidates(relative, root)
-    if _path_name(saved) != relative:
-        candidates.extend(_tiled_path_candidates(_path_name(saved), root))
-    return list(dict.fromkeys(candidate.strip("/") for candidate in candidates if candidate))
-
-
-def connect_tiled_client(uri: str | None = None, api_key: str | None = None):
-    from tiled.client import from_uri
-
-    uri = uri or os.environ.get("ASYNCROSCOPY_TILED_URI") or DEFAULT_TILED_URI
-    api_key = api_key if api_key is not None else os.environ.get("TILED_API_KEY")
-    return from_uri(uri, **({"api_key": api_key} if api_key else {}))
 
 
 class DATA(Device):
@@ -87,6 +66,7 @@ class DATA(Device):
         self._root_path = os.environ.get("ASYNCROSCOPY_TILED_ROOT_PATH", "").strip("/")
         self._api_key = os.environ.get("TILED_API_KEY")
         self._tiled_process = None
+        self._tiled_watch_process = None
         self._tiled_server = "yes" if self._tiled_alive() else "no"
         self._tiled_server_status = ""
         self.info_stream("DATA device initialised")
@@ -154,6 +134,7 @@ class DATA(Device):
     def start_tiled_server(self) -> str:
         if self._tiled_alive():
             self._tiled_server = "yes"
+            self._ensure_tiled_watcher()
             return self.get_config()
 
         catalog = _path_text(Path(self._save_path).expanduser() / ".asyncroscopy_tiled_catalog.db")
@@ -191,29 +172,15 @@ class DATA(Device):
         self._tiled_server = "yes" if self._tiled_alive() else "no"
         output = "" if self._tiled_process.poll() is None or self._tiled_process.stdout is None else self._tiled_process.stdout.read()
         if self._tiled_server == "yes":
-            register = [self._tiled_executable(), "register", self._uri(), self._save_path, "--api-key", api_key, "--keep-ext"]
-            result = subprocess.run(register, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            self._tiled_server_status = "running; registered" if result.returncode == 0 else f"running; register failed; {result.stdout[-1000:]}"
+            self._ensure_tiled_watcher(api_key=api_key)
         else:
             self._tiled_server_status = f"not running; exit_code={self._tiled_process.poll()}; {output[-1000:]}"
         return self.get_config()
 
     @command(dtype_in=str, dtype_out=str)
-    def list_entries(self, path: str = "") -> str:
-        return json.dumps({"path": path, "entries": list(self._walk_path(self._client(), path))})
-
-    @command(dtype_out=str)
-    def list_root(self) -> str:
-        return self.list_entries("")
-
-    @command(dtype_in=str, dtype_out=str)
-    def get_data(self, saved_path_or_tiled_path: str) -> str:
-        return json.dumps(self._json_ready(self._read_node(self._node_for_path_or_saved_path(saved_path_or_tiled_path))))
-
-    @command(dtype_in=str, dtype_out=str)
-    def get_unique_id(self, saved_path: str) -> str:
-        candidates = saved_path_candidates(saved_path.strip(), self._save_path, self._root_path)
-        return candidates[0] if candidates else _path_name(saved_path)
+    def register_path(self, path: str) -> str:
+        result = self._register_path(path.strip())
+        return json.dumps(result)
 
     @command(dtype_out=str)
     def get_recent(self) -> str:
@@ -252,9 +219,6 @@ class DATA(Device):
     def _uri(self) -> str:
         return f"http://{self._host}:{self._port}"
 
-    def _client(self):
-        return connect_tiled_client(self._uri(), api_key=self._api_key)
-
     def _tiled_alive(self) -> bool:
         try:
             with urlopen(self._uri(), timeout=0.3):
@@ -262,31 +226,46 @@ class DATA(Device):
         except (OSError, URLError):
             return False
 
-    def _node_for_path_or_saved_path(self, saved_path_or_tiled_path: str):
-        client = self._client()
-        candidates = [saved_path_or_tiled_path.strip(), *saved_path_candidates(saved_path_or_tiled_path.strip(), self._save_path, self._root_path)]
-        errors = []
-        for candidate in list(dict.fromkeys(candidates)):
-            try:
-                return self._walk_path(client, candidate)
-            except Exception as exc:
-                errors.append(f"{candidate}: {exc}")
-        raise KeyError("Could not resolve path in Tiled. Tried: " + "; ".join(errors))
+    def _ensure_tiled_watcher(self, api_key: str | None = None) -> None:
+        if self._tiled_watch_process is not None and self._tiled_watch_process.poll() is None:
+            self._tiled_server_status = "running; watcher active"
+            return
 
-    @staticmethod
-    def _walk_path(node, tiled_path: str):
-        for part in [piece for piece in tiled_path.strip("/").split("/") if piece]:
-            node = node[part]
-        return node
+        api_key = api_key or self._api_key or os.environ.get("TILED_API_KEY", "secret")
+        command = self._register_command(self._save_path, api_key, watch=True)
+        self._tiled_watch_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True)
+        time.sleep(0.5)
+        self._tiled_server_status = "running; watcher started" if self._tiled_watch_process.poll() is None else "running; watcher failed"
 
-    @staticmethod
-    def _read_node(node):
-        if hasattr(node, "read"):
-            return node.read()
-        try:
-            return node[:]
-        except Exception:
-            return node
+    def _register_path(self, path: str) -> dict[str, Any]:
+        api_key = self._api_key or os.environ.get("TILED_API_KEY", "secret")
+        command = self._register_command(path, api_key, watch=False)
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        registered = result.returncode == 0
+        output = result.stdout[-1000:] if result.stdout else ""
+        self._tiled_server_status = "running; registered path" if registered else f"running; register path failed; {output}"
+        return {
+            "path": path,
+            "registered": registered,
+            "returncode": result.returncode,
+            "output": output,
+        }
+
+    def _register_command(self, path: str, api_key: str, watch: bool) -> list[str]:
+        command = [
+            self._tiled_executable(),
+            "register",
+            self._uri(),
+            path,
+            "--api-key",
+            api_key,
+            "--keep-ext",
+        ]
+        if watch:
+            command.append("--watch")
+        if self._root_path:
+            command.extend(["--prefix", self._root_path])
+        return command
 
     def _recent_files(self) -> list[dict[str, Any]]:
         root = Path(self._save_path).expanduser()
@@ -306,24 +285,6 @@ class DATA(Device):
         ]
 
     @staticmethod
-    def _json_ready(value: Any) -> Any:
-        if isinstance(value, np.ndarray):
-            return {"type": "ndarray", "dtype": str(value.dtype), "shape": list(value.shape), "data": value.tolist()}
-        if isinstance(value, np.generic):
-            return value.item()
-        if isinstance(value, bytes):
-            return {"type": "bytes", "encoding": "base64", "data": base64.b64encode(value).decode("ascii")}
-        if hasattr(value, "to_dict"):
-            return value.to_dict()
-        if isinstance(value, dict):
-            return {str(key): DATA._json_ready(item) for key, item in value.items()}
-        if isinstance(value, (list, tuple)):
-            return [DATA._json_ready(item) for item in value]
-        if isinstance(value, (str, int, float, bool)) or value is None:
-            return value
-        return str(value)
-
-    @staticmethod
     def _parse_uri(uri: str) -> tuple[str, int]:
         without_scheme = uri.split("://", 1)[-1].strip("/")
         host, _, port = without_scheme.partition(":")
@@ -333,12 +294,6 @@ class DATA(Device):
     def _tiled_executable() -> str:
         candidate = Path(sys.executable).with_name("tiled")
         return str(candidate) if candidate.exists() else "tiled"
-
-
-def _tiled_path_candidates(relative_path: str, root_path: str = "") -> list[str]:
-    path = Path(relative_path)
-    candidates = [str(path.with_suffix("")).replace(os.sep, "/"), str(path).replace(os.sep, "/")]
-    return [f"{root_path}/{candidate}" if root_path else candidate for candidate in dict.fromkeys(candidates)]
 
 
 def _looks_like_windows_drive_path(value: str) -> bool:
@@ -351,10 +306,6 @@ def _is_windows_drive_path(path: Path | PureWindowsPath) -> bool:
 
 def _path_text(path: Path | PureWindowsPath) -> str:
     return str(path).replace("\\", "/") if _is_windows_drive_path(path) else str(path)
-
-
-def _path_name(path: str) -> str:
-    return PureWindowsPath(path).name if _looks_like_windows_drive_path(path) else Path(path).name
 
 
 if __name__ == "__main__":

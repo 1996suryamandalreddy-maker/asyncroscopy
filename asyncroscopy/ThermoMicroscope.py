@@ -186,7 +186,7 @@ class ThermoMicroscope(Microscope):
     # ------------------------------------------------------------------
     def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> str:
         """
-        Call AutoScript acquisition, save the adorned image, and return its DATA id.
+        Call AutoScript acquisition, save the adorned image, and return its path.
         """
         if self._microscope is None:
             self._raise_hardware_unavailable("_acquire_stem_image()")
@@ -196,12 +196,12 @@ class ThermoMicroscope(Microscope):
         data_server = self._detector_proxies.get("data")
         path = self._new_acquisition_path("stem_image", detector_type, data_server)
         adorned.save(str(path))
-        unique_id = data_server.get_unique_id(str(path)) if data_server is not None else str(path)
-        return unique_id
+        self._register_acquisition_path(path, data_server)
+        return str(path)
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
-        Call AutoScript acquisition, save the adorned image, and return its DATA id.
+        Call AutoScript acquisition, save the adorned image, and return its path.
         this is the advanced version
         """
         if self._microscope is None:
@@ -218,13 +218,13 @@ class ThermoMicroscope(Microscope):
         data_server = self._detector_proxies.get("data")
         path = self._new_acquisition_path("camera_image", detector, data_server)
         adorned.save(str(path))
-        unique_id = data_server.get_unique_id(str(path)) if data_server is not None else str(path)
-        return unique_id
+        self._register_acquisition_path(path, data_server)
+        return str(path)
 
 
     def _acquire_stem_image_advanced(self, imsize: int, dwell_time: float, detector_list: list, scan_region: list[float]) -> list[str]:
         """
-        Call AutoScript acquisition, save adorned images, and return their DATA ids.
+        Call AutoScript acquisition, save adorned images, and return their paths.
         """
         if self._microscope is None:
             self._raise_hardware_unavailable("_acquire_stem_image_advanced()")
@@ -250,14 +250,25 @@ class ThermoMicroscope(Microscope):
         
         adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
         adorned_images = adorned if isinstance(adorned, list) else [adorned]
-        unique_ids = []
+        saved_paths = []
         data_server = self._detector_proxies.get("data")
         for image, detector in zip(adorned_images, detector_list):
             path = self._new_acquisition_path("stem_image", detector, data_server)
             image.save(str(path))
-            unique_id = data_server.get_unique_id(str(path)) if data_server is not None else str(path)
-            unique_ids.append(unique_id)
-        return unique_ids
+            self._register_acquisition_path(path, data_server)
+            saved_paths.append(str(path))
+        return saved_paths
+
+    def _register_acquisition_path(self, path: Path, data_server) -> None:
+        if data_server is None:
+            return
+        try:
+            result = json.loads(data_server.register_path(str(path)))
+        except tango.DevFailed as exc:
+            self.warn_stream(f"Could not register acquisition with Tiled: {exc}")
+            return
+        if not result.get("registered", False):
+            self.warn_stream(f"Tiled registration failed for {path}: {result.get('output', '')}")
 
     def _new_acquisition_path(self, acquisition_type: str, detector: str, data_server) -> Path:
         save_directory = self.acquisition_save_directory

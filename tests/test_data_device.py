@@ -1,25 +1,8 @@
 import json
 
-import numpy as np
 import tango
 
 from asyncroscopy.software.DATA import DATA
-
-
-class FakeTiledNode:
-    def __init__(self, data):
-        self._data = data
-
-    def read(self):
-        return self._data
-
-
-class FakeTiledClient(dict):
-    def __getitem__(self, key):
-        try:
-            return super().__getitem__(key)
-        except KeyError as exc:
-            raise KeyError(key) from exc
 
 
 class TestDataDevice:
@@ -69,6 +52,7 @@ class TestDataDevice:
         data_proxy.host = "127.0.0.1"
         data_proxy.port = 9091
         data_proxy.save_path = str(tmp_path)
+        data_proxy.root_path = "served"
         data_proxy.set_api_key("secret")
         monkeypatch.setattr(DATA, "_tiled_alive", fake_alive)
         monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
@@ -96,11 +80,22 @@ class TestDataDevice:
                 "127.0.0.1",
                 "--port",
                 "9091",
-            ]
+            ],
+            [
+                "tiled",
+                "register",
+                "http://127.0.0.1:9091",
+                str(tmp_path),
+                "--api-key",
+                "secret",
+                "--keep-ext",
+                "--watch",
+                "--prefix",
+                "served",
+            ],
         ]
         assert run_commands == [
             ["tiled", "catalog", "init", "--if-not-exists", str(tmp_path / ".asyncroscopy_tiled_catalog.db")],
-            ["tiled", "register", "http://127.0.0.1:9091", str(tmp_path), "--api-key", "secret", "--keep-ext"],
         ]
 
     def test_path_exists_and_recent_files_use_save_path(self, data_proxy: tango.DeviceProxy, tmp_path) -> None:
@@ -118,36 +113,38 @@ class TestDataDevice:
         assert relative["exists"] is True
         assert recent["files"][0]["file_name"] == saved.name
 
-    def test_get_unique_id_maps_saved_path_to_tiled_key(self, data_proxy: tango.DeviceProxy, tmp_path) -> None:
-        saved = tmp_path / "frame.tiff"
-        data_proxy.save_path = str(tmp_path)
-        data_proxy.root_path = "served"
-
-        assert data_proxy.get_unique_id(str(saved)) == "served/frame"
-
-    def test_get_data_resolves_saved_path_through_tiled_client(
+    def test_register_path_registers_single_file(
         self,
         data_proxy: tango.DeviceProxy,
         monkeypatch,
         tmp_path,
     ) -> None:
+        run_commands = []
         saved = tmp_path / "frame.tiff"
         saved.write_bytes(b"fake-tiff")
-        data_proxy.save_path = str(tmp_path)
-        data_proxy.root_path = ""
-
-        fake_client = FakeTiledClient(
-            {
-                "frame": FakeTiledNode(np.array([[1, 2], [3, 4]], dtype=np.uint8)),
-            }
+        data_proxy.host = "127.0.0.1"
+        data_proxy.port = 9091
+        data_proxy.root_path = "served"
+        data_proxy.set_api_key("secret")
+        monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
+        monkeypatch.setattr(
+            "asyncroscopy.software.DATA.subprocess.run",
+            lambda command, **_: run_commands.append(command) or type("Result", (), {"returncode": 0, "stdout": "ok"})(),
         )
-        monkeypatch.setattr(DATA, "_client", lambda self: fake_client)
 
-        payload = json.loads(data_proxy.get_data(str(saved)))
+        result = json.loads(data_proxy.register_path(str(saved)))
 
-        assert payload == {
-            "type": "ndarray",
-            "dtype": "uint8",
-            "shape": [2, 2],
-            "data": [[1, 2], [3, 4]],
-        }
+        assert result["registered"] is True
+        assert run_commands == [
+            [
+                "tiled",
+                "register",
+                "http://127.0.0.1:9091",
+                str(saved),
+                "--api-key",
+                "secret",
+                "--keep-ext",
+                "--prefix",
+                "served",
+            ]
+        ]
