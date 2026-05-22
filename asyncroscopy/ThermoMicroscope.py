@@ -211,8 +211,7 @@ class ThermoMicroscope(Microscope):
         data_server = self._detector_proxies.get("data")
         path = self._new_acquisition_path("stem_image", detector_type, data_server)
         adorned.save(str(path))
-        self._register_acquisition_path(path, data_server)
-        return str(path)
+        return self._register_acquisition_path(path, data_server) or str(path)
 
     def _acquire_camera_image(
         self, imsize: int, exposure_time: float, detector: str, readout_area: str
@@ -235,8 +234,7 @@ class ThermoMicroscope(Microscope):
         data_server = self._detector_proxies.get("data")
         path = self._new_acquisition_path("camera_image", detector, data_server)
         adorned.save(str(path))
-        self._register_acquisition_path(path, data_server)
-        return str(path)
+        return self._register_acquisition_path(path, data_server) or str(path)
 
     def _acquire_stem_image_advanced(
         self,
@@ -277,22 +275,25 @@ class ThermoMicroscope(Microscope):
         for image, detector in zip(adorned_images, detector_list):
             path = self._new_acquisition_path("stem_image", detector, data_server)
             image.save(str(path))
-            self._register_acquisition_path(path, data_server)
-            saved_paths.append(str(path))
+            saved_paths.append(
+                self._register_acquisition_path(path, data_server) or str(path)
+            )
         return saved_paths
 
-    def _register_acquisition_path(self, path: Path, data_server) -> None:
+    def _register_acquisition_path(self, path: Path, data_server) -> str | None:
         if data_server is None:
-            return
+            return None
         try:
             result = json.loads(data_server.register_path(str(path)))
         except tango.DevFailed as exc:
             self.warn_stream(f"Could not register acquisition with Tiled: {exc}")
-            return
+            return None
         if not result.get("registered", False):
             self.warn_stream(
                 f"Tiled registration failed for {path}: {result.get('output', '')}"
             )
+            return None
+        return result.get("tiled_key")
 
     def _new_acquisition_path(
         self, acquisition_type: str, detector: str, data_server

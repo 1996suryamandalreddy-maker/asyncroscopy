@@ -99,6 +99,8 @@ class TestDataDevice:
                     "--api-key",
                     "secret",
                     "--keep-ext",
+                    "--walker",
+                    "tiled.client.register:one_node_per_item",
                     "--watch",
                     "--prefix",
                     "served",
@@ -162,6 +164,7 @@ class TestDataDevice:
         result = json.loads(data_proxy.register_path(str(saved)))
 
         assert result["registered"] is True
+        assert result["tiled_key"] == "served/frame.tiff"
         assert run_commands == [
             [
                 "tiled",
@@ -171,6 +174,8 @@ class TestDataDevice:
                 "--api-key",
                 "secret",
                 "--keep-ext",
+                "--walker",
+                "tiled.client.register:one_node_per_item",
                 "--prefix",
                 "served",
             ]
@@ -202,3 +207,28 @@ class TestDataDevice:
         assert result["timed_out"] is True
         assert result["returncode"] is None
         assert result["output"] == "timed out"
+
+    def test_register_path_returns_windows_tiled_key(
+        self,
+        data_proxy: tango.DeviceProxy,
+        monkeypatch,
+    ) -> None:
+        run_commands = []
+        windows_path = "D:/microscopedata/tiled/ahoust17/frame.tiff"
+        data_proxy.host = "127.0.0.1"
+        data_proxy.port = 9091
+        data_proxy.root_path = ""
+        data_proxy.set_api_key("secret")
+        monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
+        monkeypatch.setattr(
+            "asyncroscopy.software.DATA.subprocess.run",
+            lambda command, **_: (
+                run_commands.append(command)
+                or type("Result", (), {"returncode": 0, "stdout": "ok"})()
+            ),
+        )
+
+        result = json.loads(data_proxy.register_path(windows_path))
+
+        assert result["registered"] is True
+        assert result["tiled_key"] == "frame.tiff"

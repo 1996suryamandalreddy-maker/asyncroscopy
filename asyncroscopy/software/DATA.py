@@ -23,6 +23,7 @@ from tango.server import Device, attribute, command
 DEFAULT_TILED_URI = "http://10.46.217.241:9091"
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 DEFAULT_REGISTER_TIMEOUT_SECONDS = 10.0
+ONE_NODE_PER_FILE_WALKER = "tiled.client.register:one_node_per_item"
 
 
 class DATA(Device):
@@ -281,6 +282,7 @@ class DATA(Device):
     def _register_path(self, path: str) -> dict[str, Any]:
         api_key = self._api_key or os.environ.get("TILED_API_KEY", "secret")
         command = self._register_command(path, api_key, watch=False)
+        tiled_key = self._tiled_key_for_path(path)
         timeout = float(
             os.environ.get(
                 "ASYNCROSCOPY_TILED_REGISTER_TIMEOUT", DEFAULT_REGISTER_TIMEOUT_SECONDS
@@ -301,6 +303,7 @@ class DATA(Device):
             )
             return {
                 "path": path,
+                "tiled_key": tiled_key,
                 "registered": False,
                 "timed_out": True,
                 "timeout_seconds": timeout,
@@ -316,6 +319,7 @@ class DATA(Device):
         )
         return {
             "path": path,
+            "tiled_key": tiled_key,
             "registered": registered,
             "timed_out": False,
             "returncode": result.returncode,
@@ -331,12 +335,22 @@ class DATA(Device):
             "--api-key",
             api_key,
             "--keep-ext",
+            "--walker",
+            ONE_NODE_PER_FILE_WALKER,
         ]
         if watch:
             command.append("--watch")
         if self._root_path:
             command.extend(["--prefix", self._root_path])
         return command
+
+    def _tiled_key_for_path(self, path: str) -> str:
+        name = (
+            PureWindowsPath(path).name
+            if _looks_like_windows_drive_path(path)
+            else Path(path).name
+        )
+        return f"{self._root_path}/{name}" if self._root_path else name
 
     def _recent_files(self) -> list[dict[str, Any]]:
         root = Path(self._save_path).expanduser()
