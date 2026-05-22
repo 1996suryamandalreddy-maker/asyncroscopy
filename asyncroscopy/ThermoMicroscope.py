@@ -38,6 +38,7 @@ try:
     from autoscript_tem_microscope_client import TemMicroscopeClient
     from autoscript_tem_microscope_client.enumerations import EdsDetectorType
     from autoscript_tem_microscope_client.enumerations import (
+        CameraType,
         RegionCoordinateSystem,
         ExposureTimeType,
     )
@@ -47,6 +48,7 @@ try:
         EdsAcquisitionSettings,
         RunOptiStemSettings,
         CameraAcquisitionSettings,
+        StemDataSettings,
     )
 
     _AUTOSCRIPT_AVAILABLE = True
@@ -211,6 +213,7 @@ class ThermoMicroscope(Microscope):
         data_server = self._detector_proxies.get("data")
         path = self._new_acquisition_path("stem_image", detector_type, data_server)
         adorned.save(str(path))
+
         return self._register_acquisition_path(path, data_server) or str(path)
 
     def _acquire_camera_image(
@@ -251,21 +254,11 @@ class ThermoMicroscope(Microscope):
 
         detector_list = [d.upper() for d in detector_list]
 
-        custom_region = Region(
-            RegionCoordinateSystem.RELATIVE,
-            Rectangle(
-                scan_region[0],
-                scan_region[1],
-                scan_region[2],
-                scan_region[3],
-            ),
-        )
-
         settings = StemAcquisitionSettings(
             dwell_time=dwell_time,
             detector_types=detector_list,
             size=imsize,
-            region=custom_region,
+            region=self._relative_scan_region(scan_region),
         )
 
         adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
@@ -279,6 +272,66 @@ class ThermoMicroscope(Microscope):
                 self._register_acquisition_path(path, data_server) or str(path)
             )
         return saved_paths
+
+    def _acquire_stem_data_advanced(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector: str,
+        scan_region: list[float],
+    ) -> str:
+        """
+        Trigger AutoScript advanced STEM data acquisition with a camera detector.
+
+        AutoScript offloads the 4D STEM data storage for Ceta acquisitions, so
+        this command returns an acknowledgement and the settings used rather
+        than a local saved file path.
+        """
+        if self._microscope is None:
+            self._raise_hardware_unavailable("_acquire_stem_data_advanced()")
+
+        camera_detector = CameraType.BM_CETA if detector == "BM-Ceta" else detector
+        settings = StemDataSettings(
+            dwell_time=dwell_time,
+            detector_types=[camera_detector],
+            size=imsize,
+            region=self._relative_scan_region(scan_region),
+        )
+
+        self._microscope.acquisition.acquire_stem_data_advanced(settings)
+        return json.dumps(
+            {
+                "triggered": True,
+                "detector": camera_detector,
+                "imsize": int(imsize),
+                "dwell_time": float(dwell_time),
+                "scan_region": self._normalise_relative_scan_region(scan_region),
+            }
+        )
+
+    def _relative_scan_region(self, scan_region: list[float]):
+        left, top, width, height = self._normalise_relative_scan_region(scan_region)
+        return Region(
+            RegionCoordinateSystem.RELATIVE,
+            Rectangle(left, top, width, height),
+        )
+
+    @staticmethod
+    def _normalise_relative_scan_region(scan_region: list[float]) -> list[float]:
+        region = [float(value) for value in scan_region]
+        if len(region) != 4:
+            raise ValueError(
+                "scan_region must contain exactly four values: [left, top, width, height]"
+            )
+
+        left, top, width, height = region
+        if left < 0.0 or top < 0.0:
+            raise ValueError("scan_region left and top must be >= 0")
+        if width <= 0.0 or height <= 0.0:
+            raise ValueError("scan_region width and height must be > 0")
+        if left + width > 1.0 or top + height > 1.0:
+            raise ValueError("scan_region must fit within the relative [0, 1] scan area")
+        return region
 
     def _register_acquisition_path(self, path: Path, data_server) -> str | None:
         if data_server is None:

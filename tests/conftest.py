@@ -261,6 +261,31 @@ def patched_advanced_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path)
 
 
 @pytest.fixture
+def patched_stem_data_acquisition(monkeypatch: pytest.MonkeyPatch):
+    calls = []
+
+    def fake_acquire(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector: str,
+        scan_region: list[float],
+    ):
+        calls.append(
+            {
+                "imsize": imsize,
+                "dwell_time": dwell_time,
+                "detector": detector,
+                "scan_region": list(scan_region),
+            }
+        )
+        return "fake-stem-data-trigger"
+
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_data_advanced", fake_acquire)
+    return calls
+
+
+@pytest.fixture
 def patched_camera_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
     calls = []
 

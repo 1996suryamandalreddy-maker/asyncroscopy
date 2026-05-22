@@ -233,6 +233,20 @@ class Microscope(Device, metaclass=CombinedMeta):
         return unique_ids[0] if len(unique_ids) == 1 else json.dumps(unique_ids)
 
     @command(dtype_out=str)
+    def get_scanned_data_advanced(self) -> str:
+        """Trigger an advanced 4D STEM data acquisition with the Ceta camera."""
+        scan = self._detector_proxies.get("scan")
+        if scan is None:
+            self._raise_missing_detector("scan", "get_scanned_data_advanced()")
+
+        return self._acquire_stem_data_advanced(
+            imsize=scan.imsize,
+            dwell_time=scan.dwell_time,
+            detector="BM-Ceta",
+            scan_region=self._get_scan_region(scan),
+        )
+
+    @command(dtype_out=str)
     def get_camera_image(self) -> str:
         """Acquire a camera image using settings from the camera device."""
         return self._get_configured_camera_image(
@@ -450,6 +464,20 @@ class Microscope(Device, metaclass=CombinedMeta):
             "UnsupportedCommand",
             "This microscope does not support camera image acquisition.",
             "_acquire_camera_image()",
+        )
+
+    def _acquire_stem_data_advanced(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector: str,
+        scan_region: list[float],
+    ) -> str:
+        """Vendor-specific advanced 4D STEM data acquisition trigger."""
+        tango.Except.throw_exception(
+            "UnsupportedCommand",
+            "This microscope does not support advanced STEM data acquisition.",
+            "_acquire_stem_data_advanced()",
         )
 
     @abstractmethod

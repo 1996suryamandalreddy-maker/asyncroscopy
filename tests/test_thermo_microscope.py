@@ -1,8 +1,15 @@
 import json
+import types
 from pathlib import Path
 
 import pytest
 import tango
+from autoscript_tem_microscope_client.enumerations import (
+    CameraType,
+    RegionCoordinateSystem,
+)
+
+from asyncroscopy.ThermoMicroscope import ThermoMicroscope
 
 
 class TestThermoMicroscope:
@@ -12,9 +19,11 @@ class TestThermoMicroscope:
     def test_scan_defaults_are_visible_through_proxy(self, scan_proxy: tango.DeviceProxy) -> None:
         scan_proxy.dwell_time = 1e-6
         scan_proxy.imsize = 512
+        scan_proxy.scan_region = [0.0, 0.0, 1.0, 1.0]
         assert scan_proxy.state() == tango.DevState.ON
         assert scan_proxy.dwell_time == pytest.approx(1e-6)
         assert scan_proxy.imsize == 512
+        assert list(scan_proxy.scan_region) == [0.0, 0.0, 1.0, 1.0]
 
     def test_get_scanned_image_returns_saved_path(
         self,
@@ -64,6 +73,7 @@ class TestThermoMicroscope:
     ) -> None:
         scan_proxy.dwell_time = 3e-6
         scan_proxy.imsize = 128
+        scan_proxy.scan_region = [0.1, 0.2, 0.3, 0.4]
         scan_proxy.haadf = True
         scan_proxy.bf = False
 
@@ -75,9 +85,111 @@ class TestThermoMicroscope:
                 "imsize": 128,
                 "dwell_time": pytest.approx(3e-6),
                 "detector_list": ["haadf"],
-                "scan_region": [0.0, 0.0, 1.0, 1.0],
+                "scan_region": [0.1, 0.2, 0.3, 0.4],
             }
         ]
+
+    def test_advanced_stem_image_helper_uses_relative_region(self, tmp_path) -> None:
+        class FakeImage:
+            def save(self, path: str) -> None:
+                Path(path).write_bytes(b"fake")
+
+        class FakeAcquisition:
+            def __init__(self) -> None:
+                self.settings = None
+
+            def acquire_stem_images_advanced(self, settings):
+                self.settings = settings
+                return [FakeImage()]
+
+        acquisition = FakeAcquisition()
+        microscope = ThermoMicroscope.__new__(ThermoMicroscope)
+        microscope._microscope = types.SimpleNamespace(acquisition=acquisition)
+        microscope._detector_proxies = {}
+
+        def fake_new_path(self, acquisition_type: str, detector: str, data_server):
+            return tmp_path / f"{acquisition_type}_{detector}.tiff"
+
+        microscope._new_acquisition_path = types.MethodType(fake_new_path, microscope)
+        microscope._register_acquisition_path = types.MethodType(
+            lambda self, path, data_server: None,
+            microscope,
+        )
+
+        saved_paths = ThermoMicroscope._acquire_stem_image_advanced(
+            microscope,
+            imsize=128,
+            dwell_time=4e-6,
+            detector_list=["haadf"],
+            scan_region=[0.1, 0.2, 0.3, 0.4],
+        )
+
+        settings = acquisition.settings
+        assert saved_paths[0].endswith(".tiff")
+        assert settings.size == 128
+        assert settings.dwell_time == pytest.approx(4e-6)
+        assert settings.detector_types == ["HAADF"]
+        assert settings.region.coordinate_system == RegionCoordinateSystem.RELATIVE
+        assert settings.region.rectangle.left == pytest.approx(0.1)
+        assert settings.region.rectangle.top == pytest.approx(0.2)
+        assert settings.region.rectangle.width == pytest.approx(0.3)
+        assert settings.region.rectangle.height == pytest.approx(0.4)
+
+    def test_scanned_data_advanced_settings_propagate_into_acquisition(
+        self,
+        thermo_proxy: tango.DeviceProxy,
+        scan_proxy: tango.DeviceProxy,
+        patched_stem_data_acquisition: list[dict],
+    ) -> None:
+        scan_proxy.dwell_time = 10e-3
+        scan_proxy.imsize = 128
+        scan_proxy.scan_region = [0.0, 0.0, 0.5, 0.5]
+
+        result = thermo_proxy.get_scanned_data_advanced()
+
+        assert result == "fake-stem-data-trigger"
+        assert patched_stem_data_acquisition == [
+            {
+                "imsize": 128,
+                "dwell_time": pytest.approx(10e-3),
+                "detector": "BM-Ceta",
+                "scan_region": [0.0, 0.0, 0.5, 0.5],
+            }
+        ]
+
+    def test_stem_data_advanced_helper_triggers_ceta_with_relative_region(self) -> None:
+        class FakeAcquisition:
+            def __init__(self) -> None:
+                self.settings = None
+
+            def acquire_stem_data_advanced(self, settings) -> None:
+                self.settings = settings
+
+        acquisition = FakeAcquisition()
+        microscope = ThermoMicroscope.__new__(ThermoMicroscope)
+        microscope._microscope = types.SimpleNamespace(acquisition=acquisition)
+
+        result = json.loads(
+            ThermoMicroscope._acquire_stem_data_advanced(
+                microscope,
+                imsize=128,
+                dwell_time=10e-3,
+                detector="BM-Ceta",
+                scan_region=[0.25, 0.25, 0.5, 0.5],
+            )
+        )
+
+        settings = acquisition.settings
+        assert result["triggered"] is True
+        assert result["detector"] == "BM-Ceta"
+        assert settings.size == 128
+        assert settings.dwell_time == pytest.approx(10e-3)
+        assert settings.detector_types == [CameraType.BM_CETA]
+        assert settings.region.coordinate_system == RegionCoordinateSystem.RELATIVE
+        assert settings.region.rectangle.left == pytest.approx(0.25)
+        assert settings.region.rectangle.top == pytest.approx(0.25)
+        assert settings.region.rectangle.width == pytest.approx(0.5)
+        assert settings.region.rectangle.height == pytest.approx(0.5)
 
     def test_camera_settings_propagate_into_acquisition(
         self,
