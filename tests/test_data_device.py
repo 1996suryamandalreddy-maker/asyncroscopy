@@ -90,6 +90,27 @@ class TestDataDevice:
                     "text": True,
                 },
             },
+            {
+                "command": [
+                    "tiled",
+                    "register",
+                    "http://127.0.0.1:9091",
+                    str(tmp_path),
+                    "--api-key",
+                    "secret",
+                    "--keep-ext",
+                    "--walker",
+                    "tiled.client.register:one_node_per_item",
+                    "--watch",
+                    "--prefix",
+                    "served",
+                ],
+                "kwargs": {
+                    "stdout": subprocess.DEVNULL,
+                    "stderr": subprocess.STDOUT,
+                    "text": True,
+                },
+            },
         ]
         assert run_commands == [
             [

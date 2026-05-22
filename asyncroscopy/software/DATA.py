@@ -141,7 +141,7 @@ class DATA(Device):
     def start_tiled_server(self) -> str:
         if self._tiled_alive():
             self._tiled_server = "yes"
-            self._tiled_server_status = "running"
+            self._ensure_tiled_watcher()
             return self.get_config()
 
         catalog = _path_text(
@@ -196,7 +196,7 @@ class DATA(Device):
             time.sleep(0.5)
         self._tiled_server = "yes" if self._tiled_alive() else "no"
         if self._tiled_server == "yes":
-            self._tiled_server_status = "running"
+            self._ensure_tiled_watcher(api_key=api_key)
         else:
             self._tiled_server_status = (
                 f"not running; exit_code={self._tiled_process.poll()}"
