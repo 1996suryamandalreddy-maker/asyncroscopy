@@ -37,13 +37,22 @@ DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 try:
     from autoscript_tem_microscope_client import TemMicroscopeClient
     from autoscript_tem_microscope_client.enumerations import EdsDetectorType
-    from autoscript_tem_microscope_client.enumerations import RegionCoordinateSystem, ExposureTimeType
+    from autoscript_tem_microscope_client.enumerations import (
+        RegionCoordinateSystem,
+        ExposureTimeType,
+    )
     from autoscript_tem_microscope_client.structures import Region, Rectangle
-    from autoscript_tem_microscope_client.structures import StemAcquisitionSettings, EdsAcquisitionSettings, RunOptiStemSettings, CameraAcquisitionSettings
+    from autoscript_tem_microscope_client.structures import (
+        StemAcquisitionSettings,
+        EdsAcquisitionSettings,
+        RunOptiStemSettings,
+        CameraAcquisitionSettings,
+    )
 
     _AUTOSCRIPT_AVAILABLE = True
 except ImportError:
     _AUTOSCRIPT_AVAILABLE = False
+
 
 class ThermoMicroscope(Microscope):
     """
@@ -110,7 +119,9 @@ class ThermoMicroscope(Microscope):
         try:
             self._microscope = TemMicroscopeClient()
             self._microscope.connect(self.autoscript_host_ip, self.autoscript_host_port)
-            self.info_stream(f"Connected to AutoScript at {self.autoscript_host_ip}:{self.autoscript_host_port}")
+            self.info_stream(
+                f"Connected to AutoScript at {self.autoscript_host_ip}:{self.autoscript_host_port}"
+            )
             self.is_autoscript = True
         except Exception as e:
             self.error_stream(f"AutoScript connection failed: {e}")
@@ -118,13 +129,12 @@ class ThermoMicroscope(Microscope):
             self._microscope = None
             self.is_autoscript = False
 
-
     def _connect_detector_proxies(self) -> None:
         """Build DeviceProxy objects for each configured detector device."""
         # Extend this dict as more detectors are added
         # later, we want to do this automatically, not with a dictionary.
         addresses: dict[str, str] = {
-            "eds":  self.eds_device_address,
+            "eds": self.eds_device_address,
             "stage": self.stage_device_address,
             "scan": self.scan_device_address,
             "camera": self.camera_device_address,
@@ -132,15 +142,16 @@ class ThermoMicroscope(Microscope):
             "data": self.data_device_address,
         }
         for name, address in addresses.items():
-            if not address:   # <-- minimal fix
+            if not address:  # <-- minimal fix
                 self.info_stream(f"Skipping {name}: no address configured")
                 continue
             try:
                 self._detector_proxies[name] = tango.DeviceProxy(address)
                 self.info_stream(f"Connected to detector proxy: {name} @ {address}")
             except tango.DevFailed as e:
-                self.error_stream(f"Failed to connect to {name} proxy at {address}: {e}")
-
+                self.error_stream(
+                    f"Failed to connect to {name} proxy at {address}: {e}"
+                )
 
     # ------------------------------------------------------------------
     # Attribute read methods
@@ -184,7 +195,9 @@ class ThermoMicroscope(Microscope):
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> str:
+    def _acquire_stem_image(
+        self, imsize: int, dwell_time: float, detector_list: list
+    ) -> str:
         """
         Call AutoScript acquisition, save the adorned image, and return its path.
         """
@@ -192,14 +205,18 @@ class ThermoMicroscope(Microscope):
             self._raise_hardware_unavailable("_acquire_stem_image()")
 
         detector_type = detector_list[0].upper() if detector_list else "HAADF"
-        adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
+        adorned = self._microscope.acquisition.acquire_stem_image(
+            detector_type, imsize, dwell_time
+        )
         data_server = self._detector_proxies.get("data")
         path = self._new_acquisition_path("stem_image", detector_type, data_server)
         adorned.save(str(path))
         self._register_acquisition_path(path, data_server)
         return str(path)
 
-    def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
+    def _acquire_camera_image(
+        self, imsize: int, exposure_time: float, detector: str, readout_area: str
+    ) -> str:
         """
         Call AutoScript acquisition, save the adorned image, and return its path.
         this is the advanced version
@@ -221,8 +238,13 @@ class ThermoMicroscope(Microscope):
         self._register_acquisition_path(path, data_server)
         return str(path)
 
-
-    def _acquire_stem_image_advanced(self, imsize: int, dwell_time: float, detector_list: list, scan_region: list[float]) -> list[str]:
+    def _acquire_stem_image_advanced(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector_list: list,
+        scan_region: list[float],
+    ) -> list[str]:
         """
         Call AutoScript acquisition, save adorned images, and return their paths.
         """
@@ -238,7 +260,7 @@ class ThermoMicroscope(Microscope):
                 scan_region[1],
                 scan_region[2],
                 scan_region[3],
-            )
+            ),
         )
 
         settings = StemAcquisitionSettings(
@@ -247,7 +269,7 @@ class ThermoMicroscope(Microscope):
             size=imsize,
             region=custom_region,
         )
-        
+
         adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
         adorned_images = adorned if isinstance(adorned, list) else [adorned]
         saved_paths = []
@@ -268,9 +290,13 @@ class ThermoMicroscope(Microscope):
             self.warn_stream(f"Could not register acquisition with Tiled: {exc}")
             return
         if not result.get("registered", False):
-            self.warn_stream(f"Tiled registration failed for {path}: {result.get('output', '')}")
+            self.warn_stream(
+                f"Tiled registration failed for {path}: {result.get('output', '')}"
+            )
 
-    def _new_acquisition_path(self, acquisition_type: str, detector: str, data_server) -> Path:
+    def _new_acquisition_path(
+        self, acquisition_type: str, detector: str, data_server
+    ) -> Path:
         save_directory = self.acquisition_save_directory
         if data_server is not None:
             try:
@@ -290,7 +316,11 @@ class ThermoMicroscope(Microscope):
 
     @staticmethod
     def _safe_name(value: str) -> str:
-        return ("".join(char if char.isalnum() else "_" for char in str(value).strip().lower())).strip("_") or "acquisition"
+        return (
+            "".join(
+                char if char.isalnum() else "_" for char in str(value).strip().lower()
+            )
+        ).strip("_") or "acquisition"
 
     def _raise_missing_detector(self, detector_name: str, origin: str) -> None:
         available = ", ".join(sorted(self._detector_proxies.keys())) or "none"
@@ -310,14 +340,13 @@ class ThermoMicroscope(Microscope):
             origin,
         )
 
-
     def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> np.ndarray:
         if detector_name.upper() == "EDS":
             # set up settings object
             settings = EdsAcquisitionSettings()
             settings.eds_detector = EdsDetectorType.SUPER_X
-            settings.dispersion = 5 # int
-            settings.shaping_time = 3e-6 # float
+            settings.dispersion = 5  # int
+            settings.shaping_time = 3e-6  # float
             # TODO: don't hardcode these
             settings.exposure_time = exposure_time
             settings.exposure_time_type = ExposureTimeType.LIVE_TIME
@@ -337,7 +366,6 @@ class ThermoMicroscope(Microscope):
             )
 
         return spectrum
-
 
     def _place_beam(self, position) -> None:
         """
@@ -393,17 +421,23 @@ class ThermoMicroscope(Microscope):
             adjusted_poly = poly_func - current
             x_candidates = adjusted_poly.r
             x_real = x_candidates[np.isreal(x_candidates)].real
-            x_real = np.max(x_real) # choose the largest real root as the gun lens value
+            x_real = np.max(
+                x_real
+            )  # choose the largest real root as the gun lens value
             self._microscope.optics.monochromator.focus = float(x_real)
         else:
-            self.warn_stream("Screen current calibration not available. running calibration (should take 15 seconds).")
+            self.warn_stream(
+                "Screen current calibration not available. running calibration (should take 15 seconds)."
+            )
             self._caibrate_screen_current()
 
             poly_func = self.screen_current_calibration
             adjusted_poly = poly_func - current
             x_candidates = adjusted_poly.r
             x_real = x_candidates[np.isreal(x_candidates)].real
-            x_real = np.max(x_real) # choose the largest real root as the gun lens value
+            x_real = np.max(
+                x_real
+            )  # choose the largest real root as the gun lens value
             self._microscope.optics.monochromator.focus = float(x_real)
 
     def _get_screen_current(self) -> float:
@@ -414,7 +448,7 @@ class ThermoMicroscope(Microscope):
     def _get_stage(self):
         """Get the current stage position as a list of floats [x, y, z, alpha, beta]."""
         # set proxy attributes with current stage position
-        stage = self._detector_proxies['stage']
+        stage = self._detector_proxies["stage"]
 
         position = self._microscope.specimen.stage.position
         position = np.array(position)
@@ -442,11 +476,13 @@ class ThermoMicroscope(Microscope):
             beta = None
 
         self._microscope.specimen.stage.absolute_move((x, y, z, alpha, beta))
-        self._get_stage() # link the proxy with real state
+        self._get_stage()  # link the proxy with real state
 
     def _auto_focus(self):
         """Perform autofocus routine C1A1"""
-        settings = RunOptiStemSettings(method='C1A1') #method=OptiStemMethod.C1_A1, dwell_time=2e-06, cutoff_in_pixels=5)
+        settings = RunOptiStemSettings(
+            method="C1A1"
+        )  # method=OptiStemMethod.C1_A1, dwell_time=2e-06, cutoff_in_pixels=5)
         self._microscope.auto_functions.run_opti_stem(settings)
 
     def _set_image_shift(self, shift):
@@ -457,6 +493,7 @@ class ThermoMicroscope(Microscope):
             self._microscope.optics.deflectors.beam_shift = (x_shift, y_shift)
         except Exception as e:
             self.error_stream(f"Failed to set beam shift: {e}")
+
 
 # ----------------------------------------------------------------------
 # Server entry point

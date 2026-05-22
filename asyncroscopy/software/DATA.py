@@ -22,6 +22,7 @@ from tango.server import Device, attribute, command
 
 DEFAULT_TILED_URI = "http://10.46.217.241:9091"
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
+DEFAULT_REGISTER_TIMEOUT_SECONDS = 10.0
 
 
 class DATA(Device):
@@ -61,8 +62,12 @@ class DATA(Device):
     def init_device(self) -> None:
         Device.init_device(self)
         self.set_state(DevState.ON)
-        self._host, self._port = self._parse_uri(os.environ.get("ASYNCROSCOPY_TILED_URI", DEFAULT_TILED_URI))
-        self._save_path = os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR", DEFAULT_ACQUISITION_DIR)
+        self._host, self._port = self._parse_uri(
+            os.environ.get("ASYNCROSCOPY_TILED_URI", DEFAULT_TILED_URI)
+        )
+        self._save_path = os.environ.get(
+            "ASYNCROSCOPY_ACQUISITION_DIR", DEFAULT_ACQUISITION_DIR
+        )
         self._root_path = os.environ.get("ASYNCROSCOPY_TILED_ROOT_PATH", "").strip("/")
         self._api_key = os.environ.get("TILED_API_KEY")
         self._tiled_process = None
@@ -137,12 +142,28 @@ class DATA(Device):
             self._ensure_tiled_watcher()
             return self.get_config()
 
-        catalog = _path_text(Path(self._save_path).expanduser() / ".asyncroscopy_tiled_catalog.db")
+        catalog = _path_text(
+            Path(self._save_path).expanduser() / ".asyncroscopy_tiled_catalog.db"
+        )
         api_key = self._api_key or os.environ.get("TILED_API_KEY", "secret")
         try:
-            if not (_looks_like_windows_drive_path(self._save_path) and os.name != "nt"):
+            if not (
+                _looks_like_windows_drive_path(self._save_path) and os.name != "nt"
+            ):
                 Path(self._save_path).expanduser().mkdir(parents=True, exist_ok=True)
-            subprocess.run([self._tiled_executable(), "catalog", "init", "--if-not-exists", catalog], check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            subprocess.run(
+                [
+                    self._tiled_executable(),
+                    "catalog",
+                    "init",
+                    "--if-not-exists",
+                    catalog,
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
         except Exception as exc:
             self._tiled_server = "no"
             self._tiled_server_status = str(exc)
@@ -163,18 +184,21 @@ class DATA(Device):
             "--port",
             str(self._port),
         ]
-        self._tiled_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        self._tiled_process = subprocess.Popen(
+            command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True
+        )
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline and not self._tiled_alive():
             if self._tiled_process.poll() is not None:
                 break
             time.sleep(0.5)
         self._tiled_server = "yes" if self._tiled_alive() else "no"
-        output = "" if self._tiled_process.poll() is None or self._tiled_process.stdout is None else self._tiled_process.stdout.read()
         if self._tiled_server == "yes":
             self._ensure_tiled_watcher(api_key=api_key)
         else:
-            self._tiled_server_status = f"not running; exit_code={self._tiled_process.poll()}; {output[-1000:]}"
+            self._tiled_server_status = (
+                f"not running; exit_code={self._tiled_process.poll()}"
+            )
         return self.get_config()
 
     @command(dtype_in=str, dtype_out=str)
@@ -189,18 +213,26 @@ class DATA(Device):
     @command(dtype_in=str, dtype_out=str)
     def path_exists(self, path: str) -> str:
         is_windows_path = _looks_like_windows_drive_path(path)
-        candidate = PureWindowsPath(path) if is_windows_path else Path(path).expanduser()
+        candidate = (
+            PureWindowsPath(path) if is_windows_path else Path(path).expanduser()
+        )
         if not is_windows_path and not candidate.is_absolute():
             candidate = Path(self._save_path).expanduser() / candidate
 
-        exists = False if is_windows_path and os.name != "nt" else Path(candidate).exists()
+        exists = (
+            False if is_windows_path and os.name != "nt" else Path(candidate).exists()
+        )
         return json.dumps(
             {
                 "path": _path_text(candidate),
                 "exists": exists,
                 "is_file": Path(candidate).is_file() if exists else False,
-                "size_bytes": Path(candidate).stat().st_size if exists and Path(candidate).is_file() else None,
-                "note": "Windows drive path cannot be checked from this non-Windows process." if is_windows_path and os.name != "nt" else "",
+                "size_bytes": Path(candidate).stat().st_size
+                if exists and Path(candidate).is_file()
+                else None,
+                "note": "Windows drive path cannot be checked from this non-Windows process."
+                if is_windows_path and os.name != "nt"
+                else "",
             }
         )
 
@@ -227,26 +259,65 @@ class DATA(Device):
             return False
 
     def _ensure_tiled_watcher(self, api_key: str | None = None) -> None:
-        if self._tiled_watch_process is not None and self._tiled_watch_process.poll() is None:
+        if (
+            self._tiled_watch_process is not None
+            and self._tiled_watch_process.poll() is None
+        ):
             self._tiled_server_status = "running; watcher active"
             return
 
         api_key = api_key or self._api_key or os.environ.get("TILED_API_KEY", "secret")
         command = self._register_command(self._save_path, api_key, watch=True)
-        self._tiled_watch_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True)
+        self._tiled_watch_process = subprocess.Popen(
+            command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True
+        )
         time.sleep(0.5)
-        self._tiled_server_status = "running; watcher started" if self._tiled_watch_process.poll() is None else "running; watcher failed"
+        self._tiled_server_status = (
+            "running; watcher started"
+            if self._tiled_watch_process.poll() is None
+            else "running; watcher failed"
+        )
 
     def _register_path(self, path: str) -> dict[str, Any]:
         api_key = self._api_key or os.environ.get("TILED_API_KEY", "secret")
         command = self._register_command(path, api_key, watch=False)
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        timeout = float(
+            os.environ.get(
+                "ASYNCROSCOPY_TILED_REGISTER_TIMEOUT", DEFAULT_REGISTER_TIMEOUT_SECONDS
+            )
+        )
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            output = _timeout_output(exc)
+            self._tiled_server_status = (
+                f"running; register path timed out after {timeout:g}s; {output}"
+            )
+            return {
+                "path": path,
+                "registered": False,
+                "timed_out": True,
+                "timeout_seconds": timeout,
+                "returncode": None,
+                "output": output,
+            }
         registered = result.returncode == 0
         output = result.stdout[-1000:] if result.stdout else ""
-        self._tiled_server_status = "running; registered path" if registered else f"running; register path failed; {output}"
+        self._tiled_server_status = (
+            "running; registered path"
+            if registered
+            else f"running; register path failed; {output}"
+        )
         return {
             "path": path,
             "registered": registered,
+            "timed_out": False,
             "returncode": result.returncode,
             "output": output,
         }
@@ -272,7 +343,11 @@ class DATA(Device):
         if not root.exists():
             return []
 
-        files = sorted((path for path in root.rglob("*") if path.is_file()), key=lambda path: path.stat().st_mtime, reverse=True)
+        files = sorted(
+            (path for path in root.rglob("*") if path.is_file()),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
         return [
             {
                 "path": str(path),
@@ -297,15 +372,29 @@ class DATA(Device):
 
 
 def _looks_like_windows_drive_path(value: str) -> bool:
-    return len(value) >= 3 and value[1] == ":" and value[0].isalpha() and value[2] in {"\\", "/"}
+    return (
+        len(value) >= 3
+        and value[1] == ":"
+        and value[0].isalpha()
+        and value[2] in {"\\", "/"}
+    )
 
 
 def _is_windows_drive_path(path: Path | PureWindowsPath) -> bool:
-    return isinstance(path, PureWindowsPath) or _looks_like_windows_drive_path(str(path))
+    return isinstance(path, PureWindowsPath) or _looks_like_windows_drive_path(
+        str(path)
+    )
 
 
 def _path_text(path: Path | PureWindowsPath) -> str:
     return str(path).replace("\\", "/") if _is_windows_drive_path(path) else str(path)
+
+
+def _timeout_output(exc: subprocess.TimeoutExpired) -> str:
+    output = exc.output or ""
+    if isinstance(output, bytes):
+        output = output.decode("utf-8", errors="replace")
+    return output[-1000:] if output else ""
 
 
 if __name__ == "__main__":

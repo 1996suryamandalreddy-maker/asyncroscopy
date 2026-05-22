@@ -1,4 +1,5 @@
 import json
+import subprocess
 
 import tango
 
@@ -32,22 +33,20 @@ class TestDataDevice:
         tmp_path,
     ) -> None:
         calls = []
-        commands = []
+        popen_calls = []
         run_commands = []
 
         def fake_alive(self):
             calls.append(None)
             return len(calls) > 1
 
-        class FakeStdout:
-            def read(self):
-                return ""
-
         class FakeProcess:
-            stdout = FakeStdout()
-
             def poll(self):
                 return None
+
+        def fake_popen(command, **kwargs):
+            popen_calls.append({"command": command, "kwargs": kwargs})
+            return FakeProcess()
 
         data_proxy.host = "127.0.0.1"
         data_proxy.port = 9091
@@ -56,49 +55,74 @@ class TestDataDevice:
         data_proxy.set_api_key("secret")
         monkeypatch.setattr(DATA, "_tiled_alive", fake_alive)
         monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
-        monkeypatch.setattr("asyncroscopy.software.DATA.subprocess.Popen", lambda command, **_: commands.append(command) or FakeProcess())
+        monkeypatch.setattr("asyncroscopy.software.DATA.subprocess.Popen", fake_popen)
         monkeypatch.setattr(
             "asyncroscopy.software.DATA.subprocess.run",
-            lambda command, **_: run_commands.append(command) or type("Result", (), {"returncode": 0, "stdout": ""})(),
+            lambda command, **_: (
+                run_commands.append(command)
+                or type("Result", (), {"returncode": 0, "stdout": ""})()
+            ),
         )
 
         returned = json.loads(data_proxy.start_tiled_server())
 
         assert returned["tiled_server"] == "yes"
-        assert commands == [
-            [
-                "tiled",
-                "serve",
-                "catalog",
-                str(tmp_path / ".asyncroscopy_tiled_catalog.db"),
-                "--read",
-                str(tmp_path),
-                "--public",
-                "--api-key",
-                "secret",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                "9091",
-            ],
-            [
-                "tiled",
-                "register",
-                "http://127.0.0.1:9091",
-                str(tmp_path),
-                "--api-key",
-                "secret",
-                "--keep-ext",
-                "--watch",
-                "--prefix",
-                "served",
-            ],
+        assert popen_calls == [
+            {
+                "command": [
+                    "tiled",
+                    "serve",
+                    "catalog",
+                    str(tmp_path / ".asyncroscopy_tiled_catalog.db"),
+                    "--read",
+                    str(tmp_path),
+                    "--public",
+                    "--api-key",
+                    "secret",
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    "9091",
+                ],
+                "kwargs": {
+                    "stdout": subprocess.DEVNULL,
+                    "stderr": subprocess.STDOUT,
+                    "text": True,
+                },
+            },
+            {
+                "command": [
+                    "tiled",
+                    "register",
+                    "http://127.0.0.1:9091",
+                    str(tmp_path),
+                    "--api-key",
+                    "secret",
+                    "--keep-ext",
+                    "--watch",
+                    "--prefix",
+                    "served",
+                ],
+                "kwargs": {
+                    "stdout": subprocess.DEVNULL,
+                    "stderr": subprocess.STDOUT,
+                    "text": True,
+                },
+            },
         ]
         assert run_commands == [
-            ["tiled", "catalog", "init", "--if-not-exists", str(tmp_path / ".asyncroscopy_tiled_catalog.db")],
+            [
+                "tiled",
+                "catalog",
+                "init",
+                "--if-not-exists",
+                str(tmp_path / ".asyncroscopy_tiled_catalog.db"),
+            ],
         ]
 
-    def test_path_exists_and_recent_files_use_save_path(self, data_proxy: tango.DeviceProxy, tmp_path) -> None:
+    def test_path_exists_and_recent_files_use_save_path(
+        self, data_proxy: tango.DeviceProxy, tmp_path
+    ) -> None:
         saved = tmp_path / "frame.tiff"
         saved.write_bytes(b"fake-tiff")
         data_proxy.save_path = str(tmp_path)
@@ -129,7 +153,10 @@ class TestDataDevice:
         monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
         monkeypatch.setattr(
             "asyncroscopy.software.DATA.subprocess.run",
-            lambda command, **_: run_commands.append(command) or type("Result", (), {"returncode": 0, "stdout": "ok"})(),
+            lambda command, **_: (
+                run_commands.append(command)
+                or type("Result", (), {"returncode": 0, "stdout": "ok"})()
+            ),
         )
 
         result = json.loads(data_proxy.register_path(str(saved)))
@@ -148,3 +175,30 @@ class TestDataDevice:
                 "served",
             ]
         ]
+
+    def test_register_path_returns_timeout_result(
+        self,
+        data_proxy: tango.DeviceProxy,
+        monkeypatch,
+        tmp_path,
+    ) -> None:
+        saved = tmp_path / "frame.tiff"
+        saved.write_bytes(b"fake-tiff")
+        data_proxy.host = "127.0.0.1"
+        data_proxy.port = 9091
+        data_proxy.set_api_key("secret")
+        monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
+
+        def fake_run(command, **kwargs):
+            raise subprocess.TimeoutExpired(
+                command, kwargs["timeout"], output="timed out"
+            )
+
+        monkeypatch.setattr("asyncroscopy.software.DATA.subprocess.run", fake_run)
+
+        result = json.loads(data_proxy.register_path(str(saved)))
+
+        assert result["registered"] is False
+        assert result["timed_out"] is True
+        assert result["returncode"] is None
+        assert result["output"] == "timed out"
