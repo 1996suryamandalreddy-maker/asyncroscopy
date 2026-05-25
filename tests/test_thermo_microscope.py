@@ -1,11 +1,14 @@
-import json
 import types
 from pathlib import Path
 
+import h5py
+import numpy as np
 import pytest
 import tango
 from autoscript_tem_microscope_client.enumerations import (
     CameraType,
+    EdsDetectorType,
+    ExposureTimeType,
     RegionCoordinateSystem,
 )
 
@@ -143,7 +146,7 @@ class TestThermoMicroscope:
 
         result = thermo_proxy.get_scanned_data_advanced()
 
-        assert result == "fake-stem-data-trigger"
+        assert result == "fake-stem-data-key"
         assert patched_stem_data_acquisition == [
             {
                 "imsize": 128,
@@ -153,31 +156,35 @@ class TestThermoMicroscope:
             }
         ]
 
-    def test_stem_data_advanced_helper_triggers_ceta_with_relative_region(self) -> None:
+    def test_stem_data_advanced_helper_saves_and_registers_ceta_with_relative_region(self, tmp_path) -> None:
+        class FakeImage:
+            def save(self, path: str) -> None:
+                Path(path).write_bytes(b"fake-stem-data")
+
         class FakeAcquisition:
             def __init__(self) -> None:
                 self.settings = None
 
-            def acquire_stem_data_advanced(self, settings) -> None:
+            def acquire_stem_data_advanced(self, settings):
                 self.settings = settings
+                return FakeImage()
 
         acquisition = FakeAcquisition()
         microscope = ThermoMicroscope.__new__(ThermoMicroscope)
         microscope._microscope = types.SimpleNamespace(acquisition=acquisition)
+        microscope._detector_proxies = {}
+        microscope._new_acquisition_path = types.MethodType(lambda self, acquisition_type, detector, data_server: tmp_path / f"{acquisition_type}_{detector}.tiff", microscope)
 
-        result = json.loads(
-            ThermoMicroscope._acquire_stem_data_advanced(
-                microscope,
-                imsize=128,
-                dwell_time=10e-3,
-                detector="BM-Ceta",
-                scan_region=[0.25, 0.25, 0.5, 0.5],
-            )
+        result = ThermoMicroscope._acquire_stem_data_advanced(
+            microscope,
+            imsize=128,
+            dwell_time=10e-3,
+            detector="BM-Ceta",
+            scan_region=[0.25, 0.25, 0.5, 0.5],
         )
 
         settings = acquisition.settings
-        assert result["triggered"] is True
-        assert result["detector"] == "BM-Ceta"
+        assert Path(result).read_bytes() == b"fake-stem-data"
         assert settings.size == 128
         assert settings.dwell_time == pytest.approx(10e-3)
         assert settings.detector_types == [CameraType.BM_CETA]
@@ -231,27 +238,45 @@ class TestThermoMicroscope:
             }
         ]
 
-    def test_tiled_acquisition_config_uses_data_device_save_path(
+    def test_spectrum_settings_propagate_into_acquisition(
         self,
         thermo_proxy: tango.DeviceProxy,
-        data_proxy: tango.DeviceProxy,
-        data_save_dir,
+        eds_proxy: tango.DeviceProxy,
+        patched_spectrum_path_acquisition: list[dict],
     ) -> None:
-        data_proxy.save_path = str(data_save_dir)
+        eds_proxy.exposure_time = 0.25
 
-        config = json.loads(thermo_proxy.get_tiled_acquisition_config())
+        saved_path = thermo_proxy.get_spectrum("eds")
 
-        assert config["save_directory"] == str(data_save_dir)
-        assert config["file_format"] == "tiff"
+        assert Path(saved_path).read_bytes() == b"fake-emd"
+        assert patched_spectrum_path_acquisition == [{"detector_name": "eds", "exposure_time": pytest.approx(0.25)}]
 
-    def test_unknown_detector_raises(self, thermo_proxy: tango.DeviceProxy) -> None:
-        with pytest.raises(tango.DevFailed) as exc:
-            thermo_proxy.get_spectrum("void")
+    def test_spectrum_helper_saves_emd_and_registers(self, tmp_path) -> None:
+        class FakeSpectrum:
+            data = np.array([1, 2, 3], dtype=np.uint32)
 
-        err_text = str(exc.value)
+        class FakeEds:
+            def __init__(self) -> None:
+                self.settings = None
 
-        assert "UnknownDetector" in err_text
-        assert "void" in err_text
+            def acquire_spectrum(self, settings):
+                self.settings = settings
+                return FakeSpectrum()
+
+        eds = FakeEds()
+        microscope = ThermoMicroscope.__new__(ThermoMicroscope)
+        microscope._microscope = types.SimpleNamespace(analysis=types.SimpleNamespace(eds=eds))
+        microscope._detector_proxies = {}
+        microscope._new_acquisition_path = types.MethodType(lambda self, acquisition_type, detector, data_server, extension="tiff": tmp_path / f"{acquisition_type}_{detector}.{extension}", microscope)
+
+        result = ThermoMicroscope._acquire_spectrum(microscope, "eds", 0.25)
+
+        assert result.endswith(".emd")
+        with h5py.File(result, "r") as emd:
+            assert emd["spectrum"][()].tolist() == [1, 2, 3]
+        assert eds.settings.eds_detector == EdsDetectorType.SUPER_X
+        assert eds.settings.exposure_time == pytest.approx(0.25)
+        assert eds.settings.exposure_time_type == ExposureTimeType.LIVE_TIME
 
     def test_disconnect_sets_state_off(self, thermo_proxy: tango.DeviceProxy) -> None:
         thermo_proxy.Disconnect()

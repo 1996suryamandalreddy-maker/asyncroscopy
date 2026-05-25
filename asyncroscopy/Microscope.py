@@ -11,7 +11,6 @@ implementation, typically a DATA/Tiled unique id.
 """
 
 import json
-import time
 from typing import Optional
 
 from abc import abstractmethod, ABCMeta
@@ -144,88 +143,24 @@ class Microscope(Device, metaclass=CombinedMeta):
         self.info_stream("Disconnected from microscope hardware")
 
     @command(dtype_in=str, dtype_out=str)
-    def configure_tiled_acquisition(self, config_json: str) -> str:
-        """Configure where acquisitions are saved before the Tiled server serves them."""
-        return self._configure_tiled_acquisition(config_json)
-
-    @command(dtype_out=str)
-    def get_tiled_acquisition_config(self) -> str:
-        """Return the active Tiled acquisition config as JSON."""
-        return self._get_tiled_acquisition_config()
-
-    @command(dtype_in=str, dtype_out=DevEncoded)
-    def get_spectrum(self, detector_name: str) -> tuple[str, bytes]:
-        """
-        Acquire a single spectrum from the named detector with the specified exposure time.
-
-        Parameters
-        ----------
-        detector_name:
-            Name of the detector, e.g. "eds".
-
-        Returns
-        -------
-        DevEncoded = (json_metadata, raw_bytes)
-            json_metadata includes: shape, dtype, dwell_time, detector,
-            timestamp, and any other relevant metadata.
-            raw_bytes is the flat numpy array bytes; reshape using shape from metadata.
-        """
-
+    def get_spectrum(self, detector_name: str) -> str:
+        """Acquire a single spectrum and return its DATA/Tiled unique id."""
         detector_name = detector_name.lower().strip()
         proxy = self._detector_proxies.get(detector_name)
-        if proxy is None:
-            available = ", ".join(sorted(self._detector_proxies.keys())) or "none"
-            tango.Except.throw_exception(
-                "UnknownDetector",
-                (
-                    f"Detector '{detector_name}' is not configured or connected. "
-                    f"Available detectors: {available}"
-                ),
-                "get_spectrum()",
-            )
-
-        # Read acquisition settings from the detector device
-        exposure_time = proxy.exposure_time # float
-
-        spectrum = self._acquire_spectrum(detector_name, exposure_time)
-
-        metadata = {
-            "detector": detector_name,
-            "dwell_time": exposure_time,
-            "timestamp": time.time(),
-            # TODO: add metadata from spectrum metadata when using real hardware
-        }
-
-        if isinstance(spectrum, dict):
-            raw_bytes = json.dumps(spectrum).encode("utf-8")
-        else:
-            raw_bytes = spectrum.tobytes()
-
-        return json.dumps(metadata), raw_bytes
+        return self._acquire_spectrum(detector_name, proxy.exposure_time)
 
     @command(dtype_out=str)
     def get_scanned_image(self) -> str:
         """Acquire a STEM image using settings from the scan device."""
         scan = self._detector_proxies.get("scan")
-        if scan is None:
-            self._raise_missing_detector("scan", "get_scanned_image()")
-
         return self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
 
     @command(dtype_out=str)
     def get_scanned_image_advanced(self) -> str:
         """Acquire a STEM image using advanced STEM settings from the scan device."""
         scan = self._detector_proxies.get("scan")
-        if scan is None:
-            self._raise_missing_detector("scan", "get_scanned_image_advanced()")
-
-        detector_names = self._get_active_scan_detectors(scan)
-        unique_ids = self._acquire_stem_image_advanced(
-            scan.imsize,
-            scan.dwell_time,
-            detector_names,
-            self._get_scan_region(scan),
-        )
+        detector_names = [detector for detector in ("haadf", "bf") if bool(getattr(scan, detector))] or ["haadf"]
+        unique_ids = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_names, list(scan.scan_region))
         if isinstance(unique_ids, str):
             return unique_ids
 
@@ -236,33 +171,19 @@ class Microscope(Device, metaclass=CombinedMeta):
     def get_scanned_data_advanced(self) -> str:
         """Trigger an advanced 4D STEM data acquisition with the Ceta camera."""
         scan = self._detector_proxies.get("scan")
-        if scan is None:
-            self._raise_missing_detector("scan", "get_scanned_data_advanced()")
-
-        return self._acquire_stem_data_advanced(
-            imsize=scan.imsize,
-            dwell_time=scan.dwell_time,
-            detector="BM-Ceta",
-            scan_region=self._get_scan_region(scan),
-        )
+        return self._acquire_stem_data_advanced(scan.imsize, scan.dwell_time, "BM-Ceta", list(scan.scan_region))
 
     @command(dtype_out=str)
     def get_camera_image(self) -> str:
         """Acquire a camera image using settings from the camera device."""
-        return self._get_configured_camera_image(
-            proxy_name="camera",
-            detector="BM-Ceta",
-            origin="get_camera_image()",
-        )
+        camera = self._detector_proxies.get("camera")
+        return self._acquire_camera_image(camera.imsize, camera.exposure_time, "BM-Ceta", camera.readout_area)
 
     @command(dtype_out=str)
     def get_flucam_image(self) -> str:
         """Acquire a Flucam image using settings from the flucam device."""
-        return self._get_configured_camera_image(
-            proxy_name="flucam",
-            detector="Flucam",
-            origin="get_flucam_image()",
-        )
+        flucam = self._detector_proxies.get("flucam")
+        return self._acquire_camera_image(flucam.imsize, flucam.exposure_time, "Flucam", flucam.readout_area)
 
     @command(dtype_in=('str',), dtype_out=str)
     def get_images(self, detector_names: list[str]) -> str:
@@ -280,18 +201,11 @@ class Microscope(Device, metaclass=CombinedMeta):
         """
         detector_names = [name.strip() for name in detector_names]
         scan = self._detector_proxies.get("scan")
-        if scan is None:
-            self._raise_missing_detector("scan", "get_images()")
-
-        unique_ids = self._acquire_stem_image_advanced(
-            imsize=scan.imsize,
-            dwell_time=scan.dwell_time,
-            detector_list=detector_names,
-            scan_region=[0.0, 0.0, 1.0, 1.0],
-        )
+        unique_ids = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_names, [0.0, 0.0, 1.0, 1.0])
         if isinstance(unique_ids, str):
-            return json.dumps([unique_ids])
-        return json.dumps(list(unique_ids))
+            return unique_ids
+        unique_ids = list(unique_ids)
+        return unique_ids[0] if len(unique_ids) == 1 else json.dumps(unique_ids)
 
     @command(dtype_in=int, dtype_out=DevEncoded)
     def get_image_data_cached(self, index: int) -> tuple[str, bytes]:
@@ -307,45 +221,6 @@ class Microscope(Device, metaclass=CombinedMeta):
         meta = {"shape": list(img_data.shape), "dtype": str(img_data.dtype)}
         return json.dumps(meta), img_data.tobytes()
 
-    def _raise_missing_detector(self, detector_name: str, origin: str) -> None:
-        available = ", ".join(sorted(self._detector_proxies.keys())) or "none"
-        tango.Except.throw_exception(
-            "UnknownDetector",
-            (
-                f"Detector '{detector_name}' is not configured or connected. "
-                f"Available detectors: {available}"
-            ),
-            origin,
-        )
-
-    def _get_configured_camera_image(self, proxy_name: str, detector: str, origin: str) -> str:
-        camera = self._detector_proxies.get(proxy_name)
-        if camera is None:
-            self._raise_missing_detector(proxy_name, origin)
-
-        return self._acquire_camera_image(
-            imsize=camera.imsize,
-            exposure_time=camera.exposure_time,
-            detector=detector,
-            readout_area=camera.readout_area,
-        )
-
-    def _get_active_scan_detectors(self, scan) -> list[str]:
-        detector_names = []
-        for detector in ("haadf", "bf"):
-            try:
-                if bool(getattr(scan, detector)):
-                    detector_names.append(detector)
-            except (AttributeError, tango.DevFailed):
-                continue
-        return detector_names or ["haadf"]
-
-    def _get_scan_region(self, scan) -> list[float]:
-        try:
-            return list(scan.scan_region)
-        except (AttributeError, tango.DevFailed):
-            return [0.0, 0.0, 1.0, 1.0]
-    
     @command(dtype_in=DevVarFloatArray, dtype_out=None)
     def place_beam(self, position) -> None:
         """
@@ -439,20 +314,6 @@ class Microscope(Device, metaclass=CombinedMeta):
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    def _configure_tiled_acquisition(self, config_json: str) -> str:
-        tango.Except.throw_exception(
-            "UnsupportedCommand",
-            "This microscope does not support Tiled acquisition configuration.",
-            "_configure_tiled_acquisition()",
-        )
-
-    def _get_tiled_acquisition_config(self) -> str:
-        tango.Except.throw_exception(
-            "UnsupportedCommand",
-            "This microscope does not support Tiled acquisition configuration.",
-            "_get_tiled_acquisition_config()",
-        )
-
     @abstractmethod
     def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list[str]):
         """Vendor-specific STEM acquisition implementation."""

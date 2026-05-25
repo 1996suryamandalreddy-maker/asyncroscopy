@@ -279,7 +279,7 @@ def patched_stem_data_acquisition(monkeypatch: pytest.MonkeyPatch):
                 "scan_region": list(scan_region),
             }
         )
-        return "fake-stem-data-trigger"
+        return "fake-stem-data-key"
 
     monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_data_advanced", fake_acquire)
     return calls
@@ -303,4 +303,18 @@ def patched_camera_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
         return str(path)
 
     monkeypatch.setattr(ThermoMicroscope, "_acquire_camera_image", fake_acquire)
+    return calls
+
+
+@pytest.fixture
+def patched_spectrum_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    calls = []
+
+    def fake_acquire(self, detector_name: str, exposure_time: float):
+        calls.append({"detector_name": detector_name, "exposure_time": exposure_time})
+        path = tmp_path / f"spectrum_{detector_name}.emd"
+        path.write_bytes(b"fake-emd")
+        return str(path)
+
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_spectrum", fake_acquire)
     return calls

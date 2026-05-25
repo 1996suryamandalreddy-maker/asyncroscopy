@@ -13,7 +13,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path, PureWindowsPath
-from typing import Any
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -29,30 +28,10 @@ ONE_NODE_PER_FILE_WALKER = "tiled.client.register:one_node_per_item"
 class DATA(Device):
     """Tango bridge to the Tiled HTTP data server."""
 
-    host = attribute(
-        label="Tiled Host",
-        dtype=str,
-        access=AttrWriteType.READ_WRITE,
-        doc="Hostname or IP address for the Tiled HTTP data server.",
-    )
-    port = attribute(
-        label="Tiled Port",
-        dtype=int,
-        access=AttrWriteType.READ_WRITE,
-        doc="TCP port for the Tiled HTTP data server.",
-    )
-    save_path = attribute(
-        label="Acquisition Save Path",
-        dtype=str,
-        access=AttrWriteType.READ_WRITE,
-        doc="Directory where acquisition files are written and served by Tiled.",
-    )
-    tiled_server = attribute(
-        label="Tiled Server",
-        dtype=str,
-        access=AttrWriteType.READ,
-        doc="yes if the configured Tiled HTTP data server responds, otherwise no.",
-    )
+    host = attribute(label="Tiled Host", dtype=str, access=AttrWriteType.READ_WRITE, doc="Hostname or IP address for the Tiled HTTP data server.")
+    port = attribute(label="Tiled Port", dtype=int, access=AttrWriteType.READ_WRITE, doc="TCP port for the Tiled HTTP data server.")
+    save_path = attribute(label="Acquisition Save Path", dtype=str, access=AttrWriteType.READ_WRITE, doc="Directory where acquisition files are written and served by Tiled.")
+    tiled_server = attribute(label="Tiled Server", dtype=str, access=AttrWriteType.READ, doc="yes if the configured Tiled HTTP data server responds, otherwise no.")
 
     def init_device(self) -> None:
         Device.init_device(self)
@@ -89,12 +68,8 @@ class DATA(Device):
         return self._tiled_server
 
     @command(dtype_out=str)
-    def get_uri(self) -> str:
-        return self._uri()
-
-    @command(dtype_out=str)
     def get_config(self) -> str:
-        return json.dumps(self._config())
+        return json.dumps({"host": self._host, "port": self._port, "uri": self._uri(), "save_path": self._save_path, "tiled_server": self._tiled_server, "tiled_server_status": self._tiled_server_status})
 
     @command(dtype_in=str, dtype_out=str)
     def configure(self, config_json: str) -> str:
@@ -109,7 +84,7 @@ class DATA(Device):
         return self.get_config()
 
     @command(dtype_out=str)
-    def start_tiled_server(self) -> str:
+    def start_tiled_server(self, timeout = 30) -> str:
         if self._tiled_alive():
             self._tiled_server = "yes"
             self._ensure_tiled_watcher()
@@ -119,41 +94,15 @@ class DATA(Device):
         try:
             if not (_is_windows_drive_path(self._save_path) and os.name != "nt"):
                 Path(self._save_path).expanduser().mkdir(parents=True, exist_ok=True)
-            subprocess.run(
-                [
-                    self._tiled_executable(),
-                    "catalog",
-                    "init",
-                    "--if-not-exists",
-                    catalog,
-                ],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
+            subprocess.run([self._tiled_executable(), "catalog", "init", "--if-not-exists", catalog], check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         except Exception as exc:
             self._tiled_server = "no"
             self._tiled_server_status = str(exc)
             return self.get_config()
 
-        command = [
-            self._tiled_executable(),
-            "serve",
-            "catalog",
-            catalog,
-            "--read",
-            self._save_path,
-            "--public",
-            "--api-key",
-            self._api_key,
-            "--host",
-            self._host,
-            "--port",
-            str(self._port),
-        ]
-        self._tiled_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True)
-        deadline = time.monotonic() + 30
+        self._tiled_process = subprocess.Popen([self._tiled_executable(),"serve","catalog",catalog,"--read",self._save_path,"--public","--api-key",self._api_key,
+                                                "--host",self._host,"--port",str(self._port)], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True)
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline and not self._tiled_alive():
             if self._tiled_process.poll() is not None:
                 break
@@ -171,43 +120,7 @@ class DATA(Device):
         timeout = float(os.environ.get("ASYNCROSCOPY_TILED_REGISTER_TIMEOUT", DEFAULT_REGISTER_TIMEOUT_SECONDS))
         asyncio.run(asyncio.wait_for(self._register_with_tiled_client_async(path), timeout))
         self._tiled_server_status = "running; registered path"
-        return self._tiled_key_for_path(path)
-
-    @command(dtype_in=str, dtype_out=str)
-    def get_tiled_key(self, path: str) -> str:
-        return self._tiled_key_for_path(path.strip())
-
-    @command(dtype_in=str, dtype_out=str)
-    def path_exists(self, path: str) -> str:
-        is_windows_path = _is_windows_drive_path(path)
-        candidate = PureWindowsPath(path) if is_windows_path else Path(path).expanduser()
-        if not is_windows_path and not candidate.is_absolute():
-            candidate = Path(self._save_path).expanduser() / candidate
-
-        exists = False if is_windows_path and os.name != "nt" else Path(candidate).exists()
-        return json.dumps(
-            {
-                "path": _path_text(candidate),
-                "exists": exists,
-                "is_file": Path(candidate).is_file() if exists else False,
-                "size_bytes": Path(candidate).stat().st_size
-                if exists and Path(candidate).is_file()
-                else None,
-                "note": "Windows drive path cannot be checked from this non-Windows process."
-                if is_windows_path and os.name != "nt"
-                else "",
-            }
-        )
-
-    def _config(self) -> dict[str, Any]:
-        return {
-            "host": self._host,
-            "port": self._port,
-            "uri": self._uri(),
-            "save_path": self._save_path,
-            "tiled_server": self._tiled_server,
-            "tiled_server_status": self._tiled_server_status,
-        }
+        return PureWindowsPath(path).name if _is_windows_drive_path(path) else Path(path).name
 
     def _uri(self) -> str:
         return f"http://{self._host}:{self._port}"
@@ -233,19 +146,8 @@ class DATA(Device):
         from tiled.client import from_uri
         from tiled.client.register import identity, register
 
-        client = from_uri(
-            self._uri(),
-            api_key=self._api_key,
-        )
-        await register(
-            client,
-            path,
-            walkers=[ONE_NODE_PER_FILE_WALKER],
-            key_from_filename=identity,
-        )
-
-    def _tiled_key_for_path(self, path: str) -> str:
-        return PureWindowsPath(path).name if _is_windows_drive_path(path) else Path(path).name
+        client = from_uri(self._uri(), api_key=self._api_key)
+        await register(client, path, walkers=[ONE_NODE_PER_FILE_WALKER], key_from_filename=identity)
 
     @staticmethod
     def _parse_uri(uri: str) -> tuple[str, int]:

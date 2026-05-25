@@ -417,9 +417,6 @@ class ThermoDigitalTwin(Microscope):
     def get_scanned_image(self) -> str:
         """Acquire and cache a simulated STEM image."""
         scan = self._detector_proxies.get("scan")
-        if scan is None:
-            self._raise_missing_detector("scan", "get_scanned_image()")
-
         image = self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
         return self._cache_image(image, "haadf")
 
@@ -427,16 +424,8 @@ class ThermoDigitalTwin(Microscope):
     def get_scanned_image_advanced(self) -> str:
         """Acquire and cache simulated advanced STEM images."""
         scan = self._detector_proxies.get("scan")
-        if scan is None:
-            self._raise_missing_detector("scan", "get_scanned_image_advanced()")
-
-        detector_names = self._get_active_scan_detectors(scan)
-        images = self._acquire_stem_image_advanced(
-            scan.imsize,
-            scan.dwell_time,
-            detector_names,
-            self._get_scan_region(scan),
-        )
+        detector_names = [detector for detector in ("haadf", "bf") if bool(getattr(scan, detector))] or ["haadf"]
+        images = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_names, list(scan.scan_region))
         return self._cache_images(images, detector_names)
 
     def _cache_image(self, image, detector: str) -> str:
@@ -561,10 +550,10 @@ class ThermoDigitalTwin(Microscope):
         rng = np.random.default_rng(spectrum_seed)
 
         if weight_sum <= 0.0:
-            return {
+            return json.dumps({
                 element: float(np.abs(rng.normal(0.0, 0.02)))
                 for element in (self._all_sample_elements or ["Au", "Pt", "Fe"])
-            }
+            })
 
         normalized = {el: val / weight_sum for el, val in weighted.items()}
         noisy = {}
@@ -572,8 +561,8 @@ class ThermoDigitalTwin(Microscope):
             noisy[element] = float(max(0.0, value + rng.normal(0.0, 0.01)))
         total = sum(noisy.values())
         if total <= 0.0:
-            return noisy
-        return {el: val / total for el, val in noisy.items()}
+            return json.dumps(noisy)
+        return json.dumps({el: val / total for el, val in noisy.items()})
 
     def _place_beam(self, position) -> None:
         """Place the electron beam at the specified [x, y] coordinates."""

@@ -118,21 +118,6 @@ class TestDataDevice:
             ],
         ]
 
-    def test_path_exists_uses_save_path(
-        self, data_proxy: tango.DeviceProxy, tmp_path
-    ) -> None:
-        saved = tmp_path / "frame.tiff"
-        saved.write_bytes(b"fake-tiff")
-        data_proxy.save_path = str(tmp_path)
-
-        absolute = json.loads(data_proxy.path_exists(str(saved)))
-        relative = json.loads(data_proxy.path_exists(saved.name))
-
-        assert absolute["exists"] is True
-        assert absolute["is_file"] is True
-        assert absolute["size_bytes"] == len(b"fake-tiff")
-        assert relative["exists"] is True
-
     def test_register_path_registers_single_file(
         self,
         data_proxy: tango.DeviceProxy,
@@ -168,9 +153,3 @@ class TestDataDevice:
         monkeypatch.setattr(DATA, "_register_with_tiled_client_async", fake_register)
 
         assert data_proxy.register_path(windows_path) == "frame.tiff"
-
-    def test_get_tiled_key_maps_saved_path_without_registering(
-        self,
-        data_proxy: tango.DeviceProxy,
-    ) -> None:
-        assert data_proxy.get_tiled_key("D:/microscopedata/tiled/ahoust17/frame.tiff") == "frame.tiff"

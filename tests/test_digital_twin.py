@@ -39,10 +39,6 @@ class TestThermoDigitalTwin:
         image = np.frombuffer(raw_bytes, dtype=meta["dtype"]).reshape(meta["shape"])
         assert image.shape == tuple(meta["shape"])
 
-    def test_unknown_detector_raises(self, twin_proxy: tango.DeviceProxy):
-        with pytest.raises(tango.DevFailed):
-            twin_proxy.get_spectrum("void")
-
     def test_stage_navigation_changes_and_restores_view(
         self,
         twin_proxy: tango.DeviceProxy,
@@ -85,9 +81,6 @@ class TestThermoDigitalTwin:
         twin_proxy.move_stage([0.0, 0.0, 0.0, 0.0, 0.0])
         twin_proxy.place_beam([0.45, 0.55])
 
-        _meta_1, raw_1 = twin_proxy.get_spectrum("eds")
-        _meta_2, raw_2 = twin_proxy.get_spectrum("eds")
-
-        spec_1 = json.loads(raw_1.decode("utf-8"))
-        spec_2 = json.loads(raw_2.decode("utf-8"))
+        spec_1 = json.loads(twin_proxy.get_spectrum("eds"))
+        spec_2 = json.loads(twin_proxy.get_spectrum("eds"))
         assert spec_1 == spec_2

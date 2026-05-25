@@ -634,10 +634,10 @@ class ThermoDigitalTwin(Microscope):
             if (px_pix - cx)**2 + (py_pix - cy)**2 <= r**2:
                 raw   = {el: frac for el, frac in rec['composition'].items()}
                 total = sum(raw.values())
-                return {el: v / total + np.random.normal(0.01, 0.1) for el, v in raw.items()}
+                return json.dumps({el: v / total + np.random.normal(0.01, 0.1) for el, v in raw.items()})
 
         all_elements = {el for rec in self._particle_records for el in rec['composition']}
-        return {el: np.abs(np.random.normal(0, 0.05)) for el in all_elements}
+        return json.dumps({el: np.abs(np.random.normal(0, 0.05)) for el in all_elements})
 
 
     def _place_beam(self, position) -> None:
