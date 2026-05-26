@@ -118,7 +118,7 @@ class TestThermoMicroscope:
         def fake_new_path(self, acquisition_type: str, detector: str, data_server):
             return tmp_path / f"{acquisition_type}_{detector}.tiff"
 
-        microscope._new_acquisition_path = types.MethodType(fake_new_path, microscope)
+        microscope._make_filename = types.MethodType(fake_new_path, microscope)
 
         saved_paths = ThermoMicroscope._acquire_stem_image_advanced(
             microscope,
@@ -178,7 +178,7 @@ class TestThermoMicroscope:
         microscope = ThermoMicroscope.__new__(ThermoMicroscope)
         microscope._microscope = types.SimpleNamespace(acquisition=acquisition)
         microscope._detector_proxies = {"data": FakeDataServer()}
-        microscope._new_acquisition_path = types.MethodType(lambda self, acquisition_type, detector, data_server: tmp_path / f"{acquisition_type}_{detector}.tiff", microscope)
+        microscope._make_filename = types.MethodType(lambda self, acquisition_type, detector, data_server: tmp_path / f"{acquisition_type}_{detector}.tiff", microscope)
 
         result = ThermoMicroscope._acquire_stem_data_advanced(
             microscope,
@@ -272,7 +272,7 @@ class TestThermoMicroscope:
         microscope = ThermoMicroscope.__new__(ThermoMicroscope)
         microscope._microscope = types.SimpleNamespace(analysis=types.SimpleNamespace(eds=eds))
         microscope._detector_proxies = {"data": FakeDataServer()}
-        microscope._new_acquisition_path = types.MethodType(lambda self, acquisition_type, detector, data_server, extension="tiff": tmp_path / f"{acquisition_type}_{detector}.{extension}", microscope)
+        microscope._make_filename = types.MethodType(lambda self, acquisition_type, detector, data_server, extension="tiff": tmp_path / f"{acquisition_type}_{detector}.{extension}", microscope)
 
         result = ThermoMicroscope._acquire_spectrum(microscope, "eds", 0.25)
 

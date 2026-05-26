@@ -159,7 +159,7 @@ class ThermoMicroscope(Microscope):
         detector_type = detector_list[0].upper() if detector_list else "HAADF"
         adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
         data_server = self._detector_proxies.get("data")
-        path = self._new_acquisition_path("stem_image", detector_type, data_server)
+        path = self._make_filename("stem_image", detector_type, data_server)
         adorned.save(str(path))
         return data_server.register_path(str(path))
 
@@ -171,7 +171,7 @@ class ThermoMicroscope(Microscope):
         settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize, exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        path = self._new_acquisition_path("camera_image", detector, data_server)
+        path = self._make_filename("camera_image", detector, data_server)
         adorned.save(str(path))
         return data_server.register_path(str(path))
 
@@ -194,7 +194,7 @@ class ThermoMicroscope(Microscope):
         saved_paths = []
         data_server = self._detector_proxies.get("data")
         for image, detector in zip(adorned_images, detector_list):
-            path = self._new_acquisition_path("stem_image", detector, data_server)
+            path = self._make_filename("stem_image", detector, data_server)
             image.save(str(path))
             saved_paths.append(data_server.register_path(str(path)))
         return saved_paths
@@ -217,11 +217,11 @@ class ThermoMicroscope(Microscope):
         settings = StemDataSettings(dwell_time=dwell_time, detector_types=[camera_detector], size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
         adorned = self._microscope.acquisition.acquire_stem_data_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        path = self._new_acquisition_path("stem_data", detector, data_server)
+        path = self._make_filename("stem_data", detector, data_server)
         adorned.save(str(path))
         return data_server.register_path(str(path))
 
-    def _new_acquisition_path(self, acquisition_type: str, detector: str, data_server, extension: str = "tiff") -> Path:
+    def _make_filename(self, acquisition_type: str, detector: str, data_server, extension: str = "tiff") -> Path:
         save_directory = self.acquisition_save_directory
         if data_server is not None:
             try:
@@ -245,7 +245,7 @@ class ThermoMicroscope(Microscope):
         settings.exposure_time_type = ExposureTimeType.LIVE_TIME
         spectrum = self._microscope.analysis.eds.acquire_spectrum(settings)
         data_server = self._detector_proxies.get("data")
-        path = self._new_acquisition_path("spectrum", detector_name, data_server, "emd")
+        path = self._make_filename("spectrum", detector_name, data_server, "emd")
         with h5py.File(path, "w") as emd:
             emd.create_dataset("spectrum", data=spectrum.data)
         return data_server.register_path(str(path))
