@@ -139,6 +139,7 @@ def get_class_from_name(class_name: str):
     """Dynamically find a Tango Device class in the asyncroscopy package."""
     module_paths_to_try = [
         f"asyncroscopy.{class_name}",
+        f"asyncroscopy.software.{class_name}",
         f"asyncroscopy.hardware.{class_name}",
         f"asyncroscopy.detectors.{class_name}",
         f"asyncroscopy.mcp.{class_name}",
@@ -172,8 +173,9 @@ def get_required_subdevices(class_name: str) -> list[dict[str, str]]:
             prop = getattr(cls, attr_name)
             if isinstance(prop, device_property):
                 prefix = attr_name.split("_device_address")[0]
+                sub_class = prefix.upper()
                 sub_devices.append({
-                    "class": prefix.upper(),
+                    "class": sub_class,
                     "attr_name": attr_name,
                     "prefix": prefix.lower()
                 })
@@ -185,7 +187,7 @@ def cleanup_old_servers_for_class(class_name: str) -> None:
     Only runs if TANGO_HOST is already in the environment.
     """
     if "TANGO_HOST" not in os.environ:
-        log_stderr(f"[startup] No TANGO_HOST set; skipping stale-server cleanup (no old DB to query)")
+        log_stderr("[startup] No TANGO_HOST set; skipping stale-server cleanup (no old DB to query)")
         return
 
     try:
@@ -277,7 +279,7 @@ def main():
             stack.enter_context(db_proc)
 
             db = connect_database(host, port)
-            device_name = f"test/{class_name.lower()}/1"
+            device_name = f"asyncroscopy/{class_name.lower()}/default"
             server_name = f"{class_name}/{class_name.lower()}_instance"
 
             # Setup main device
@@ -287,7 +289,7 @@ def main():
             sub_devices = get_required_subdevices(class_name)
             for sub in sub_devices:
                 sub_classname = sub["class"]
-                sub_device = f"test/{sub['prefix']}/1"
+                sub_device = f"asyncroscopy/{sub['prefix']}/default"
                 sub_server = f"{sub_classname}/{sub['prefix']}_instance"
 
                 # Register the sub-device and link it to the main device

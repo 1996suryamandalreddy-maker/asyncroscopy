@@ -10,48 +10,41 @@ and falls back to simulated acquisition. To enable real hardware:
 
     pip install asyncroscopy[autoscript]
 
-Return convention for image commands
--------------------------------------
-All image commands return DevEncoded = (str, bytes) where:
-  - str  : JSON string containing metadata (shape, dtype, dwell_time, …)
-  - bytes: raw numpy array bytes (reconstruct with np.frombuffer + reshape)
-
-Client-side reconstruction example::
-
-    import json, numpy as np
-    encoded = proxy.get_haadf_image()   # returns (json_str, raw_bytes)
-    meta    = json.loads(encoded[0])
-    image   = np.frombuffer(encoded[1], dtype=meta["dtype"]).reshape(meta["shape"])
+Return convention for real image commands
+-----------------------------------------
+Real AutoScript image commands save the adorned object on disk and return the
+DATA/Tiled unique id for that saved acquisition.
 """
 
-import os
 import math
-from typing import Optional
 import time
+from datetime import datetime
+from pathlib import Path
 
+import h5py
 import numpy as np
 import tango
-from tango import AttrWriteType, DevEncoded, DevState
-from tango.server import Device, attribute, command, device_property
+from tango import AttrWriteType, DevState
+from tango.server import attribute, device_property
+
+from asyncroscopy.Microscope import Microscope
+
+DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
 # AutoScript imports — only available on the microscope PC.
 # Wrapped in try/except so the device can still be imported and tested
 # on a development machine without AutoScript installed.
 try:
     from autoscript_tem_microscope_client import TemMicroscopeClient
-    from autoscript_tem_microscope_client.enumerations import DetectorType, ImageSize, EdsDetectorType
-    from autoscript_tem_microscope_client.enumerations import RegionCoordinateSystem, ExposureTimeType
-    from autoscript_tem_microscope_client.structures import Region, Rectangle, AdornedSpectrum
-    from autoscript_tem_microscope_client.structures import StemAcquisitionSettings, EdsAcquisitionSettings, RunOptiStemSettings, CameraAcquisitionSettings
+    from autoscript_tem_microscope_client.enumerations import EdsDetectorType
+    from autoscript_tem_microscope_client.enumerations import CameraType, RegionCoordinateSystem, ExposureTimeType
+    from autoscript_tem_microscope_client.structures import Region, Rectangle
+    from autoscript_tem_microscope_client.structures import StemAcquisitionSettings, EdsAcquisitionSettings, RunOptiStemSettings, CameraAcquisitionSettings, StemDataSettings
 
     _AUTOSCRIPT_AVAILABLE = True
 except ImportError:
     _AUTOSCRIPT_AVAILABLE = False
 
-print(_AUTOSCRIPT_AVAILABLE)
-
-
-from asyncroscopy.Microscope import Microscope
 
 class ThermoMicroscope(Microscope):
     """
@@ -72,6 +65,21 @@ class ThermoMicroscope(Microscope):
         dtype=int,
         default_value=9095,
         doc="Hostname or IP of the AutoScript microscope server",
+    )
+    acquisition_save_directory = device_property(
+        dtype=str,
+        default_value=DEFAULT_ACQUISITION_DIR,
+        doc="Directory where AutoScript acquisitions are saved before the Tiled server serves them.",
+    )
+    acquisition_file_format = device_property(
+        dtype=str,
+        default_value="tiff",
+        doc="Acquisition file format. TIFF preserves AutoScript image metadata.",
+    )
+    data_device_address = device_property(
+        dtype=str,
+        default_value="",
+        doc="Optional Tango device address for the DATA device, e.g. 'asyncroscopy/data/default'.",
     )
 
     # ------------------------------------------------------------------
@@ -104,24 +112,27 @@ class ThermoMicroscope(Microscope):
             self._microscope = TemMicroscopeClient()
             self._microscope.connect(self.autoscript_host_ip, self.autoscript_host_port)
             self.info_stream(f"Connected to AutoScript at {self.autoscript_host_ip}:{self.autoscript_host_port}")
+            self.is_autoscript = True
         except Exception as e:
             self.error_stream(f"AutoScript connection failed: {e}")
             self.set_state(DevState.FAULT)
             self._microscope = None
+            self.is_autoscript = False
 
     def _connect_detector_proxies(self) -> None:
         """Build DeviceProxy objects for each configured detector device."""
         # Extend this dict as more detectors are added
         # later, we want to do this automatically, not with a dictionary.
         addresses: dict[str, str] = {
-            "eds":  self.eds_device_address,
+            "eds": self.eds_device_address,
             "stage": self.stage_device_address,
             "scan": self.scan_device_address,
             "camera": self.camera_device_address,
+            "flucam": self.flucam_device_address,
+            "data": self.data_device_address,
         }
-        print(addresses)
         for name, address in addresses.items():
-            if not address:   # <-- minimal fix
+            if not address:  # <-- minimal fix
                 self.info_stream(f"Skipping {name}: no address configured")
                 continue
             try:
@@ -129,7 +140,6 @@ class ThermoMicroscope(Microscope):
                 self.info_stream(f"Connected to detector proxy: {name} @ {address}")
             except tango.DevFailed as e:
                 self.error_stream(f"Failed to connect to {name} proxy at {address}: {e}")
-
 
     # ------------------------------------------------------------------
     # Attribute read methods
@@ -142,114 +152,103 @@ class ThermoMicroscope(Microscope):
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    # TODO:if self._microscope is not None: checks should go to init functions than sitting in commands 
+    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> str:
+        """
+        Call AutoScript acquisition, save the adorned image, and return its path.
+        """
+        detector_type = detector_list[0].upper() if detector_list else "HAADF"
+        adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
+        data_server = self._detector_proxies.get("data")
+        path = self._make_filename("stem_image", detector_type, data_server)
+        adorned.save(str(path))
+        return data_server.register_path(str(path))
 
-    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> np.ndarray:
+    def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
-        Call AutoScript acquisition and return numpy array.
-        """
-        if self._microscope is not None:
-            # check detectors in detector_list
-            detector_list = [d.upper() for d in detector_list] # must be caps for AutoScript
-            detector_type = 'HAADF'
-
-            # take image
-            adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
-            # adorned.metadata TODO get this and pass it on
-            return adorned.data
-        
-    def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> np.ndarray:
-        """
-        Call AutoScript acquisition and return numpy array.
+        Call AutoScript acquisition, save the adorned image, and return its path.
         this is the advanced version
         """
-        
-        detector = 'BM-Ceta' # or "Flucam"
-
-        settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize,
-            exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
+        settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize, exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
-        image = adorned.data
-        return image
-
+        data_server = self._detector_proxies.get("data")
+        path = self._make_filename("camera_image", detector, data_server)
+        adorned.save(str(path))
+        return data_server.register_path(str(path))
 
     def _acquire_stem_image_advanced(
         self,
-        detector_names: list[str],
-        base_resolution: int,
-        scan_region: list[float],
+        imsize: int,
         dwell_time: float,
-        auto_beam_blank: bool,
-    ) -> list[np.ndarray]:
-        """Acquire images from multiple detectors simultaneously."""
+        detector_list: list,
+        scan_region: list[float],
+    ) -> list[str]:
+        """
+        Call AutoScript acquisition, save adorned images, and return their paths.
+        """
+        detector_list = [d.upper() for d in detector_list]
 
-        if self._microscope is not None:
-            # Real AutoScript
-            detector_types = []
-            for name in detector_names:
-                if name == "haadf":
-                    detector_types.append(DetectorType.HAADF)
-                elif name == "bf":
-                    detector_types.append(DetectorType.BF)
-                # Add more detector types as needed
+        settings = StemAcquisitionSettings(dwell_time=dwell_time, detector_types=detector_list, size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
 
-            # Create scan region
-            custom_region = Region(
-                RegionCoordinateSystem.RELATIVE,
-                Rectangle(
-                    scan_region[0],  # left
-                    scan_region[1],  # top
-                    scan_region[2],  # width
-                    scan_region[3]   # height
-                )
-            )
-        
-            # TODO -----> handle segments
+        adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
+        adorned_images = adorned if isinstance(adorned, list) else [adorned]
+        saved_paths = []
+        data_server = self._detector_proxies.get("data")
+        for image, detector in zip(adorned_images, detector_list):
+            path = self._make_filename("stem_image", detector, data_server)
+            image.save(str(path))
+            saved_paths.append(data_server.register_path(str(path)))
+        return saved_paths
 
-            settings = StemAcquisitionSettings(
-                dwell_time=dwell_time,
-                detector_types=detector_types,
-                size=base_resolution,
-                region=custom_region,
-                auto_beam_blank=auto_beam_blank
-            )
-            
-            return self._microscope.acquisition.acquire_stem_images_advanced(settings)
-        
-        # Simulation fallback
-        self.warn_stream(f"Simulating acquisition for {detector_names}")
-        rng = np.random.default_rng()
-        
-        # Calculate cropped dimensions based on scan_region
-        height = int(base_resolution * scan_region[3])
-        width = int(base_resolution * scan_region[2])
-        
-        return [rng.integers(0, 65535, size=(height, width), dtype=np.uint16) 
-                for _ in detector_names]
+    def _acquire_stem_data_advanced(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector: str,
+        scan_region: list[float],
+    ) -> str:
+        """
+        Trigger AutoScript advanced STEM data acquisition with a camera detector.
 
-    def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> np.ndarray:
-        if detector_name.upper() == "EDS":
-            # set up settings object
-            settings = EdsAcquisitionSettings()
-            settings.eds_detector = EdsDetectorType.SUPER_X
-            settings.dispersion = 5 # int
-            settings.shaping_time = 3e-6 # float
-            # TODO: don't hardcode these
-            settings.exposure_time = exposure_time
-            settings.exposure_time_type = ExposureTimeType.LIVE_TIME
+        AutoScript offloads the 4D STEM data storage for Ceta acquisitions, so
+        this command returns an acknowledgement and the settings used rather
+        than a local saved file path.
+        """
+        camera_detector = CameraType.BM_CETA if detector == "BM-Ceta" else detector
+        settings = StemDataSettings(dwell_time=dwell_time, detector_types=[camera_detector], size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
+        adorned = self._microscope.acquisition.acquire_stem_data_advanced(settings)
+        data_server = self._detector_proxies.get("data")
+        path = self._make_filename("stem_data", detector, data_server)
+        adorned.save(str(path))
+        return data_server.register_path(str(path))
 
-            # take eds
-            spectrum = self._microscope.analysis.eds.acquire_spectrum(settings)
-            handle_byte_order = True
-            if handle_byte_order == True:
-                dt = np.dtype("uint32").newbyteorder("<")
-                spectrum = np.frombuffer(spectrum._raw_data, dtype=dt)
+    def _make_filename(self, acquisition_type: str, detector: str, data_server, extension: str = "tiff") -> Path:
+        save_directory = self.acquisition_save_directory
+        if data_server is not None:
+            try:
+                save_directory = data_server.save_path
+            except tango.DevFailed as exc:
+                self.warn_stream(f"DATA device not ready: {exc}")
 
-        else:
-            print(f"Detector {detector_name} not supported for spectroscopy")
+        directory = Path(save_directory).expanduser()
+        directory.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
+        name = f"{acquisition_type}_{detector}_{stamp}.{extension.lower().lstrip('.')}"
+        return directory / name
 
-        return spectrum
-
+    # test: not sure this is how we want to save
+    def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> str:
+        settings = EdsAcquisitionSettings()
+        settings.eds_detector = EdsDetectorType.SUPER_X
+        settings.dispersion = 5
+        settings.shaping_time = 3e-6
+        settings.exposure_time = exposure_time
+        settings.exposure_time_type = ExposureTimeType.LIVE_TIME
+        spectrum = self._microscope.analysis.eds.acquire_spectrum(settings)
+        data_server = self._detector_proxies.get("data")
+        path = self._make_filename("spectrum", detector_name, data_server, "emd")
+        with h5py.File(path, "w") as emd:
+            emd.create_dataset("spectrum", data=spectrum.data)
+        return data_server.register_path(str(path))
 
     def _place_beam(self, position) -> None:
         """
@@ -258,7 +257,6 @@ class ThermoMicroscope(Microscope):
         if self._microscope is not None:
             x = float(position[0])
             y = float(position[1])
-            print(x,y)
             self._microscope.optics.paused_scan_beam_position = [x, y]
 
     def _set_fov(self, fov) -> None:
@@ -316,7 +314,7 @@ class ThermoMicroscope(Microscope):
             adjusted_poly = poly_func - current
             x_candidates = adjusted_poly.r
             x_real = x_candidates[np.isreal(x_candidates)].real
-            x_real = np.max(x_real) # choose the largest real root as the gun lens value
+            x_real = np.max(x_real)  # choose the largest real root as the gun lens value
             self._microscope.optics.monochromator.focus = float(x_real)
         else:
             self.warn_stream("Screen current calibration not available. running calibration (should take 15 seconds).")
@@ -326,7 +324,7 @@ class ThermoMicroscope(Microscope):
             adjusted_poly = poly_func - current
             x_candidates = adjusted_poly.r
             x_real = x_candidates[np.isreal(x_candidates)].real
-            x_real = np.max(x_real) # choose the largest real root as the gun lens value
+            x_real = np.max(x_real)  # choose the largest real root as the gun lens value
             self._microscope.optics.monochromator.focus = float(x_real)
 
     def _get_screen_current(self) -> float:
@@ -337,7 +335,7 @@ class ThermoMicroscope(Microscope):
     def _get_stage(self):
         """Get the current stage position as a list of floats [x, y, z, alpha, beta]."""
         # set proxy attributes with current stage position
-        stage = self._detector_proxies['stage']
+        stage = self._detector_proxies["stage"]
 
         position = self._microscope.specimen.stage.position
         position = np.array(position)
@@ -365,22 +363,22 @@ class ThermoMicroscope(Microscope):
             beta = None
 
         self._microscope.specimen.stage.absolute_move((x, y, z, alpha, beta))
-        self._get_stage() # link the proxy with real state
+        self._get_stage()  # link the proxy with real state
 
     def _auto_focus(self):
         """Perform autofocus routine C1A1"""
-        settings = RunOptiStemSettings(method='C1A1') #method=OptiStemMethod.C1_A1, dwell_time=2e-06, cutoff_in_pixels=5)
+        settings = RunOptiStemSettings(method="C1A1")  # method=OptiStemMethod.C1_A1, dwell_time=2e-06, cutoff_in_pixels=5)
         self._microscope.auto_functions.run_opti_stem(settings)
 
     def _set_image_shift(self, shift):
         """Apply image shift in meters."""
         x_shift = float(shift[0])
         y_shift = float(shift[1])
-        print(shift)
         try:
             self._microscope.optics.deflectors.beam_shift = (x_shift, y_shift)
         except Exception as e:
             self.error_stream(f"Failed to set beam shift: {e}")
+
 
 # ----------------------------------------------------------------------
 # Server entry point

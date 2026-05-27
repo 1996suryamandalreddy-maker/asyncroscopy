@@ -23,7 +23,7 @@ class SCAN(Device):
         unit="s",
         format="%e",
         min_value=1e-9,
-        max_value=1e-3,
+        max_value=10,
         doc="Per-pixel dwell time in seconds (e.g. 1e-6 = 1 µs)",
     )
 
@@ -49,6 +49,17 @@ class SCAN(Device):
         doc="Bright Field detector state: True = active, False = inactive",
     )
 
+    scan_region = attribute(
+        label="Scan Region",
+        dtype=(float,),
+        max_dim_x=4,
+        access=AttrWriteType.READ_WRITE,
+        unit="fractional",
+        min_value=0.0,
+        max_value=1.0,
+        doc="Relative scan rectangle [left, top, width, height] in the range [0, 1]",
+    )
+
     # ------------------------------------------------------------------
     # Initialisation
     # ------------------------------------------------------------------
@@ -60,6 +71,7 @@ class SCAN(Device):
         self._imsize: int = 512
         self._haadf: bool = False
         self._bf: bool = False
+        self._scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]
         self.info_stream("SCAN device initialised")
 
     # ------------------------------------------------------------------
@@ -91,6 +103,29 @@ class SCAN(Device):
     def write_bf(self, value: bool) -> None:
         self._bf = value
         self.info_stream(f"BF detector set to {'active' if value else 'inactive'}")
+
+    def read_scan_region(self) -> list[float]:
+        return self._scan_region
+
+    def write_scan_region(self, value) -> None:
+        self._scan_region = self._validate_scan_region(value)
+
+    @staticmethod
+    def _validate_scan_region(value) -> list[float]:
+        region = [float(item) for item in value]
+        if len(region) != 4:
+            raise ValueError(
+                "scan_region must contain exactly four values: [left, top, width, height]"
+            )
+
+        left, top, width, height = region
+        if left < 0.0 or top < 0.0:
+            raise ValueError("scan_region left and top must be >= 0")
+        if width <= 0.0 or height <= 0.0:
+            raise ValueError("scan_region width and height must be > 0")
+        if left + width > 1.0 or top + height > 1.0:
+            raise ValueError("scan_region must fit within the relative [0, 1] scan area")
+        return region
 
     # ------------------------------------------------------------------
     # Commands

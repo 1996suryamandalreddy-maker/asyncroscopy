@@ -17,17 +17,30 @@ import tango
 from tango.test_context import MultiDeviceTestContext
 
 # Import device classes to test
+from asyncroscopy.detectors.CAMERA import CAMERA
+from asyncroscopy.detectors.EDS import EDS
+from asyncroscopy.detectors.FLUCAM import FLUCAM
 from asyncroscopy.hardware.SCAN import SCAN
 from asyncroscopy.hardware.STAGE import STAGE
-from asyncroscopy.detectors.EDS import EDS
-from asyncroscopy.ThermoDigitalTwin import ThermoDigitalTwin
+from asyncroscopy.DigitalTwin import DigitalTwin
 from asyncroscopy.ThermoMicroscope import ThermoMicroscope
+from asyncroscopy.software.DATA import DATA
 
 
-# We use ThermoDigitalTwin as our simulated microscope for all tests.
+class FakeAdornedImage:
+    def __init__(self, data: np.ndarray):
+        self.data = data
+
+
+# We use DigitalTwin as our simulated microscope for all tests.
     
 @pytest.fixture(scope="session")
-def tango_ctx():
+def data_save_dir(tmp_path_factory):
+    return tmp_path_factory.mktemp("data-acquisitions")
+
+
+@pytest.fixture(scope="session")
+def tango_ctx(data_save_dir):
     """
     One Tango device server hosting SCAN + Microscope together.
 
@@ -38,7 +51,7 @@ def tango_ctx():
             "class": SCAN,
             "devices": [
                 {
-                    "name": "test/nodb/scan",
+                    "name": "asyncroscopy/scan/default",
                     "properties": {
                         # put SCAN defaults here if you want
                         # e.g. "dwell_time": 2e-6  (only if it's a device_property)
@@ -50,7 +63,25 @@ def tango_ctx():
             "class": EDS,
             "devices": [
                 {
-                    "name": "test/nodb/eds",
+                    "name": "asyncroscopy/eds/default",
+                    "properties": {},
+                }
+            ],
+        },
+        {
+            "class": CAMERA,
+            "devices": [
+                {
+                    "name": "asyncroscopy/camera/default",
+                    "properties": {},
+                }
+            ],
+        },
+        {
+            "class": FLUCAM,
+            "devices": [
+                {
+                    "name": "asyncroscopy/flucam/default",
                     "properties": {},
                 }
             ],
@@ -59,20 +90,32 @@ def tango_ctx():
             "class": STAGE,
             "devices": [
                 {
-                    "name": "test/nodb/stage",
+                    "name": "asyncroscopy/stage/default",
                     "properties": {},
                 }
             ],
         },
         {
-            "class": ThermoDigitalTwin,
+            "class": DATA,
             "devices": [
                 {
-                    "name": "test/nodb/twin",
+                    "name": "asyncroscopy/data/default",
+                    "properties": {},
+                }
+            ],
+        },
+        {
+            "class": DigitalTwin,
+            "devices": [
+                {
+                    "name": "asyncroscopy/digitaltwin/default",
                     "properties": {
-                        "scan_device_address": "test/nodb/scan",
-                        "eds_device_address": "test/nodb/eds",
-                        "stage_device_address": "test/nodb/stage",
+                        "scan_device_address": "asyncroscopy/scan/default",
+                        "eds_device_address": "asyncroscopy/eds/default",
+                        "stage_device_address": "asyncroscopy/stage/default",
+                        "camera_device_address": "asyncroscopy/camera/default",
+                        "flucam_device_address": "asyncroscopy/flucam/default",
+                        "acquisition_save_directory": str(data_save_dir),
                     },
                 }
             ],
@@ -82,48 +125,69 @@ def tango_ctx():
             "class": ThermoMicroscope,
             "devices": [
                 {
-                    "name": "test/nodb/thermomicroscope",
+                    "name": "asyncroscopy/thermomicroscope/default",
                     "properties": {
                         "testing_mode_bool": True,
-                        "scan_device_address": "test/nodb/scan",
+                        "scan_device_address": "asyncroscopy/scan/default",
+                        "camera_device_address": "asyncroscopy/camera/default",
+                        "flucam_device_address": "asyncroscopy/flucam/default",
+                        "eds_device_address": "asyncroscopy/eds/default",
+                        "stage_device_address": "asyncroscopy/stage/default",
+                        "data_device_address": "asyncroscopy/data/default",
                     },
                 }
             ],
         },
     ]
 
-    # process=False keeps everything in the same process (fast, debuggable).
-    # Also we only create ONE context, so the "second DeviceTestContext segfault"
-    # issue doesn't apply.
+    # Keep one in-process context for the whole session. Starting multiple
+    # in-process Tango contexts in one interpreter can segfault in PyTango.
     ctx = MultiDeviceTestContext(devices_info, process=False)
     with ctx:
+        data = tango.DeviceProxy(ctx.get_device_access("asyncroscopy/data/default"))
+        data.save_path = str(data_save_dir)
         yield ctx
 
 
 
 @pytest.fixture(scope="session")
 def scan_proxy(tango_ctx):
-    return tango.DeviceProxy(tango_ctx.get_device_access("test/nodb/scan"))
+    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/scan/default"))
 
 
 @pytest.fixture(scope="session")
 def twin_proxy(tango_ctx):
-    return tango.DeviceProxy(tango_ctx.get_device_access("test/nodb/twin"))
+    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/digitaltwin/default"))
 
 
 @pytest.fixture(scope="session")
 def eds_proxy(tango_ctx):
-    return tango.DeviceProxy(tango_ctx.get_device_access("test/nodb/eds"))
+    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/eds/default"))
+
+
+@pytest.fixture(scope="session")
+def camera_proxy(tango_ctx):
+    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/camera/default"))
+
+
+@pytest.fixture(scope="session")
+def flucam_proxy(tango_ctx):
+    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/flucam/default"))
 
 
 @pytest.fixture(scope="session")
 def stage_proxy(tango_ctx):
-    return tango.DeviceProxy(tango_ctx.get_device_access("test/nodb/stage"))
+    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/stage/default"))
+
+
+@pytest.fixture(scope="session")
+def data_proxy(tango_ctx):
+    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/data/default"))
 
 
 @pytest.fixture(scope="session")
 def thermo_proxy(tango_ctx):
-    return tango.DeviceProxy(tango_ctx.get_device_access("test/nodb/thermomicroscope"))
+    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/thermomicroscope/default"))
 
 
 
@@ -136,7 +200,7 @@ def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list):
         # Deterministic image makes tests stable
         arr = np.arange(imsize * imsize, dtype=np.uint16)
-        return arr.reshape(imsize, imsize)
+        return FakeAdornedImage(arr.reshape(imsize, imsize))
 
     monkeypatch.setattr(
         ThermoMicroscope,
@@ -144,7 +208,114 @@ def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
         fake_acquire,
     )
     monkeypatch.setattr(
-        ThermoDigitalTwin,
+        DigitalTwin,
         "_acquire_stem_image",
         fake_acquire,
     )
+
+
+@pytest.fixture
+def patched_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    calls = []
+
+    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list):
+        calls.append(
+            {
+                "imsize": imsize,
+                "dwell_time": dwell_time,
+                "detector_list": list(detector_list),
+            }
+        )
+        path = tmp_path / f"stem_{imsize}.tiff"
+        path.write_bytes(b"fake-tiff")
+        return str(path)
+
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_image", fake_acquire)
+    return calls
+
+
+@pytest.fixture
+def patched_advanced_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    calls = []
+
+    def fake_acquire(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector_list: list,
+        scan_region: list[float],
+    ):
+        calls.append(
+            {
+                "imsize": imsize,
+                "dwell_time": dwell_time,
+                "detector_list": list(detector_list),
+                "scan_region": list(scan_region),
+            }
+        )
+        path = tmp_path / f"stem_advanced_{imsize}.tiff"
+        path.write_bytes(b"fake-advanced-tiff")
+        return [str(path)]
+
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_image_advanced", fake_acquire)
+    return calls
+
+
+@pytest.fixture
+def patched_stem_data_acquisition(monkeypatch: pytest.MonkeyPatch):
+    calls = []
+
+    def fake_acquire(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector: str,
+        scan_region: list[float],
+    ):
+        calls.append(
+            {
+                "imsize": imsize,
+                "dwell_time": dwell_time,
+                "detector": detector,
+                "scan_region": list(scan_region),
+            }
+        )
+        return "fake-stem-data-key"
+
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_data_advanced", fake_acquire)
+    return calls
+
+
+@pytest.fixture
+def patched_camera_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    calls = []
+
+    def fake_acquire(self, imsize: int, exposure_time: float, detector: str, readout_area: str):
+        calls.append(
+            {
+                "imsize": imsize,
+                "exposure_time": exposure_time,
+                "detector": detector,
+                "readout_area": readout_area,
+            }
+        )
+        path = tmp_path / f"camera_{imsize}.tiff"
+        path.write_bytes(b"fake-camera-tiff")
+        return str(path)
+
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_camera_image", fake_acquire)
+    return calls
+
+
+@pytest.fixture
+def patched_spectrum_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    calls = []
+
+    def fake_acquire(self, detector_name: str, exposure_time: float):
+        calls.append({"detector_name": detector_name, "exposure_time": exposure_time})
+        path = tmp_path / f"spectrum_{detector_name}.emd"
+        path.write_bytes(b"fake-emd")
+        return str(path)
+
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_spectrum", fake_acquire)
+    return calls

@@ -46,6 +46,7 @@ Extends Microscope with multi-detector orchestration:
 
 Individual detector devices:
 - `CAMERA.py` - Generic camera control
+- `FLUCAM.py` - Flucam / SmartCam camera control
 - `EDS.py` - Energy dispersive X-ray spectroscopy
 - `EELS.py` - Electron energy loss spectroscopy
 
@@ -80,7 +81,7 @@ server.setup()
 2. **List All Exported Devices**
    ```python
    devices = self.database.get_device_exported("*")
-   # Returns: ["test/microscope/1", "test/detector/eds", ...]
+   # Returns: ["asyncroscopy/microscope/default", "asyncroscopy/eds/default", ...]
    ```
 
 3. **Filter by Class**
@@ -291,7 +292,7 @@ if __name__ == "__main__":
 ### 3. Register Device in Tango Database
 
 ```bash
-tango_admin --add-server MyServer/myinstance MyDetector test/detector/custom
+tango_admin --add-server MyServer/myinstance MyDetector asyncroscopy/custom/default
 ```
 
 ### 4. Start Device Server
@@ -325,8 +326,8 @@ class EnhancedMicroscopyServer(MCPServer):
     @tool()
     def focus_iteratively(self, tolerance_nm: float = 1.0) -> dict:
         """Automatically focus microscope using iterative approach."""
-        microscope = tango.DeviceProxy("test/microscope/1")
-        stage = tango.DeviceProxy("test/stage/1")
+        microscope = tango.DeviceProxy("asyncroscopy/microscope/default")
+        stage = tango.DeviceProxy("asyncroscopy/stage/default")
         
         best_focus = None
         best_contrast = 0
