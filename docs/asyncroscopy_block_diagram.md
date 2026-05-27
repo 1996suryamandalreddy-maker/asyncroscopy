@@ -15,7 +15,7 @@ Tango("Tango Database Server"):::orange
 TiledServer("Tiled HTTP<br>data server"):::orange
 
 Thermo("ThermoMicroscope<br>main device server"):::blue
-Twin("ThermoDigitalTwin<br>simulation device server"):::purple
+Twin("DigitalTwin<br>simulation device server"):::purple
 
 Scan("SCAN<br>settings device server"):::blue
 Camera("CAMERA<br>settings device server"):::blue
