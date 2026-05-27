@@ -31,8 +31,8 @@ Asyncroscopy defines Tango Device subclasses for microscopy hardware:
 ### Base: `Microscope` (asyncroscopy/Microscope.py)
 
 Core microscope control:
-- `get_image()` - Acquire STEM image
-- `get_spectrum()` - Acquire spectrum
+- `acquire_scanned_image()` - Acquire STEM image
+- `acquire_spectrum()` - Acquire spectrum
 - Attributes: voltage, magnification, probe_current
 
 ### Thermo Fisher Microscope: `ThermoMicroscope` (asyncroscopy/ThermoMicroscope.py)
@@ -129,7 +129,7 @@ How an LLM acquires a microscope image through MCP:
 # asyncroscopy/Microscope.py
 class Microscope(Device):
     @command(dtype_in=int, dtype_out=str)
-    def get_image(self, exposure_ms: int) -> str:
+    def acquire_scanned_image(self, exposure_ms: int) -> str:
         """Acquire a STEM image with specified exposure time."""
         # Interact with AutoScript microscope API
         img = self._acquire_stem_image(exposure_ms)
@@ -139,18 +139,18 @@ class Microscope(Device):
 
 ### MCP Tool Registration
 
-1. Server queries Tango: `Microscope.get_image` exists
+1. Server queries Tango: `Microscope.acquire_scanned_image` exists
 2. Extracts parameter name from source: `exposure_ms`
 3. Maps Tango type to Python: `int` → `int`
 4. Builds function signature:
    ```python
-   def Microscope_get_image(exposure_ms: int) -> dict:
+   def Microscope_acquire_scanned_image(exposure_ms: int) -> dict:
        """Acquire a STEM image with specified exposure time.
        
        Tango Device Class: Microscope
-       Tango Command: get_image
+       Tango Command: acquire_scanned_image
        """
-       result = dev.get_image(exposure_ms)
+       result = dev.acquire_scanned_image(exposure_ms)
        return {
            "encoding": "base64",
            "metadata": metadata,
@@ -163,7 +163,7 @@ class Microscope(Device):
 ```
 Agent: "Acquire an image with 5ms exposure."
 
-MCP Server invokes: Microscope_get_image(exposure_ms=5)
+MCP Server invokes: Microscope_acquire_scanned_image(exposure_ms=5)
 
 Result: {
     "encoding": "base64",
@@ -335,7 +335,7 @@ class EnhancedMicroscopyServer(MCPServer):
         # Scan focus range
         for z in range(-100, 101, 10):
             stage.move_z(z)
-            img = microscope.get_image(10)  # 10ms exposure
+            img = microscope.acquire_scanned_image(10)  # 10ms exposure
             contrast = self._calculate_contrast(img)
             
             if contrast > best_contrast:
@@ -407,7 +407,7 @@ for dev_class, commands in server.tools.items():
 ```python
 # Call the wrapped function directly
 import asyncio
-result = server.tools["Microscope"]["get_image"](exposure_ms=10)
+result = server.tools["Microscope"]["acquire_scanned_image"](exposure_ms=10)
 print(result)
 ```
 

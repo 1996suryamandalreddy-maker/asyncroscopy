@@ -290,7 +290,7 @@ class TestMCPServerDBMode:
         expected_tools = {
             "Connect",
             "Disconnect",
-            "get_scanned_image",
+            "acquire_scanned_image",
         }
 
         for expected_tool in expected_tools:
