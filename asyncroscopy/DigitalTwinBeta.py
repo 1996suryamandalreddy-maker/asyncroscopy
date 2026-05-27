@@ -6,25 +6,18 @@ Useful for testing and development without requiring AutoScript hardware.
 
 
 import json
-import time
-import math
-from typing import Optional
 
 import numpy as np
 import pyTEMlib.probe_tools as pt
 import pyTEMlib.image_tools as it
-from ase.io import read
-from ase import Atoms
-from ase.build import bulk
 
-import numpy as np
 import tango
-from tango import AttrWriteType, DevEncoded, DevState
-from tango.server import Device, attribute, command, device_property
+from tango import AttrWriteType, DevState
+from tango.server import Device, attribute
 
 from asyncroscopy.Microscope import Microscope
 
-class ThermoDigitalTwin(Microscope):
+class DigitalTwinBeta(Microscope):
     """
     Detector-specific settings (dwell time, resolution) are stored in
     dedicated detector devices and read via DeviceProxy at acquisition time.
@@ -40,7 +33,7 @@ class ThermoDigitalTwin(Microscope):
     # ------------------------------------------------------------------
     # not finishded
     manufacturer = attribute(
-        label="ThermoDigitalTwin",
+        label="DigitalTwinBeta",
         dtype=str,
         doc="Simulation backend",
     )
@@ -231,7 +224,6 @@ class ThermoDigitalTwin(Microscope):
         # removed), then find the bounding-box centre of each visible label.
         # Particles that have scrolled off-screen are omitted automatically.
 
-        vox          = self._vox_size                # Å/voxel
         world_nx, world_ny = projected_label.shape
 
         # The image FOV sits at the centre of the world map.
@@ -661,7 +653,6 @@ class ThermoDigitalTwin(Microscope):
     def _move_stage(self, position):
         """Move stage to specified position (x, y, z, a, b) in meters."""
         self.old_pos = self._stage_position
-        relative_move = np.array(position) - self._stage_position
 
         # shift the particle records/ atoms object positions by this much, negative
 
@@ -673,4 +664,4 @@ class ThermoDigitalTwin(Microscope):
 # ---------------------------------------------------------------------
 
 if __name__ == "__main__":
-    ThermoDigitalTwin.run_server()
+    DigitalTwinBeta.run_server()

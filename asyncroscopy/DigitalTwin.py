@@ -5,6 +5,8 @@ Useful for testing and development without requiring AutoScript hardware.
 """
 
 import json
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pyTEMlib.image_tools as it
@@ -12,13 +14,16 @@ import pyTEMlib.probe_tools as pt
 import tango
 from ase import Atoms
 from ase.build import bulk
+from PIL import Image, TiffImagePlugin
 from tango import AttrWriteType, DevState
-from tango.server import Device, attribute, command, device_property
+from tango.server import Device, attribute, device_property
 
 from asyncroscopy.Microscope import Microscope
 
+DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
-class ThermoDigitalTwin(Microscope):
+
+class DigitalTwin(Microscope):
     """
     Persistent ASE-backed sample simulation with stage-coupled viewport rendering.
     """
@@ -48,9 +53,24 @@ class ThermoDigitalTwin(Microscope):
         default_value=0.0,
         doc="Gaussian move noise standard deviation in meters (applied to x,y,z).",
     )
+    acquisition_save_directory = device_property(
+        dtype=str,
+        default_value=DEFAULT_ACQUISITION_DIR,
+        doc="Directory where simulated acquisitions are saved before the Tiled server serves them.",
+    )
+    acquisition_file_format = device_property(
+        dtype=str,
+        default_value="tiff",
+        doc="Acquisition file format. TIFF stores simulated image data and metadata.",
+    )
+    data_device_address = device_property(
+        dtype=str,
+        default_value="",
+        doc="Optional Tango device address for the DATA device, e.g. 'asyncroscopy/data/default'.",
+    )
 
     manufacturer = attribute(
-        label="ThermoDigitalTwin",
+        label="DigitalTwin",
         dtype=str,
         doc="Simulation backend",
     )
@@ -109,6 +129,7 @@ class ThermoDigitalTwin(Microscope):
             "eds": self.eds_device_address,
             "stage": self.stage_device_address,
             "scan": self.scan_device_address,
+            "data": self.data_device_address,
         }
         for name, address in addresses.items():
             if not address:
@@ -413,50 +434,55 @@ class ThermoDigitalTwin(Microscope):
         self._beam_pos_x = float(x)
         self._beam_pos_y = float(y)
 
-    @command(dtype_out=str)
-    def get_scanned_image(self) -> str:
-        """Acquire and cache a simulated STEM image."""
-        scan = self._detector_proxies.get("scan")
-        image = self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
-        return self._cache_image(image, "haadf")
+    def _make_filename(self, acquisition_type: str, detector: str, data_server, extension: str = "tiff") -> Path:
+        save_directory = self.acquisition_save_directory
+        if data_server is not None:
+            try:
+                save_directory = data_server.save_path
+            except tango.DevFailed as exc:
+                self.warn_stream(f"DATA device not ready: {exc}")
 
-    @command(dtype_out=str)
-    def get_scanned_image_advanced(self) -> str:
-        """Acquire and cache simulated advanced STEM images."""
-        scan = self._detector_proxies.get("scan")
-        detector_names = [detector for detector in ("haadf", "bf") if bool(getattr(scan, detector))] or ["haadf"]
-        images = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_names, list(scan.scan_region))
-        return self._cache_images(images, detector_names)
+        directory = Path(save_directory).expanduser()
+        directory.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
+        name = f"{acquisition_type}_{detector}_{stamp}.{extension.lower().lstrip('.')}"
+        return directory / name
 
-    def _cache_image(self, image, detector: str) -> str:
-        self._cached_images = [image]
-        image_data = image.data if hasattr(image, "data") else image
-        return json.dumps(
-            {
-                "detector": detector,
-                "shape": list(image_data.shape),
-                "dtype": str(image_data.dtype),
-                "cache_index": 0,
-                "data_command": "get_image_data_cached",
-            }
-        )
+    def _register_path(self, path: Path) -> str:
+        data_server = self._detector_proxies.get("data")
+        if data_server is None:
+            return str(path)
+        return data_server.register_path(str(path))
 
-    def _cache_images(self, images, detector_names: list[str]) -> str:
-        self._cached_images = list(images)
-        metadata = []
-        for index, (detector, image) in enumerate(zip(detector_names, self._cached_images)):
-            image_data = image.data if hasattr(image, "data") else image
-            metadata.append(
-                {
-                    "index": index,
-                    "detector": detector,
-                    "shape": list(image_data.shape),
-                    "dtype": str(image_data.dtype),
-                }
-            )
-        return json.dumps({"images": metadata, "count": len(metadata)})
+    def _viewport_metadata(self) -> dict:
+        fov_ang = self._fov * 1e10
+        stage_xyz_ang = self._stage_position[:3] * 1e10
+        return {
+            "stage_position": [float(v) for v in self._stage_position],
+            "beam_position": [float(self._beam_pos_x), float(self._beam_pos_y)],
+            "fov_m": float(self._fov),
+            "fov_angstrom": float(fov_ang),
+            "imsize": int(self._imsize),
+            "sample_seed": int(self.sample_seed),
+            "sample_size_xy": float(self.sample_size_xy),
+            "sample_size_z": float(self.sample_size_z),
+            "viewport_world_angstrom": {
+                "x_min": float(stage_xyz_ang[0] - fov_ang * 0.5),
+                "x_max": float(stage_xyz_ang[0] + fov_ang * 0.5),
+                "y_min": float(stage_xyz_ang[1] - fov_ang * 0.5),
+                "y_max": float(stage_xyz_ang[1] + fov_ang * 0.5),
+                "z_center": float(stage_xyz_ang[2]),
+            },
+            "world_bounds_angstrom": self._world_bounds_ang,
+            "particle_count": len(self._particle_records_base),
+        }
 
-    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> np.ndarray:
+    def _save_tiff(self, path: Path, image: np.ndarray, metadata: dict) -> None:
+        tiff_info = TiffImagePlugin.ImageFileDirectory_v2()
+        tiff_info[270] = json.dumps(metadata)
+        Image.fromarray(np.asarray(image)).save(str(path), format="TIFF", tiffinfo=tiff_info)
+
+    def _render_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> np.ndarray:
         """Simulate STEM image acquisition using convolutions of the pseudo-potential and electron probe."""
         self._sync_stage_from_proxy()
         self._imsize = imsize
@@ -500,18 +526,55 @@ class ThermoDigitalTwin(Microscope):
         noisy_image += self._lowfreq_noise(noisy_image, noise_level=0.1, freq_scale=0.1, rng=rng) * blur_noise_level
         return np.clip(noisy_image, 0.0, 1.0).astype(np.float32)
 
+    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> str:
+        """Simulate STEM acquisition, save a TIFF with metadata, and return its DATA/Tiled key."""
+        detector = detector_list[0].upper() if detector_list else "HAADF"
+        image = self._render_stem_image(int(imsize), float(dwell_time), detector_list)
+        data_server = self._detector_proxies.get("data")
+        extension = str(self.acquisition_file_format or "tiff")
+        path = self._make_filename("stem_image", detector, data_server, extension)
+        metadata = {
+            "acquisition_type": "stem_image",
+            "detector": detector,
+            "dwell_time": float(dwell_time),
+            "shape": list(image.shape),
+            "dtype": str(image.dtype),
+            "simulation_backend": self.__class__.__name__,
+            **self._viewport_metadata(),
+        }
+        self._save_tiff(path, image, metadata)
+        return self._register_path(path)
+
     def _acquire_stem_image_advanced(
         self,
         imsize: int,
         dwell_time: float,
         detector_list: list[str],
         scan_region: list[float],
-    ) -> list[np.ndarray]:
-        """Perform advanced STEM acquisition returning multiple channels mapping to requested detectors."""
-        im = self._acquire_stem_image(int(imsize), float(dwell_time), detector_list)
-        return [im.copy() for _ in detector_list]
+    ) -> list[str]:
+        """Perform advanced simulated STEM acquisition and return DATA/Tiled keys."""
+        saved_paths = []
+        for detector in detector_list:
+            image = self._render_stem_image(int(imsize), float(dwell_time), [detector])
+            detector_name = detector.upper()
+            data_server = self._detector_proxies.get("data")
+            extension = str(self.acquisition_file_format or "tiff")
+            path = self._make_filename("stem_image", detector_name, data_server, extension)
+            metadata = {
+                "acquisition_type": "stem_image_advanced",
+                "detector": detector_name,
+                "dwell_time": float(dwell_time),
+                "scan_region": [float(v) for v in scan_region],
+                "shape": list(image.shape),
+                "dtype": str(image.dtype),
+                "simulation_backend": self.__class__.__name__,
+                **self._viewport_metadata(),
+            }
+            self._save_tiff(path, image, metadata)
+            saved_paths.append(self._register_path(path))
+        return saved_paths
 
-    def _acquire_spectrum(self, detector_name: str, exposure_time: float):
+    def _simulate_spectrum(self, detector_name: str, exposure_time: float) -> dict[str, float]:
         """Simulate EDS spectrum acquisition at the current beam position weighted by surrounding particles."""
         self._sync_stage_from_proxy()
         self._update_view_cache(force=False)
@@ -550,10 +613,10 @@ class ThermoDigitalTwin(Microscope):
         rng = np.random.default_rng(spectrum_seed)
 
         if weight_sum <= 0.0:
-            return json.dumps({
+            return {
                 element: float(np.abs(rng.normal(0.0, 0.02)))
                 for element in (self._all_sample_elements or ["Au", "Pt", "Fe"])
-            })
+            }
 
         normalized = {el: val / weight_sum for el, val in weighted.items()}
         noisy = {}
@@ -561,8 +624,31 @@ class ThermoDigitalTwin(Microscope):
             noisy[element] = float(max(0.0, value + rng.normal(0.0, 0.01)))
         total = sum(noisy.values())
         if total <= 0.0:
-            return json.dumps(noisy)
-        return json.dumps({el: val / total for el, val in noisy.items()})
+            return noisy
+        return {el: val / total for el, val in noisy.items()}
+
+    def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> str:
+        """Simulate spectrum acquisition, save a NumPy file, and return its DATA/Tiled key."""
+        spectrum = self._simulate_spectrum(detector_name, exposure_time)
+        data_server = self._detector_proxies.get("data")
+        path = self._make_filename("spectrum", detector_name, data_server, "npy")
+        spectrum_array = np.array(
+            list(spectrum.items()),
+            dtype=[("element", "U8"), ("intensity", "f8")],
+        )
+        # TODO: migrate simulated spectra to .emd once the EDS data model is settled.
+        np.save(path, spectrum_array)
+        metadata = {
+            "acquisition_type": "spectrum",
+            "detector": detector_name,
+            "exposure_time": float(exposure_time),
+            "format_note": "Temporary .npy spectrum; migrate to .emd later.",
+            "spectrum": spectrum,
+            "simulation_backend": self.__class__.__name__,
+            **self._viewport_metadata(),
+        }
+        path.with_suffix(".json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        return self._register_path(path)
 
     def _place_beam(self, position) -> None:
         """Place the electron beam at the specified [x, y] coordinates."""
@@ -630,4 +716,4 @@ class ThermoDigitalTwin(Microscope):
         return json.dumps(metadata)
 
 if __name__ == "__main__":
-    ThermoDigitalTwin.run_server()
+    DigitalTwin.run_server()
