@@ -7,9 +7,9 @@ It provides realistic-enough image and spectrum behavior for development, testin
 
 1. On startup, the twin generates a **persistent synthetic sample** (deterministic from seed).
 2. Stage pose (`x, y, z, alpha, beta`) defines the current viewport into that sample.
-3. `get_scanned_image()` calls the inherited microscope command, which delegates to `_acquire_stem_image()`.
+3. `acquire_scanned_image()` calls the inherited microscope command, which delegates to `_acquire_stem_image()`.
 4. `_acquire_stem_image()` renders the current pose/FoV, writes a TIFF with metadata, and returns the DATA/Tiled key when a DATA device is configured.
-5. `get_spectrum("eds")` delegates to `_acquire_spectrum()`, which estimates composition at the current beam position and saves a `.npy` spectrum for now.
+5. `acquire_spectrum("eds")` delegates to `_acquire_spectrum()`, which estimates composition at the current beam position and saves a `.npy` spectrum for now.
 
 This means moving the stage navigates the sample, and revisiting the same pose can reproduce the same view when stage noise is disabled.
 
@@ -38,8 +38,8 @@ Spectrum files are currently saved as `.npy` with a JSON metadata sidecar. This 
 - `move_stage([x, y, z, alpha, beta])`
 - `get_stage()`
 - `set_fov(fov)`
-- `get_scanned_image()`
+- `acquire_scanned_image()`
 - `place_beam([x, y])`
-- `get_spectrum("eds")`
+- `acquire_spectrum("eds")`
 - `get_viewport_metadata()`
 - `regenerate_sample(seed)`

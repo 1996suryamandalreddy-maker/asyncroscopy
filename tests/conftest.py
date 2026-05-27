@@ -194,7 +194,7 @@ def thermo_proxy(tango_ctx):
 @pytest.fixture
 def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    Patch ThermoMicroscope._acquire_stem_image so get_image() works
+    Patch ThermoMicroscope._acquire_stem_image so acquire_scanned_image() works
     without AutoScript/hardware.
     """
     def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list):

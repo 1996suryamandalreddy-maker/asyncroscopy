@@ -33,7 +33,7 @@ class TestThermoMicroscope:
         assert scan_proxy.imsize == 512
         assert list(scan_proxy.scan_region) == [0.0, 0.0, 1.0, 1.0]
 
-    def test_get_scanned_image_returns_saved_path(
+    def test_acquire_scanned_image_returns_saved_path(
         self,
         thermo_proxy: tango.DeviceProxy,
         scan_proxy: tango.DeviceProxy,
@@ -42,7 +42,7 @@ class TestThermoMicroscope:
         scan_proxy.dwell_time = 1e-6
         scan_proxy.imsize = 512
 
-        saved_path = thermo_proxy.get_scanned_image()
+        saved_path = thermo_proxy.acquire_scanned_image()
 
         assert isinstance(saved_path, str)
         assert saved_path.endswith(".tiff")
@@ -64,7 +64,7 @@ class TestThermoMicroscope:
         scan_proxy.dwell_time = 2e-6
         scan_proxy.imsize = 256
 
-        saved_path = thermo_proxy.get_scanned_image()
+        saved_path = thermo_proxy.acquire_scanned_image()
 
         assert Path(saved_path).exists()
         assert patched_path_acquisition[-1] == {
@@ -85,7 +85,7 @@ class TestThermoMicroscope:
         scan_proxy.haadf = True
         scan_proxy.bf = False
 
-        saved_path = thermo_proxy.get_scanned_image_advanced()
+        saved_path = thermo_proxy.acquire_scanned_image_advanced()
 
         assert Path(saved_path).read_bytes() == b"fake-advanced-tiff"
         assert patched_advanced_path_acquisition == [
@@ -149,7 +149,7 @@ class TestThermoMicroscope:
         scan_proxy.imsize = 128
         scan_proxy.scan_region = [0.0, 0.0, 0.5, 0.5]
 
-        result = thermo_proxy.get_scanned_data_advanced()
+        result = thermo_proxy.acquire_scanned_data_advanced()
 
         assert result == "fake-stem-data-key"
         assert patched_stem_data_acquisition == [
@@ -209,7 +209,7 @@ class TestThermoMicroscope:
         camera_proxy.imsize = 2048
         camera_proxy.readout_area = "Half"
 
-        saved_path = thermo_proxy.get_camera_image()
+        saved_path = thermo_proxy.acquire_camera_image()
 
         assert Path(saved_path).read_bytes() == b"fake-camera-tiff"
         assert patched_camera_path_acquisition == [
@@ -231,7 +231,7 @@ class TestThermoMicroscope:
         flucam_proxy.imsize = 1024
         flucam_proxy.readout_area = "Full"
 
-        saved_path = thermo_proxy.get_flucam_image()
+        saved_path = thermo_proxy.acquire_flucam_image()
 
         assert Path(saved_path).read_bytes() == b"fake-camera-tiff"
         assert patched_camera_path_acquisition == [
@@ -251,7 +251,7 @@ class TestThermoMicroscope:
     ) -> None:
         eds_proxy.exposure_time = 0.25
 
-        saved_path = thermo_proxy.get_spectrum("eds")
+        saved_path = thermo_proxy.acquire_spectrum("eds")
 
         assert Path(saved_path).read_bytes() == b"fake-emd"
         assert patched_spectrum_path_acquisition == [{"detector_name": "eds", "exposure_time": pytest.approx(0.25)}]

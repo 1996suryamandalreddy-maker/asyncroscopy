@@ -151,20 +151,20 @@ class Microscope(Device, metaclass=CombinedMeta):
         self.info_stream("Disconnected from microscope hardware")
 
     @command(dtype_in=str, dtype_out=str)
-    def get_spectrum(self, detector_name: str) -> str:
+    def acquire_spectrum(self, detector_name: str) -> str:
         """Acquire a single spectrum and return its DATA/Tiled unique id."""
         detector_name = detector_name.lower().strip()
         proxy = self._detector_proxies.get(detector_name)
         return self._acquire_spectrum(detector_name, proxy.exposure_time)
 
     @command(dtype_out=str)
-    def get_scanned_image(self) -> str:
+    def acquire_scanned_image(self) -> str:
         """Acquire a STEM image and return a key pointing to that data. You can get the data with the get_image_from_key command"""
         scan = self._detector_proxies.get("scan")
         return self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
 
     @command(dtype_out=str)
-    def get_scanned_image_advanced(self) -> str:
+    def acquire_scanned_image_advanced(self) -> str:
         """Acquire a STEM image using advanced STEM settings from the scan device."""
         scan = self._detector_proxies.get("scan")
         detector_names = [detector for detector in ("haadf", "bf") if bool(getattr(scan, detector))] or ["haadf"]
@@ -176,25 +176,25 @@ class Microscope(Device, metaclass=CombinedMeta):
         return unique_ids[0] if len(unique_ids) == 1 else json.dumps(unique_ids)
 
     @command(dtype_out=str)
-    def get_scanned_data_advanced(self) -> str:
+    def acquire_scanned_data_advanced(self) -> str:
         """Trigger an advanced 4D STEM data acquisition with the Ceta camera."""
         scan = self._detector_proxies.get("scan")
         return self._acquire_stem_data_advanced(scan.imsize, scan.dwell_time, "BM-Ceta", list(scan.scan_region))
 
     @command(dtype_out=str)
-    def get_camera_image(self) -> str:
+    def acquire_camera_image(self) -> str:
         """Acquire a camera image using settings from the camera device."""
         camera = self._detector_proxies.get("camera")
         return self._acquire_camera_image(camera.imsize, camera.exposure_time, "BM-Ceta", camera.readout_area)
 
     @command(dtype_out=str)
-    def get_flucam_image(self) -> str:
+    def acquire_flucam_image(self) -> str:
         """Acquire a Flucam image using settings from the flucam device."""
         flucam = self._detector_proxies.get("flucam")
         return self._acquire_camera_image(flucam.imsize, flucam.exposure_time, "Flucam", flucam.readout_area)
 
     @command(dtype_in=('str',), dtype_out=str)
-    def get_images(self, detector_names: list[str]) -> str:
+    def acquire_images(self, detector_names: list[str]) -> str:
         """
         Acquire multiple STEM images simultaneously.
 
@@ -219,7 +219,7 @@ class Microscope(Device, metaclass=CombinedMeta):
     def get_image_data_cached(self, index: int) -> tuple[str, bytes]:
         """Retrieve cached image by index."""
         if not hasattr(self, '_cached_images'):
-            tango.Except.throw_exception("NoCache", "Call get_images() first", "get_image_data()")
+            tango.Except.throw_exception("NoCache", "Call acquire_images() first", "get_image_data()")
         if index >= len(self._cached_images):
             tango.Except.throw_exception("InvalidIndex", f"Index {index} out of range", "get_image_data()")
         
