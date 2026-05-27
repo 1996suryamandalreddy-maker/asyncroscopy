@@ -22,7 +22,7 @@ from asyncroscopy.detectors.EDS import EDS
 from asyncroscopy.detectors.FLUCAM import FLUCAM
 from asyncroscopy.hardware.SCAN import SCAN
 from asyncroscopy.hardware.STAGE import STAGE
-from asyncroscopy.ThermoDigitalTwin import ThermoDigitalTwin
+from asyncroscopy.DigitalTwin import DigitalTwin
 from asyncroscopy.ThermoMicroscope import ThermoMicroscope
 from asyncroscopy.software.DATA import DATA
 
@@ -32,7 +32,7 @@ class FakeAdornedImage:
         self.data = data
 
 
-# We use ThermoDigitalTwin as our simulated microscope for all tests.
+# We use DigitalTwin as our simulated microscope for all tests.
     
 @pytest.fixture(scope="session")
 def data_save_dir(tmp_path_factory):
@@ -105,7 +105,7 @@ def tango_ctx(data_save_dir):
             ],
         },
         {
-            "class": ThermoDigitalTwin,
+            "class": DigitalTwin,
             "devices": [
                 {
                     "name": "asyncroscopy/digitaltwin/default",
@@ -115,6 +115,7 @@ def tango_ctx(data_save_dir):
                         "stage_device_address": "asyncroscopy/stage/default",
                         "camera_device_address": "asyncroscopy/camera/default",
                         "flucam_device_address": "asyncroscopy/flucam/default",
+                        "acquisition_save_directory": str(data_save_dir),
                     },
                 }
             ],
@@ -207,7 +208,7 @@ def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
         fake_acquire,
     )
     monkeypatch.setattr(
-        ThermoDigitalTwin,
+        DigitalTwin,
         "_acquire_stem_image",
         fake_acquire,
     )
