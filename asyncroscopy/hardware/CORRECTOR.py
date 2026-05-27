@@ -176,6 +176,22 @@ class CORRECTOR(Device):
         """Re-attempt the TCP connection to the CEOS server."""
         self._connect()
 
+
+    # ------------------------------------------------------------------
+    # Public commands pertaining to simulation
+    # ------------------------------------------------------------------
+    
+    @command(dtype_in=str)
+    def set_aberrations_coeff_sim(self, json_aberrations_string: str):
+        self.ab = json.loads(json_aberrations_string)
+        pass 
+
+    @command(dtype_out=str)
+    def get_aberrations_coeff_sim(self):
+        if self.ab == None:
+            return
+        return json.dumps(self.ab)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

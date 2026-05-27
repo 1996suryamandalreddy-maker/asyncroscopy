@@ -13,7 +13,8 @@ implementation, typically a DATA/Tiled unique id.
 import json
 from typing import Optional
 
-from abc import abstractmethod, ABCMeta
+
+from abc import abstractmethod, ABC, ABCMeta
 
 import tango
 from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat
@@ -37,8 +38,15 @@ class Microscope(Device, metaclass=CombinedMeta):
     scan_device_address = device_property(
         dtype=str,
         doc="Tango device address for the SCAN settings device. "
-            "DB mode: 'asyncroscopy/scan/default' "
-            "No-DB mode: 'tango://127.0.0.1:8888/asyncroscopy/scan/default#dbase=no'",
+            "DB mode: 'test/detector/scan' "
+            "No-DB mode: 'tango://127.0.0.1:8888/test/nodb/scan#dbase=no'",
+    )
+    
+    corrector_device_address = device_property(
+        dtype=str,
+        doc="Tango device address for the aberration corrector settings device. "
+            "DB mode: 'test/hardware/corrector' "
+            "No-DB mode: 'tango://127.0.0.1:8888/test/nodb/corrector#dbase=no'",
     )
 
     eds_device_address = device_property(
@@ -227,6 +235,27 @@ class Microscope(Device, metaclass=CombinedMeta):
         sets resting beam position, [0:1]
         """
         self._place_beam(position)
+
+    @command(dtype_in=DevVarFloatArray, dtype_out=None)
+    def place_beam_list(self, positions) -> None:
+        """
+        Place beam at multiple positions sequentially.
+        Extension of place_beam command 
+        Why not call  place_beam in loop of client side -> It fails
+        """
+        if len(positions) % 2 != 0:
+            raise ValueError("Input must contain pairs of (x, y) values.")
+
+        for i in range(0, len(positions), 2):
+            x = float(positions[i])
+            y = float(positions[i + 1])
+
+            self._place_beam([x, y])
+
+    @command(dtype_in=str)
+    def set_column_valves(self, state: str) -> None:
+        """Open or close the column valves"""
+        self._set_column_valves(state)
 
     @command()
     def blank_beam(self) -> None:

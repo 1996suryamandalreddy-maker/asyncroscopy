@@ -12,6 +12,7 @@ import numpy as np
 import pyTEMlib.image_tools as it
 import pyTEMlib.probe_tools as pt
 import tango
+from ase.io import read
 from ase import Atoms
 from ase.build import bulk
 from PIL import Image, TiffImagePlugin
@@ -28,6 +29,10 @@ class DigitalTwin(Microscope):
     Persistent ASE-backed sample simulation with stage-coupled viewport rendering.
     """
 
+    # ------------------------------------------------------------------
+    # Device properties — configure in Tango DB per deployment
+    # ------------------------------------------------------------------
+    
     sample_seed = device_property(
         dtype=int,
         default_value=12345,
@@ -129,6 +134,7 @@ class DigitalTwin(Microscope):
             "eds": self.eds_device_address,
             "stage": self.stage_device_address,
             "scan": self.scan_device_address,
+            "corrector": self.corrector_device_address,
             "data": self.data_device_address,
         }
         for name, address in addresses.items():
@@ -199,7 +205,9 @@ class DigitalTwin(Microscope):
         g = np.exp(-(((xx + dx) ** 2 + (yy + dy) ** 2) / (2 * sigma**2)))
         m = np.max(g)
         return g / m if m > 0 else g
-
+    # ------------------------------------------------------------------
+    #  simulation helpers ----> Should be put in asyncroscopy/simulation later
+    # ------------------------------------------------------------------
     def _create_pseudo_potential(
         self,
         xtal: Atoms,
@@ -418,6 +426,9 @@ class DigitalTwin(Microscope):
         self._cached_pose_key = None
         self._update_view_cache(force=True)
 
+    # ------------------------------------------------------------------
+    # Attribute read methods
+    # ------------------------------------------------------------------
     def read_manufacturer(self) -> str:
         """Read method for the manufacturer attribute."""
         return self._manufacturer

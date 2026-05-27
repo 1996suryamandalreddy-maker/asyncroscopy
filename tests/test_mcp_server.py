@@ -20,6 +20,10 @@ import asyncio
 
 import numpy as np
 
+from fastmcp.prompts import prompt
+from fastmcp.resources import resource
+from fastmcp.tools import tool
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from asyncroscopy.mcp.mcp_server import MCPServer
@@ -385,6 +389,48 @@ class TestMCPSerialization:
         assert isinstance(normalized["payload"], str)
         assert base64.b64decode(normalized["payload"]) == b"\x00\x01\xff\x10"
 
+    def test_numpy_to_python_converts_nested_structures(self) -> None:
+        payload = {
+            "array": np.array([1, 2], dtype=np.int64),
+            "scalar": np.float32(1.5),
+            "tuple": (np.int32(3), np.array([[4, 5]], dtype=np.int64)),
+            "list": [np.uint8(6)],
+        }
+
+        converted = MCPServer._numpy_to_python(payload)
+
+        assert converted == {
+            "array": [1, 2],
+            "scalar": 1.5,
+            "tuple": (3, [[4, 5]]),
+            "list": [6],
+        }
+        assert isinstance(converted["tuple"], tuple)
+
+    def test_normalize_command_result_converts_numpy_non_encoded(self) -> None:
+        result = np.array([1, 2, 3], dtype=np.uint16)
+        normalized = MCPServer._normalize_command_result(
+            tango.CmdArgType.DevString, result
+        )
+        assert normalized == [1, 2, 3]
+
+    def test_normalize_command_result_converts_numpy_nested(self) -> None:
+        result = {
+            "array": np.array([1, 2], dtype=np.int64),
+            "scalar": np.float32(1.25),
+            "nested": {"values": [np.uint8(3), np.array([[4, 5]])]},
+        }
+
+        normalized = MCPServer._normalize_command_result(
+            tango.CmdArgType.DevString, result
+        )
+
+        assert normalized == {
+            "array": [1, 2],
+            "scalar": 1.25,
+            "nested": {"values": [3, [[4, 5]]]},
+        }
+
 class TestMCPServerTypeMapping:
     def test_tango_types_map_to_python(self) -> None:
         assert MCPServer._tango_type_to_python(tango.CmdArgType.DevString) is str
@@ -438,3 +484,44 @@ class TestMCPToolInvocation:
         wrapper = server._create_wrapper(mock_func, cmd_info, "VoidCmd", "MyClass")
         
         assert wrapper() == "done"
+
+
+class TestMCPRegistration:
+    def test_register_instance_methods_for_tools_resources_prompts(self, monkeypatch) -> None:
+        monkeypatch.setattr("asyncroscopy.mcp.mcp_server.Database", lambda host, port: None)
+
+        class CustomServer(MCPServer):
+            @tool()
+            def custom_tool(self, value: str) -> str:
+                return value
+
+            @resource("config://demo")
+            def custom_resource(self) -> str:
+                return "demo"
+
+            @prompt()
+            def custom_prompt(self, label: str) -> str:
+                return f"Prompt {label}"
+
+        server = CustomServer("test", "localhost", 1234, verbose=False)
+        calls = {"tool": [], "resource": [], "prompt": []}
+
+        def record_tool(method):
+            calls["tool"].append(method.__name__)
+
+        def record_resource(method):
+            calls["resource"].append(method.__name__)
+
+        def record_prompt(method):
+            calls["prompt"].append(method.__name__)
+
+        monkeypatch.setattr(server.mcp, "add_tool", record_tool)
+        monkeypatch.setattr(server.mcp, "add_resource", record_resource)
+        monkeypatch.setattr(server.mcp, "add_prompt", record_prompt)
+
+        registered = server._register_instance_methods()
+
+        assert registered == 4
+        assert set(calls["tool"]) == {"custom_tool", "list_devices"}
+        assert calls["resource"] == ["custom_resource"]
+        assert calls["prompt"] == ["custom_prompt"]
