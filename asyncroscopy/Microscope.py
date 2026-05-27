@@ -151,7 +151,7 @@ class Microscope(Device, metaclass=CombinedMeta):
 
     @command(dtype_out=str)
     def get_scanned_image(self) -> str:
-        """Acquire a STEM image using settings from the scan device."""
+        """Acquire a STEM image and return a key pointing to that data. You can get the data with the get_image_from_key command"""
         scan = self._detector_proxies.get("scan")
         return self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
 
