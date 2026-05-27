@@ -208,6 +208,7 @@ __marimo__/
 
 .DS_Store
 
+autoscript_documentation/
 PythonPackages-AS-1.15/
 llm-context/
 # MyST build outputs
