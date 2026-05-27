@@ -3,6 +3,12 @@ name = "asyncroscopy"
 version = "0.1.0"
 description = "Asyncroscopy: asynchronous control framework for STEM automation"
 readme = "README.md"
+<<<<<<< HEAD
+requires-python = ">3.11"
+
+dependencies = [
+    # AutoScript / Thermo Fisher wheels — resolved from AS_1.15_wheels/
+=======
 requires-python = ">=3.12"
 dependencies = [
     "colorama>=0.4.6",
@@ -26,15 +32,32 @@ dependencies = [
     "fastmcp>=0.1.0",
     "anyio>=4.0.0",
     # AutoScript (local wheels)
+>>>>>>> PyTango-dev-ACH
     "autoscript-core",
     "autoscript-tem-microscope-client",
     "autoscript-tem-microscope-client-tests",
     "autoscript-tem-snippets-tests",
     "autoscript-tem-toolkit",
     "thermoscientific-logging",
+<<<<<<< HEAD
+    # Other project dependencies
+    "colorama>=0.4.6",
+    "ipykernel>=7.1.0",
+    "lxml>=6.0.2",
+    "matplotlib>=3.10.7",
+    "numpy>=2.3.4",
+    "opencv-python>=4.11.0.86",
+    "pynsid>=0.0.7.2",
+    "scifireaders>=0.12.0",
+    "twisted>=25.5.0",
+    "pyTEMlib>=0.2025.11.4",
+    "botorch==0.12.0",
+    "pre-commit>=4.5.0",
+=======
     "aicspylibczi>=3.3.1",
     "jupyter-book>=2.0.0",
     "tiled[all]>=0.2.9",
+>>>>>>> PyTango-dev-ACH
 ]
 
 [tool.setuptools]
@@ -44,9 +67,17 @@ package-dir = { "" = "." }
 include = ["asyncroscopy*"]
 
 [tool.uv.sources]
+<<<<<<< HEAD
+autoscript-core = { path = "AS_1.14_wheels/autoscript_core-5.32.0-py3-none-any.whl" }
+autoscript-tem-microscope-client-tests = { path = "AS_1.14_wheels/autoscript_tem_microscope_client_tests-1.14.0-py3-none-any.whl" }
+autoscript-tem-microscope-client = { path = "AS_1.14_wheels/autoscript_tem_microscope_client-1.14.0-py3-none-any.whl" }
+autoscript-tem-toolkit = { path = "AS_1.14_wheels/autoscript_tem_toolkit-1.14.0-py3-none-any.whl" }
+thermoscientific-logging = { path = "AS_1.14_wheels/thermoscientific_logging-5.32.0-py3-none-any.whl" }
+=======
 autoscript-core = { path = "stubs/autoscript_core-1.0.0-py3-none-any.whl" }
 autoscript-tem-microscope-client = { path = "stubs/autoscript_tem_microscope_client-1.15.0-py3-none-any.whl" }
 autoscript-tem-microscope-client-tests = { path = "stubs/autoscript_tem_microscope_client_tests-1.15.0-py3-none-any.whl" }
 autoscript-tem-snippets-tests = { path = "stubs/autoscript_tem_snippets_tests-1.15.0-py3-none-any.whl" }
 autoscript-tem-toolkit = { path = "stubs/autoscript_tem_toolkit-1.15.0-py3-none-any.whl" }
 thermoscientific-logging = { path = "stubs/thermoscientific_logging-1.0.0-py3-none-any.whl" }
+>>>>>>> PyTango-dev-ACH
