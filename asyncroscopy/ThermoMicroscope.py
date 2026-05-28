@@ -110,6 +110,7 @@ class ThermoMicroscope(Microscope):
             return
         try:
             self._microscope = TemMicroscopeClient()
+            self.microscope = self._microscope  # link the proxy attribute to the real microscope client
             self._microscope.connect(self.autoscript_host_ip, self.autoscript_host_port)
             self.info_stream(f"Connected to AutoScript at {self.autoscript_host_ip}:{self.autoscript_host_port}")
             self.is_autoscript = True
