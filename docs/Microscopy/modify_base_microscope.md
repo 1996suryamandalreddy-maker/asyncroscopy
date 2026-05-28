@@ -7,8 +7,8 @@ If you’re editing this class - `Microscope` located at asyncroscopy/Microscope
    (Control how attribute values are validated, stored, or synchronized with AutoScript.)
 
 3. **Adding or modifying commands**
-- `get_image`
-- `get_spectrum`
+- `acquire_scanned_image`
+- `acquire_spectrum`
 
 3. **ADD a new functionality pertaining to a microscope api - Adding Internal acquisition helpers in the base Microscope**
 - examples - already existing

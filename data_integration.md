@@ -36,7 +36,7 @@ data.save_path = "/path/served/by/tiled"
 Acquire as usual, but treat the return value as a descriptor:
 
 ```python
-descriptor = mic.get_scanned_image()
+descriptor = mic.acquire_scanned_image()
 ```
 
 Use the DATA device to resolve data through Tiled:
