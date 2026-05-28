@@ -82,8 +82,6 @@ class TestThermoMicroscope:
         scan_proxy.dwell_time = 3e-6
         scan_proxy.imsize = 128
         scan_proxy.scan_region = [0.1, 0.2, 0.3, 0.4]
-        scan_proxy.haadf = True
-        scan_proxy.bf = False
 
         saved_path = thermo_proxy.acquire_scanned_image_advanced()
 
@@ -94,6 +92,28 @@ class TestThermoMicroscope:
                 "dwell_time": pytest.approx(3e-6),
                 "detector_list": ["haadf"],
                 "scan_region": [0.1, 0.2, 0.3, 0.4],
+            }
+        ]
+
+    def test_acquire_images_uses_user_detector_list(
+        self,
+        thermo_proxy: tango.DeviceProxy,
+        scan_proxy: tango.DeviceProxy,
+        patched_advanced_path_acquisition: list[dict],
+    ) -> None:
+        scan_proxy.dwell_time = 5e-6
+        scan_proxy.imsize = 256
+        scan_proxy.scan_region = [0.2, 0.2, 0.5, 0.5]
+
+        saved_path = thermo_proxy.acquire_images(["HAADF", "BF"])
+
+        assert Path(saved_path).read_bytes() == b"fake-advanced-tiff"
+        assert patched_advanced_path_acquisition == [
+            {
+                "imsize": 256,
+                "dwell_time": pytest.approx(5e-6),
+                "detector_list": ["HAADF", "BF"],
+                "scan_region": [0.2, 0.2, 0.5, 0.5],
             }
         ]
 

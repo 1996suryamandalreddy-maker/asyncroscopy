@@ -14,7 +14,7 @@ import json
 from typing import Optional
 
 
-from abc import abstractmethod, ABC, ABCMeta
+from abc import abstractmethod, ABCMeta
 
 import tango
 from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat
@@ -167,7 +167,7 @@ class Microscope(Device, metaclass=CombinedMeta):
     def acquire_scanned_image_advanced(self) -> str:
         """Acquire a STEM image using advanced STEM settings from the scan device."""
         scan = self._detector_proxies.get("scan")
-        detector_names = [detector for detector in ("haadf", "bf") if bool(getattr(scan, detector))] or ["haadf"]
+        detector_names = ["haadf"]
         unique_ids = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_names, list(scan.scan_region))
         if isinstance(unique_ids, str):
             return unique_ids
@@ -193,7 +193,7 @@ class Microscope(Device, metaclass=CombinedMeta):
         flucam = self._detector_proxies.get("flucam")
         return self._acquire_camera_image(flucam.imsize, flucam.exposure_time, "Flucam", flucam.readout_area)
 
-    @command(dtype_in=('str',), dtype_out=str)
+    @command(dtype_in=("str",), dtype_out=str)
     def acquire_images(self, detector_names: list[str]) -> str:
         """
         Acquire multiple STEM images simultaneously.
@@ -207,9 +207,9 @@ class Microscope(Device, metaclass=CombinedMeta):
         JSON string containing unique ids returned by the vendor-specific
         implementation.
         """
-        detector_names = [name.strip() for name in detector_names]
         scan = self._detector_proxies.get("scan")
-        unique_ids = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_names, [0.0, 0.0, 1.0, 1.0])
+        detector_names = [name.strip() for name in detector_names if name.strip()]
+        unique_ids = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_names, list(scan.scan_region))
         if isinstance(unique_ids, str):
             return unique_ids
         unique_ids = list(unique_ids)

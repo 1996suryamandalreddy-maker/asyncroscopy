@@ -1,12 +1,11 @@
 """
-ALL SCANNING DETECTORS
-This device holds acquisition settings for the HAADF and BF detectors.
+SCAN hardware settings.
+This device holds scan acquisition settings.
 It does NOT talk to AutoScript directly — the Microscope device
 reads these attributes via DeviceProxy before acquiring.
 """
 from tango import AttrWriteType, DevState
-from tango.server import Device, attribute, command
-from tango import DevVarStringArray
+from tango.server import Device, attribute
 
 
 class SCAN(Device):
@@ -35,20 +34,6 @@ class SCAN(Device):
         doc="Acquisition width in pixels (should match an AutoScript ImageSize preset)",
     )
 
-    haadf = attribute(
-        label="HAADF Detector",
-        dtype=bool,
-        access=AttrWriteType.READ_WRITE,
-        doc="HAADF detector state: True = active, False = inactive",
-    )
-
-    bf = attribute(
-        label="BF Detector",
-        dtype=bool,
-        access=AttrWriteType.READ_WRITE,
-        doc="Bright Field detector state: True = active, False = inactive",
-    )
-
     scan_region = attribute(
         label="Scan Region",
         dtype=(float,),
@@ -69,8 +54,6 @@ class SCAN(Device):
         self.set_state(DevState.ON)
         self._dwell_time: float = 1e-6
         self._imsize: int = 512
-        self._haadf: bool = False
-        self._bf: bool = False
         self._scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]
         self.info_stream("SCAN device initialised")
 
@@ -89,20 +72,6 @@ class SCAN(Device):
 
     def write_imsize(self, value: int) -> None:
         self._imsize = value
-
-    def read_haadf(self) -> bool:
-        return self._haadf
-
-    def write_haadf(self, value: bool) -> None:
-        self._haadf = value
-        self.info_stream(f"HAADF detector set to {'active' if value else 'inactive'}")
-
-    def read_bf(self) -> bool:
-        return self._bf
-
-    def write_bf(self, value: bool) -> None:
-        self._bf = value
-        self.info_stream(f"BF detector set to {'active' if value else 'inactive'}")
 
     def read_scan_region(self) -> list[float]:
         return self._scan_region
@@ -126,26 +95,6 @@ class SCAN(Device):
         if left + width > 1.0 or top + height > 1.0:
             raise ValueError("scan_region must fit within the relative [0, 1] scan area")
         return region
-
-    # ------------------------------------------------------------------
-    # Commands
-    # ------------------------------------------------------------------
-
-    VALID_DETECTORS = {"haadf", "bf"}
-
-    @command(dtype_in=DevVarStringArray, doc_in="List of detectors to activate, e.g. ['haadf', 'bf']. All others are deactivated.")
-    def Activate(self, detectors) -> None:
-        """Activate the named detectors and deactivate all others."""
-        requested = {d.lower() for d in detectors}
-        unknown = requested - self.VALID_DETECTORS
-        if unknown:
-            raise ValueError(f"Unknown detector(s): {unknown}. Valid options: {self.VALID_DETECTORS}")
-
-        self._haadf = "haadf" in requested
-        self._bf    = "bf"    in requested
-
-        self.info_stream(f"Active detectors: {requested or 'none'}")
-
 
 # ----------------------------------------------------------------------
 # Server entry point
