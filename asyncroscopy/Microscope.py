@@ -17,7 +17,7 @@ from typing import Optional
 from abc import abstractmethod, ABCMeta
 
 import tango
-from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat
+from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat, DevVarStringArray
 from tango.server import Device, DeviceMeta, attribute, command, device_property
 
 class CombinedMeta(DeviceMeta, ABCMeta):
@@ -157,23 +157,11 @@ class Microscope(Device, metaclass=CombinedMeta):
         proxy = self._detector_proxies.get(detector_name)
         return self._acquire_spectrum(detector_name, proxy.exposure_time)
 
-    @command(dtype_out=str)
-    def acquire_scanned_image(self) -> str:
-        """Acquire a STEM image and return a key pointing to that data. You can get the data with the get_image_from_key command"""
+    @command(dtype_in=DevVarStringArray, dtype_out=str)
+    def acquire_scanned_image(self, detector_list: list[str] = ["haadf"]) -> str:
+        """Acquire an image with scanning detectors and return a key pointing to that data. You can get the data with the get_image_from_key command"""
         scan = self._detector_proxies.get("scan")
-        return self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
-
-    @command(dtype_out=str)
-    def acquire_scanned_image_advanced(self, detector_list = ["haadf"]) -> str:
-        # eventually: move detector list out to general device
-        """Acquire a STEM image using advanced STEM settings from the scan device."""
-        scan = self._detector_proxies.get("scan")
-        unique_ids = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
-        if isinstance(unique_ids, str):
-            return unique_ids
-
-        unique_ids = list(unique_ids)
-        return unique_ids[0] if len(unique_ids) == 1 else json.dumps(unique_ids)
+        return self._acquire_stem_image(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
 
     @command(dtype_out=str)
     def acquire_scanned_data_advanced(self) -> str:
@@ -193,33 +181,11 @@ class Microscope(Device, metaclass=CombinedMeta):
         flucam = self._detector_proxies.get("flucam")
         return self._acquire_camera_image(flucam.imsize, flucam.exposure_time, "Flucam", flucam.readout_area)
 
-    @command(dtype_in=("str",), dtype_out=str)
-    def acquire_images(self, detector_names: list[str]) -> str:
-        """
-        Acquire multiple STEM images simultaneously.
-
-        Parameters
-        ----------
-        detector_names: list of detector names, e.g. ["HAADF", "BF"]
-
-        Returns
-        -------
-        JSON string containing unique ids returned by the vendor-specific
-        implementation.
-        """
-        scan = self._detector_proxies.get("scan")
-        detector_names = [name.strip() for name in detector_names if name.strip()]
-        unique_ids = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_names, list(scan.scan_region))
-        if isinstance(unique_ids, str):
-            return unique_ids
-        unique_ids = list(unique_ids)
-        return unique_ids[0] if len(unique_ids) == 1 else json.dumps(unique_ids)
-
     @command(dtype_in=int, dtype_out=DevEncoded)
     def get_image_data_cached(self, index: int) -> tuple[str, bytes]:
         """Retrieve cached image by index."""
         if not hasattr(self, '_cached_images'):
-            tango.Except.throw_exception("NoCache", "Call acquire_images() first", "get_image_data()")
+            tango.Except.throw_exception("NoCache", "Call acquire_scanned_image() first", "get_image_data()")
         if index >= len(self._cached_images):
             tango.Except.throw_exception("InvalidIndex", f"Index {index} out of range", "get_image_data()")
         
@@ -344,7 +310,13 @@ class Microscope(Device, metaclass=CombinedMeta):
     # Internal acquisition helpers
     # ------------------------------------------------------------------
     @abstractmethod
-    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list[str]):
+    def _acquire_stem_image(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector_list: list[str] = ["haadf"],
+        scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+    ) -> str:
         """Vendor-specific STEM acquisition implementation."""
         pass
 
@@ -369,17 +341,6 @@ class Microscope(Device, metaclass=CombinedMeta):
             "This microscope does not support advanced STEM data acquisition.",
             "_acquire_stem_data_advanced()",
         )
-
-    @abstractmethod
-    def _acquire_stem_image_advanced(
-        self,
-        imsize: int,
-        dwell_time: float,
-        detector_list: list[str],
-        scan_region: list[float],
-    ) -> list:
-        """Vendor-specific multi-image acquisition implementation."""
-        pass
 
     def _place_beam(self, position):
         # define in the inherit class

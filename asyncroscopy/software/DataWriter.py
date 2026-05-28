@@ -37,9 +37,9 @@ def acquisition_filename(
 
 def save_acquisition(device, data_server, acquisition_type: str, detectors, data, dataset_name: str = "image") -> str:
     """Save one acquisition to one HDF5 file and return its DATA/Tiled key."""
-    has_labeled_datasets = isinstance(detectors, (list, tuple))
-    detector_list = list(detectors) if has_labeled_datasets else [detectors]
+    detector_list = list(detectors) if isinstance(detectors, (list, tuple)) else [detectors]
     data_list = list(data) if isinstance(data, (list, tuple)) else [data]
+    has_labeled_datasets = len(detector_list) > 1 or len(data_list) > 1
     detector_label = "_".join([str(detector) for detector in detector_list])
     path = acquisition_filename(device, acquisition_type, detector_label, data_server)
 

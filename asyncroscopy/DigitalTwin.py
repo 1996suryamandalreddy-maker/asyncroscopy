@@ -509,30 +509,21 @@ class DigitalTwin(Microscope):
         noisy_image += self._lowfreq_noise(noisy_image, noise_level=0.1, freq_scale=0.1, rng=rng) * blur_noise_level
         return np.clip(noisy_image, 0.0, 1.0).astype(np.float32)
 
-    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> str:
-        """Simulate STEM acquisition, save HDF5 data with metadata, and return its DATA/Tiled key."""
-        detector = detector_list[0].upper() if detector_list else "HAADF"
-        image = self._render_stem_image(int(imsize), float(dwell_time), detector_list)
-        data_server = self._detector_proxies.get("data")
-        return save_acquisition(self, data_server, "stem_image", detector, image)
-
-    def _acquire_stem_image_advanced(
+    def _acquire_stem_image(
         self,
         imsize: int,
         dwell_time: float,
-        detector_list: list[str],
-        scan_region: list[float],
-    ) -> list[str]:
-        """Perform advanced simulated STEM acquisition and return DATA/Tiled keys."""
+        detector_list: list[str] = ["haadf"],
+        scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+    ) -> str:
+        """Simulate STEM acquisition, save HDF5 data with metadata, and return its DATA/Tiled key."""
+        detector_list = [detector.upper() for detector in detector_list]
         data_server = self._detector_proxies.get("data")
         images = []
-        detector_names = []
         for detector in detector_list:
             image = self._render_stem_image(int(imsize), float(dwell_time), [detector])
-            detector_name = detector.upper()
             images.append(image)
-            detector_names.append(detector_name)
-        return [save_acquisition(self, data_server, "stem_image_advanced", detector_names, images, dataset_name="images")]
+        return save_acquisition(self, data_server, "stem_image", detector_list, images)
 
     def _simulate_spectrum(self, detector_name: str, exposure_time: float) -> dict[str, float]:
         """Simulate EDS spectrum acquisition at the current beam position weighted by surrounding particles."""

@@ -13,7 +13,6 @@ If you’re editing this class - `Microscope` located at asyncroscopy/Microscope
 3. **ADD a new functionality pertaining to a microscope api - Adding Internal acquisition helpers in the base Microscope**
 - examples - already existing
    - `_acquire_stem_image`
-   - `_acquire_stem_image_advanced`
    - `_acquire_spectrum`
 
 5. **Changing the transport format**
@@ -21,4 +20,3 @@ If you’re editing this class - `Microscope` located at asyncroscopy/Microscope
 
 6. **Improving robustness**
    (Handle connection failures, missing proxies, AutoScript errors, simulation fallback logic, or state transitions like `FAULT`, `ON`, `OFF`.)
-

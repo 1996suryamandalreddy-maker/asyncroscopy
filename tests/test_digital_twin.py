@@ -25,7 +25,7 @@ class TestDigitalTwin:
         scan_proxy.imsize = 32
         scan_proxy.dwell_time = 1e-6
 
-        saved_path = Path(twin_proxy.acquire_scanned_image())
+        saved_path = Path(twin_proxy.acquire_scanned_image(["haadf"]))
 
         assert saved_path.suffix == ".h5"
         assert saved_path.exists()
@@ -54,16 +54,16 @@ class TestDigitalTwin:
         scan_proxy.dwell_time = 1e-6
 
         twin_proxy.move_stage([0.0, 0.0, 0.0, 0.0, 0.0])
-        with h5py.File(twin_proxy.acquire_scanned_image(), "r") as h5:
+        with h5py.File(twin_proxy.acquire_scanned_image(["haadf"]), "r") as h5:
             image_a = h5["image"][()]
 
         twin_proxy.move_stage([8e-9, -7e-9, 0.0, 0.0, 0.0])
-        with h5py.File(twin_proxy.acquire_scanned_image(), "r") as h5:
+        with h5py.File(twin_proxy.acquire_scanned_image(["haadf"]), "r") as h5:
             image_b = h5["image"][()]
         assert not np.array_equal(image_a, image_b)
 
         twin_proxy.move_stage([0.0, 0.0, 0.0, 0.0, 0.0])
-        with h5py.File(twin_proxy.acquire_scanned_image(), "r") as h5:
+        with h5py.File(twin_proxy.acquire_scanned_image(["haadf"]), "r") as h5:
             image_a_again = h5["image"][()]
         assert np.array_equal(image_a, image_a_again)
 

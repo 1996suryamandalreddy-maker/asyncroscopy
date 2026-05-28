@@ -197,7 +197,7 @@ def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
     Patch ThermoMicroscope._acquire_stem_image so acquire_scanned_image() works
     without AutoScript/hardware.
     """
-    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list):
+    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list = ["haadf"], scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]):
         # Deterministic image makes tests stable
         arr = np.arange(imsize * imsize, dtype=np.uint16)
         return FakeAdornedImage(arr.reshape(imsize, imsize))
@@ -218,12 +218,13 @@ def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
 def patched_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
     calls = []
 
-    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list):
+    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list = ["haadf"], scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]):
         calls.append(
             {
                 "imsize": imsize,
                 "dwell_time": dwell_time,
                 "detector_list": list(detector_list),
+                "scan_region": list(scan_region),
             }
         )
         path = tmp_path / f"stem_{imsize}.h5"
@@ -235,16 +236,10 @@ def patched_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
 
 
 @pytest.fixture
-def patched_advanced_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
+def patched_stem_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
     calls = []
 
-    def fake_acquire(
-        self,
-        imsize: int,
-        dwell_time: float,
-        detector_list: list,
-        scan_region: list[float],
-    ):
+    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list = ["haadf"], scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]):
         calls.append(
             {
                 "imsize": imsize,
@@ -253,11 +248,11 @@ def patched_advanced_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path)
                 "scan_region": list(scan_region),
             }
         )
-        path = tmp_path / f"stem_advanced_{imsize}.h5"
-        path.write_bytes(b"fake-advanced-h5")
-        return [str(path)]
+        path = tmp_path / f"stem_{imsize}.h5"
+        path.write_bytes(b"fake-stem-h5")
+        return str(path)
 
-    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_image_advanced", fake_acquire)
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_image", fake_acquire)
     return calls
 
 

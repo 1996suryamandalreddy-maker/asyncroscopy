@@ -31,7 +31,7 @@ Asyncroscopy defines Tango Device subclasses for microscopy hardware:
 ### Base: `Microscope` (asyncroscopy/Microscope.py)
 
 Core microscope control:
-- `acquire_scanned_image()` - Acquire STEM image
+- `acquire_scanned_image(["haadf"])` - Acquire STEM image
 - `acquire_spectrum()` - Acquire spectrum
 - Attributes: voltage, magnification, probe_current
 
@@ -128,50 +128,39 @@ How an LLM acquires a microscope image through MCP:
 ```python
 # asyncroscopy/Microscope.py
 class Microscope(Device):
-    @command(dtype_in=int, dtype_out=str)
-    def acquire_scanned_image(self, exposure_ms: int) -> str:
-        """Acquire a STEM image with specified exposure time."""
-        # Interact with AutoScript microscope API
-        img = self._acquire_stem_image(exposure_ms)
-        # Return as DevEncoded (binary image + metadata)
-        return (json.dumps(metadata), img.tobytes())
+    @command(dtype_in=DevVarStringArray, dtype_out=str)
+    def acquire_scanned_image(self, detector_list: list[str] = ["haadf"]) -> str:
+        """Acquire a STEM image and return a key pointing to the HDF5 data."""
+        scan = self._detector_proxies.get("scan")
+        return self._acquire_stem_image(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
 ```
 
 ### MCP Tool Registration
 
 1. Server queries Tango: `Microscope.acquire_scanned_image` exists
-2. Extracts parameter name from source: `exposure_ms`
-3. Maps Tango type to Python: `int` → `int`
+2. Extracts parameter name from source: `detector_list`
+3. Maps Tango type to Python: `DevVarStringArray` → `list[str]`
 4. Builds function signature:
    ```python
-   def Microscope_acquire_scanned_image(exposure_ms: int) -> dict:
-       """Acquire a STEM image with specified exposure time.
+   def Microscope_acquire_scanned_image(detector_list: list[str]) -> str:
+       """Acquire a STEM image.
        
        Tango Device Class: Microscope
        Tango Command: acquire_scanned_image
        """
-       result = dev.acquire_scanned_image(exposure_ms)
-       return {
-           "encoding": "base64",
-           "metadata": metadata,
-           "payload": base64.b64encode(img).decode()
-       }
+       return dev.acquire_scanned_image(detector_list)
    ```
 
 ### LLM Usage
 
 ```
-Agent: "Acquire an image with 5ms exposure."
+Agent: "Acquire a HAADF image."
 
-MCP Server invokes: Microscope_acquire_scanned_image(exposure_ms=5)
+MCP Server invokes: Microscope_acquire_scanned_image(detector_list=["haadf"])
 
-Result: {
-    "encoding": "base64",
-    "metadata": {"shape": [1024, 1024], "dtype": "uint8"},
-    "payload": "iVBORw0KGgo..."
-}
+Result: "stem_image_HAADF_20260528T170000000000.h5"
 
-Agent: "Image acquired. Dimensions: 1024×1024."
+Agent: "Image acquired and saved."
 ```
 
 ## Multi-Device Coordination

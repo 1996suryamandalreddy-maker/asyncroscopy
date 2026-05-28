@@ -42,7 +42,7 @@ class TestThermoMicroscope:
         scan_proxy.dwell_time = 1e-6
         scan_proxy.imsize = 512
 
-        saved_path = thermo_proxy.acquire_scanned_image()
+        saved_path = thermo_proxy.acquire_scanned_image(["haadf"])
 
         assert isinstance(saved_path, str)
         assert saved_path.endswith(".h5")
@@ -52,6 +52,7 @@ class TestThermoMicroscope:
                 "imsize": 512,
                 "dwell_time": pytest.approx(1e-6),
                 "detector_list": ["haadf"],
+                "scan_region": [0.0, 0.0, 1.0, 1.0],
             }
         ]
 
@@ -63,30 +64,47 @@ class TestThermoMicroscope:
     ) -> None:
         scan_proxy.dwell_time = 2e-6
         scan_proxy.imsize = 256
+        scan_proxy.scan_region = [0.0, 0.0, 1.0, 1.0]
 
-        saved_path = thermo_proxy.acquire_scanned_image()
+        saved_path = thermo_proxy.acquire_scanned_image(["haadf"])
 
         assert Path(saved_path).exists()
         assert patched_path_acquisition[-1] == {
             "imsize": 256,
             "dwell_time": pytest.approx(2e-6),
             "detector_list": ["haadf"],
+            "scan_region": [0.0, 0.0, 1.0, 1.0],
         }
 
-    def test_advanced_scan_settings_propagate_into_acquisition(
+    def test_acquire_scanned_image_accepts_detector_list(
         self,
         thermo_proxy: tango.DeviceProxy,
         scan_proxy: tango.DeviceProxy,
-        patched_advanced_path_acquisition: list[dict],
+        patched_path_acquisition: list[dict],
+    ) -> None:
+        scan_proxy.dwell_time = 2e-6
+        scan_proxy.imsize = 256
+        scan_proxy.scan_region = [0.0, 0.0, 1.0, 1.0]
+
+        saved_path = thermo_proxy.acquire_scanned_image(["haadf", "bf"])
+
+        assert Path(saved_path).exists()
+        assert patched_path_acquisition[-1]["detector_list"] == ["haadf", "bf"]
+
+    def test_scan_region_propagates_into_acquisition(
+        self,
+        thermo_proxy: tango.DeviceProxy,
+        scan_proxy: tango.DeviceProxy,
+        patched_stem_path_acquisition: list[dict],
     ) -> None:
         scan_proxy.dwell_time = 3e-6
         scan_proxy.imsize = 128
         scan_proxy.scan_region = [0.1, 0.2, 0.3, 0.4]
 
-        saved_path = thermo_proxy.acquire_scanned_image_advanced()
+        saved_path = thermo_proxy.acquire_scanned_image(["haadf"])
 
-        assert Path(saved_path).read_bytes() == b"fake-advanced-h5"
-        assert patched_advanced_path_acquisition == [
+        assert Path(saved_path).read_bytes() == b"fake-stem-h5"
+        assert patched_stem_path_acquisition == [
             {
                 "imsize": 128,
                 "dwell_time": pytest.approx(3e-6),
@@ -95,29 +113,7 @@ class TestThermoMicroscope:
             }
         ]
 
-    def test_acquire_images_uses_user_detector_list(
-        self,
-        thermo_proxy: tango.DeviceProxy,
-        scan_proxy: tango.DeviceProxy,
-        patched_advanced_path_acquisition: list[dict],
-    ) -> None:
-        scan_proxy.dwell_time = 5e-6
-        scan_proxy.imsize = 256
-        scan_proxy.scan_region = [0.2, 0.2, 0.5, 0.5]
-
-        saved_path = thermo_proxy.acquire_images(["HAADF", "BF"])
-
-        assert Path(saved_path).read_bytes() == b"fake-advanced-h5"
-        assert patched_advanced_path_acquisition == [
-            {
-                "imsize": 256,
-                "dwell_time": pytest.approx(5e-6),
-                "detector_list": ["HAADF", "BF"],
-                "scan_region": [0.2, 0.2, 0.5, 0.5],
-            }
-        ]
-
-    def test_advanced_stem_image_helper_uses_relative_region(self, monkeypatch, tmp_path) -> None:
+    def test_stem_image_helper_uses_relative_region(self, monkeypatch, tmp_path) -> None:
         class FakeImage:
             data = np.array([[1, 2], [3, 4]], dtype=np.uint16)
 
@@ -139,7 +135,7 @@ class TestThermoMicroscope:
 
         monkeypatch.setattr("asyncroscopy.software.DataWriter.acquisition_filename", fake_new_path)
 
-        saved_paths = ThermoMicroscope._acquire_stem_image_advanced(
+        saved_path = ThermoMicroscope._acquire_stem_image(
             microscope,
             imsize=128,
             dwell_time=4e-6,
@@ -148,10 +144,10 @@ class TestThermoMicroscope:
         )
 
         settings = acquisition.settings
-        assert saved_paths[0].endswith(".h5")
-        with h5py.File(saved_paths[0], "r") as h5:
-            assert h5["images/HAADF"][()].tolist() == [[1, 2], [3, 4]]
-            assert h5["images/HAADF"].attrs["detector"] == "HAADF"
+        assert saved_path.endswith(".h5")
+        with h5py.File(saved_path, "r") as h5:
+            assert h5["image"][()].tolist() == [[1, 2], [3, 4]]
+            assert h5["image"].attrs["detector"] == "HAADF"
         assert settings.size == 128
         assert settings.dwell_time == pytest.approx(4e-6)
         assert settings.detector_types == ["HAADF"]
