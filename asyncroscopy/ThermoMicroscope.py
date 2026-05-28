@@ -110,7 +110,6 @@ class ThermoMicroscope(Microscope):
             return
         try:
             self._microscope = TemMicroscopeClient()
-            self.microscope = self._microscope  # link the proxy attribute to the real microscope client
             self._microscope.connect(self.autoscript_host_ip, self.autoscript_host_port)
             self.info_stream(f"Connected to AutoScript at {self.autoscript_host_ip}:{self.autoscript_host_port}")
             self.is_autoscript = True
@@ -197,6 +196,7 @@ class ThermoMicroscope(Microscope):
         for image, detector in zip(adorned_images, detector_list):
             path = self._make_filename("stem_image", detector, data_server)
             image.save(str(path))
+
             saved_paths.append(data_server.register_path(str(path)))
         return saved_paths
 

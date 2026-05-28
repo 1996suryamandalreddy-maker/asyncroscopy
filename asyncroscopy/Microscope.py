@@ -164,11 +164,11 @@ class Microscope(Device, metaclass=CombinedMeta):
         return self._acquire_stem_image(scan.imsize, scan.dwell_time, ["haadf"])
 
     @command(dtype_out=str)
-    def acquire_scanned_image_advanced(self) -> str:
+    def acquire_scanned_image_advanced(self, detector_list = ["haadf"]) -> str:
+        # eventually: move detector list out to general device
         """Acquire a STEM image using advanced STEM settings from the scan device."""
         scan = self._detector_proxies.get("scan")
-        detector_names = ["haadf"]
-        unique_ids = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_names, list(scan.scan_region))
+        unique_ids = self._acquire_stem_image_advanced(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
         if isinstance(unique_ids, str):
             return unique_ids
 

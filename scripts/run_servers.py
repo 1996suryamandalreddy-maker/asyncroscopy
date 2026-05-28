@@ -77,6 +77,9 @@ class ManagedProcess:
     def running(self) -> bool:
         return self.process.poll() is None
 
+# TODO: Break out alternate configs into .yaml files or somthing
+# TODO: ex. UTKSpectra300.yaml, DigitatlTwin.yaml, WDTwin.yaml
+# TODO: --debug flag where all the terminal outputs of the servers show in this termainl (or are saved to file)
 
 MICROSCOPE_MODES = {
     "real": ("ThermoMicroscope", "asyncroscopy.ThermoMicroscope"),
