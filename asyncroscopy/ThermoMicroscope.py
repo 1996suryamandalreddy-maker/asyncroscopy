@@ -18,16 +18,14 @@ DATA/Tiled unique id for that saved acquisition.
 
 import math
 import time
-from datetime import datetime
-from pathlib import Path
 
-import h5py
 import numpy as np
 import tango
 from tango import AttrWriteType, DevState
 from tango.server import attribute, device_property
 
 from asyncroscopy.Microscope import Microscope
+from asyncroscopy.software.DataWriter import device_acquisition_filename, register_acquisition_path, save_dataset, save_labeled_datasets
 
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
@@ -73,8 +71,8 @@ class ThermoMicroscope(Microscope):
     )
     acquisition_file_format = device_property(
         dtype=str,
-        default_value="tiff",
-        doc="Acquisition file format. TIFF preserves AutoScript image metadata.",
+        default_value="h5",
+        doc="Acquisition file format. HDF5 stores acquisition data and parsed metadata attributes.",
     )
     data_device_address = device_property(
         dtype=str,
@@ -159,9 +157,10 @@ class ThermoMicroscope(Microscope):
         detector_type = detector_list[0].upper() if detector_list else "HAADF"
         adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
         data_server = self._detector_proxies.get("data")
-        path = self._make_filename("stem_image", detector_type, data_server)
-        adorned.save(str(path))
-        return data_server.register_path(str(path))
+        path = device_acquisition_filename(self, "stem_image", detector_type, data_server)
+        save_dataset(path, "image", adorned, acquisition_type="stem_image", detector=detector_type, dwell_time=float(dwell_time))
+        key = register_acquisition_path(path, data_server)
+        return key
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
@@ -171,9 +170,9 @@ class ThermoMicroscope(Microscope):
         settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize, exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        path = self._make_filename("camera_image", detector, data_server)
-        adorned.save(str(path))
-        return data_server.register_path(str(path))
+        path = device_acquisition_filename(self, "camera_image", detector, data_server)
+        save_dataset(path, "image", adorned, acquisition_type="camera_image", detector=str(detector), exposure_time=float(exposure_time), readout_area=str(readout_area))
+        return register_acquisition_path(path, data_server)
 
     def _acquire_stem_image_advanced(
         self,
@@ -190,15 +189,12 @@ class ThermoMicroscope(Microscope):
         settings = StemAcquisitionSettings(dwell_time=dwell_time, detector_types=detector_list, size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
 
         adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
-        adorned_images = adorned if isinstance(adorned, list) else [adorned]
-        saved_paths = []
+        adorned_images = adorned if isinstance(adorned, (list, tuple)) else [adorned]
         data_server = self._detector_proxies.get("data")
-        for image, detector in zip(adorned_images, detector_list):
-            path = self._make_filename("stem_image", detector, data_server)
-            image.save(str(path))
-
-            saved_paths.append(data_server.register_path(str(path)))
-        return saved_paths
+        detector_label = "_".join(detector_list) if detector_list else "STEM"
+        path = device_acquisition_filename(self, "stem_image", detector_label, data_server)
+        save_labeled_datasets(path, "images", adorned_images, detector_list, acquisition_type="stem_image_advanced", dwell_time=float(dwell_time), scan_region=[float(v) for v in scan_region])
+        return [register_acquisition_path(path, data_server)]
 
     def _acquire_stem_data_advanced(
         self,
@@ -218,23 +214,9 @@ class ThermoMicroscope(Microscope):
         settings = StemDataSettings(dwell_time=dwell_time, detector_types=[camera_detector], size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
         adorned = self._microscope.acquisition.acquire_stem_data_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        path = self._make_filename("stem_data", detector, data_server)
-        adorned.save(str(path))
-        return data_server.register_path(str(path))
-
-    def _make_filename(self, acquisition_type: str, detector: str, data_server, extension: str = "tiff") -> Path:
-        save_directory = self.acquisition_save_directory
-        if data_server is not None:
-            try:
-                save_directory = data_server.save_path
-            except tango.DevFailed as exc:
-                self.warn_stream(f"DATA device not ready: {exc}")
-
-        directory = Path(save_directory).expanduser()
-        directory.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
-        name = f"{acquisition_type}_{detector}_{stamp}.{extension.lower().lstrip('.')}"
-        return directory / name
+        path = device_acquisition_filename(self, "stem_data", detector, data_server)
+        save_dataset(path, "stem_data", adorned, acquisition_type="stem_data", detector=str(detector), dwell_time=float(dwell_time), scan_region=[float(v) for v in scan_region])
+        return register_acquisition_path(path, data_server)
 
     # test: not sure this is how we want to save
     def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> str:
@@ -246,10 +228,9 @@ class ThermoMicroscope(Microscope):
         settings.exposure_time_type = ExposureTimeType.LIVE_TIME
         spectrum = self._microscope.analysis.eds.acquire_spectrum(settings)
         data_server = self._detector_proxies.get("data")
-        path = self._make_filename("spectrum", detector_name, data_server, "emd")
-        with h5py.File(path, "w") as emd:
-            emd.create_dataset("spectrum", data=spectrum.data)
-        return data_server.register_path(str(path))
+        path = device_acquisition_filename(self, "spectrum", detector_name, data_server)
+        save_dataset(path, "spectrum", spectrum, acquisition_type="spectrum", detector=detector_name, exposure_time=float(exposure_time))
+        return register_acquisition_path(path, data_server)
 
     def _place_beam(self, position) -> None:
         """

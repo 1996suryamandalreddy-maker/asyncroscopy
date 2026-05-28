@@ -2,20 +2,20 @@
 
 See more at https://github.com/bluesky/tiled.
 
-`ThermoMicroscope` now saves real AutoScript acquisitions on the microscope
-side and returns a JSON descriptor string through Tango. `asyncroscopy/software/DATA.py`
-is the Tango data device for reading those descriptors back through the Tiled
-HTTP server.
+`ThermoMicroscope` saves real AutoScript acquisitions on the microscope side
+and returns the registered Tiled key through Tango. `asyncroscopy/software/DATA.py`
+is the Tango data device for registering those files with the Tiled HTTP server.
 
-The preferred save format is `.emd`:
+The save format is one HDF5 file per acquisition event. Each correlated output
+is stored as a dataset in that file, with parsed AutoScript XML leaf metadata
+written as HDF5 dataset attributes.
 
-```python
-EmdFile.create("stem_image.emd", EmdStemFeature([adorned_image])).close()
-```
+Typical dataset names are:
 
-AutoScript requires complete image metadata for EMD export. If EMD creation
-fails, asyncroscopy falls back to `adorned.save("...tiff")`, because TIFF is
-the format supported by `AdornedImage.save()` that preserves metadata.
+- `image` for single image acquisitions
+- `images/HAADF`, `images/BF`, etc. for multi-detector STEM acquisitions
+- `spectrum` for spectra
+- `stem_data` for STEM data acquisitions
 
 ## Notebook setup
 
@@ -33,20 +33,11 @@ data.port = 9091
 data.save_path = "/path/served/by/tiled"
 ```
 
-Acquire as usual, but treat the return value as a descriptor:
+Acquire as usual, and treat the return value as the Tiled key:
 
 ```python
-descriptor = mic.acquire_scanned_image()
+tiled_key = mic.acquire_scanned_image()
 ```
-
-Use the DATA device to resolve data through Tiled:
-
-```python
-array = json.loads(data.get_data(descriptor))
-```
-
-The descriptor includes both extension-stripped and extension-preserving Tiled
-path candidates because Tiled directory adapters can be configured either way.
 
 ## Server Roles
 

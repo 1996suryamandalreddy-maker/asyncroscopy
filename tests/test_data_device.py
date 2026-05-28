@@ -125,8 +125,8 @@ class TestDataDevice:
         tmp_path,
     ) -> None:
         registrations = []
-        saved = tmp_path / "frame.tiff"
-        saved.write_bytes(b"fake-tiff")
+        saved = tmp_path / "frame.h5"
+        saved.write_bytes(b"fake-h5")
         data_proxy.host = "127.0.0.1"
         data_proxy.port = 9091
 
@@ -141,7 +141,7 @@ class TestDataDevice:
 
         result = data_proxy.register_path(str(saved))
 
-        assert result == "frame.tiff"
+        assert result == "frame.h5"
         assert registrations == [str(saved)]
 
     def test_register_path_returns_windows_tiled_key(
@@ -149,7 +149,7 @@ class TestDataDevice:
         data_proxy: tango.DeviceProxy,
         monkeypatch,
     ) -> None:
-        windows_path = "D:/microscopedata/tiled/ahoust17/frame.tiff"
+        windows_path = "D:/microscopedata/tiled/ahoust17/frame.h5"
         data_proxy.host = "127.0.0.1"
         data_proxy.port = 9091
 
@@ -162,4 +162,4 @@ class TestDataDevice:
         monkeypatch.setattr("asyncroscopy.software.DATA.from_uri", fake_from_uri)
         monkeypatch.setattr("asyncroscopy.software.DATA.register", fake_register)
 
-        assert data_proxy.register_path(windows_path) == "frame.tiff"
+        assert data_proxy.register_path(windows_path) == "frame.h5"
