@@ -132,7 +132,7 @@ class Microscope(Device):
     def acquire_scanned_image(self, detector_list: list[str] = ["haadf"]) -> str:
         """Acquire a STEM image and return a key pointing to the HDF5 data."""
         scan = self._detector_proxies.get("scan")
-        return self._acquire_stem_image(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
+        return self._acquire_scanned_image(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
 ```
 
 ### MCP Tool Registration

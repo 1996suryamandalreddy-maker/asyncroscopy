@@ -148,7 +148,7 @@ class ThermoMicroscope(Microscope):
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    def _acquire_stem_image(
+    def _acquire_scanned_image(
         self,
         imsize: int,
         dwell_time: float,
@@ -156,7 +156,7 @@ class ThermoMicroscope(Microscope):
         scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
     ) -> str:
         """
-        Call AutoScript STEM acquisition, save one HDF5 file, and return its DATA/Tiled key.
+        Call AutoScript scanned image acquisition, save one HDF5 file, and return its DATA/Tiled key.
         """
         detector_list = [d.upper() for d in detector_list]
         settings = StemAcquisitionSettings(dwell_time=dwell_time, detector_types=detector_list, size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
@@ -176,11 +176,11 @@ class ThermoMicroscope(Microscope):
         data_server = self._detector_proxies.get("data")
         return save_acquisition(self, data_server, "camera_image", str(detector), adorned)
 
-    def _acquire_stem_data_advanced(self, imsize: int, dwell_time: float, detector: str, scan_region: list[float]) -> str:
+    def _acquire_scanned_data_advanced(self, imsize: int, dwell_time: float, detector: str, scan_region: list[float]) -> str:
         """
-        Trigger AutoScript advanced STEM data acquisition with a camera detector.
+        Trigger AutoScript advanced scanned data acquisition with a camera detector.
 
-        AutoScript offloads the 4D STEM data storage for Ceta acquisitions, so
+        AutoScript offloads the 4D scanned data storage for Ceta acquisitions, so
         this command returns an acknowledgement and the settings used rather
         than a local saved file path.
         """

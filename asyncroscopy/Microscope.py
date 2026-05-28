@@ -161,13 +161,13 @@ class Microscope(Device, metaclass=CombinedMeta):
     def acquire_scanned_image(self, detector_list: list[str] = ["haadf"]) -> str:
         """Acquire an image with scanning detectors and return a key pointing to that data. You can get the data with the get_image_from_key command"""
         scan = self._detector_proxies.get("scan")
-        return self._acquire_stem_image(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
+        return self._acquire_scanned_image(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
 
     @command(dtype_out=str)
     def acquire_scanned_data_advanced(self) -> str:
-        """Trigger an advanced 4D STEM data acquisition with the Ceta camera."""
+        """Trigger an advanced 4D scanned data acquisition with the Ceta camera."""
         scan = self._detector_proxies.get("scan")
-        return self._acquire_stem_data_advanced(scan.imsize, scan.dwell_time, "BM-Ceta", list(scan.scan_region))
+        return self._acquire_scanned_data_advanced(scan.imsize, scan.dwell_time, "BM-Ceta", list(scan.scan_region))
 
     @command(dtype_out=str)
     def acquire_camera_image(self) -> str:
@@ -310,14 +310,14 @@ class Microscope(Device, metaclass=CombinedMeta):
     # Internal acquisition helpers
     # ------------------------------------------------------------------
     @abstractmethod
-    def _acquire_stem_image(
+    def _acquire_scanned_image(
         self,
         imsize: int,
         dwell_time: float,
         detector_list: list[str] = ["haadf"],
         scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
     ) -> str:
-        """Vendor-specific STEM acquisition implementation."""
+        """Vendor-specific scanned image acquisition implementation."""
         pass
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
@@ -328,18 +328,18 @@ class Microscope(Device, metaclass=CombinedMeta):
             "_acquire_camera_image()",
         )
 
-    def _acquire_stem_data_advanced(
+    def _acquire_scanned_data_advanced(
         self,
         imsize: int,
         dwell_time: float,
         detector: str,
         scan_region: list[float],
     ) -> str:
-        """Vendor-specific advanced 4D STEM data acquisition trigger."""
+        """Vendor-specific advanced 4D scanned data acquisition trigger."""
         tango.Except.throw_exception(
             "UnsupportedCommand",
-            "This microscope does not support advanced STEM data acquisition.",
-            "_acquire_stem_data_advanced()",
+            "This microscope does not support advanced scanned data acquisition.",
+            "_acquire_scanned_data_advanced()",
         )
 
     def _place_beam(self, position):

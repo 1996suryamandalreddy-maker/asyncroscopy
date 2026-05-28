@@ -509,7 +509,7 @@ class DigitalTwin(Microscope):
         noisy_image += self._lowfreq_noise(noisy_image, noise_level=0.1, freq_scale=0.1, rng=rng) * blur_noise_level
         return np.clip(noisy_image, 0.0, 1.0).astype(np.float32)
 
-    def _acquire_stem_image(
+    def _acquire_scanned_image(
         self,
         imsize: int,
         dwell_time: float,

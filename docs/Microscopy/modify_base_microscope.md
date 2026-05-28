@@ -12,7 +12,7 @@ If you’re editing this class - `Microscope` located at asyncroscopy/Microscope
 
 3. **ADD a new functionality pertaining to a microscope api - Adding Internal acquisition helpers in the base Microscope**
 - examples - already existing
-   - `_acquire_stem_image`
+   - `_acquire_scanned_image`
    - `_acquire_spectrum`
 
 5. **Changing the transport format**

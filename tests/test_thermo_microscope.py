@@ -95,7 +95,7 @@ class TestThermoMicroscope:
         self,
         thermo_proxy: tango.DeviceProxy,
         scan_proxy: tango.DeviceProxy,
-        patched_stem_path_acquisition: list[dict],
+        patched_scanned_path_acquisition: list[dict],
     ) -> None:
         scan_proxy.dwell_time = 3e-6
         scan_proxy.imsize = 128
@@ -104,7 +104,7 @@ class TestThermoMicroscope:
         saved_path = thermo_proxy.acquire_scanned_image(["haadf"])
 
         assert Path(saved_path).read_bytes() == b"fake-stem-h5"
-        assert patched_stem_path_acquisition == [
+        assert patched_scanned_path_acquisition == [
             {
                 "imsize": 128,
                 "dwell_time": pytest.approx(3e-6),
@@ -113,7 +113,7 @@ class TestThermoMicroscope:
             }
         ]
 
-    def test_stem_image_helper_uses_relative_region(self, monkeypatch, tmp_path) -> None:
+    def test_scanned_image_helper_uses_relative_region(self, monkeypatch, tmp_path) -> None:
         class FakeImage:
             data = np.array([[1, 2], [3, 4]], dtype=np.uint16)
 
@@ -135,7 +135,7 @@ class TestThermoMicroscope:
 
         monkeypatch.setattr("asyncroscopy.software.DataWriter.acquisition_filename", fake_new_path)
 
-        saved_path = ThermoMicroscope._acquire_stem_image(
+        saved_path = ThermoMicroscope._acquire_scanned_image(
             microscope,
             imsize=128,
             dwell_time=4e-6,
@@ -161,7 +161,7 @@ class TestThermoMicroscope:
         self,
         thermo_proxy: tango.DeviceProxy,
         scan_proxy: tango.DeviceProxy,
-        patched_stem_data_acquisition: list[dict],
+        patched_scanned_data_acquisition: list[dict],
     ) -> None:
         scan_proxy.dwell_time = 10e-3
         scan_proxy.imsize = 128
@@ -170,7 +170,7 @@ class TestThermoMicroscope:
         result = thermo_proxy.acquire_scanned_data_advanced()
 
         assert result == "fake-stem-data-key"
-        assert patched_stem_data_acquisition == [
+        assert patched_scanned_data_acquisition == [
             {
                 "imsize": 128,
                 "dwell_time": pytest.approx(10e-3),
@@ -179,7 +179,7 @@ class TestThermoMicroscope:
             }
         ]
 
-    def test_stem_data_advanced_helper_saves_and_registers_ceta_with_relative_region(self, monkeypatch, tmp_path) -> None:
+    def test_scanned_data_advanced_helper_saves_and_registers_ceta_with_relative_region(self, monkeypatch, tmp_path) -> None:
         class FakeImage:
             data = np.array([[5, 6], [7, 8]], dtype=np.uint16)
 
@@ -201,7 +201,7 @@ class TestThermoMicroscope:
 
         monkeypatch.setattr("asyncroscopy.software.DataWriter.acquisition_filename", fake_new_path)
 
-        result = ThermoMicroscope._acquire_stem_data_advanced(
+        result = ThermoMicroscope._acquire_scanned_data_advanced(
             microscope,
             imsize=128,
             dwell_time=10e-3,

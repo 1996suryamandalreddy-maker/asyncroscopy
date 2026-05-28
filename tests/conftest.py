@@ -194,7 +194,7 @@ def thermo_proxy(tango_ctx):
 @pytest.fixture
 def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    Patch ThermoMicroscope._acquire_stem_image so acquire_scanned_image() works
+    Patch ThermoMicroscope._acquire_scanned_image so acquire_scanned_image() works
     without AutoScript/hardware.
     """
     def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list = ["haadf"], scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]):
@@ -204,12 +204,12 @@ def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(
         ThermoMicroscope,
-        "_acquire_stem_image",
+        "_acquire_scanned_image",
         fake_acquire,
     )
     monkeypatch.setattr(
         DigitalTwin,
-        "_acquire_stem_image",
+        "_acquire_scanned_image",
         fake_acquire,
     )
 
@@ -231,12 +231,12 @@ def patched_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
         path.write_bytes(b"fake-h5")
         return str(path)
 
-    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_image", fake_acquire)
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_scanned_image", fake_acquire)
     return calls
 
 
 @pytest.fixture
-def patched_stem_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
+def patched_scanned_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
     calls = []
 
     def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list = ["haadf"], scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]):
@@ -252,12 +252,12 @@ def patched_stem_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
         path.write_bytes(b"fake-stem-h5")
         return str(path)
 
-    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_image", fake_acquire)
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_scanned_image", fake_acquire)
     return calls
 
 
 @pytest.fixture
-def patched_stem_data_acquisition(monkeypatch: pytest.MonkeyPatch):
+def patched_scanned_data_acquisition(monkeypatch: pytest.MonkeyPatch):
     calls = []
 
     def fake_acquire(
@@ -277,7 +277,7 @@ def patched_stem_data_acquisition(monkeypatch: pytest.MonkeyPatch):
         )
         return "fake-stem-data-key"
 
-    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_data_advanced", fake_acquire)
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_scanned_data_advanced", fake_acquire)
     return calls
 
 
