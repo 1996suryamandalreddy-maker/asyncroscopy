@@ -514,14 +514,7 @@ class DigitalTwin(Microscope):
         detector = detector_list[0].upper() if detector_list else "HAADF"
         image = self._render_stem_image(int(imsize), float(dwell_time), detector_list)
         data_server = self._detector_proxies.get("data")
-        metadata = {
-            "dwell_time": float(dwell_time),
-            "shape": list(image.shape),
-            "dtype": str(image.dtype),
-            "simulation_backend": self.__class__.__name__,
-            **self._viewport_metadata(),
-        }
-        return save_acquisition(self, data_server, "stem_image", detector, image, **metadata)
+        return save_acquisition(self, data_server, "stem_image", detector, image)
 
     def _acquire_stem_image_advanced(
         self,
@@ -539,13 +532,7 @@ class DigitalTwin(Microscope):
             detector_name = detector.upper()
             images.append(image)
             detector_names.append(detector_name)
-        metadata = {
-            "dwell_time": float(dwell_time),
-            "scan_region": [float(v) for v in scan_region],
-            "simulation_backend": self.__class__.__name__,
-            **self._viewport_metadata(),
-        }
-        return [save_acquisition(self, data_server, "stem_image_advanced", detector_names, images, dataset_name="images", **metadata)]
+        return [save_acquisition(self, data_server, "stem_image_advanced", detector_names, images, dataset_name="images")]
 
     def _simulate_spectrum(self, detector_name: str, exposure_time: float) -> dict[str, float]:
         """Simulate EDS spectrum acquisition at the current beam position weighted by surrounding particles."""
@@ -604,16 +591,8 @@ class DigitalTwin(Microscope):
         """Simulate spectrum acquisition, save HDF5 data, and return its DATA/Tiled key."""
         spectrum = self._simulate_spectrum(detector_name, exposure_time)
         data_server = self._detector_proxies.get("data")
-        elements = list(spectrum)
-        spectrum_array = np.array([spectrum[element] for element in elements], dtype=np.float64)
-        metadata = {
-            "exposure_time": float(exposure_time),
-            "elements": elements,
-            "spectrum": spectrum,
-            "simulation_backend": self.__class__.__name__,
-            **self._viewport_metadata(),
-        }
-        return save_acquisition(self, data_server, "spectrum", detector_name, spectrum_array, dataset_name="spectrum", **metadata)
+        spectrum_array = np.array(list(spectrum.values()), dtype=np.float64)
+        return save_acquisition(self, data_server, "spectrum", detector_name, spectrum_array, dataset_name="spectrum")
 
     def _place_beam(self, position) -> None:
         """Place the electron beam at the specified [x, y] coordinates."""

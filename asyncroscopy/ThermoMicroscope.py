@@ -157,8 +157,7 @@ class ThermoMicroscope(Microscope):
         detector_type = detector_list[0].upper() if detector_list else "HAADF"
         adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
         data_server = self._detector_proxies.get("data")
-        data_key = save_acquisition(self, data_server, "stem_image", detector_type, adorned, dwell_time=float(dwell_time))
-        return data_key
+        return save_acquisition(self, data_server, "stem_image", detector_type, adorned)
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
@@ -168,8 +167,7 @@ class ThermoMicroscope(Microscope):
         settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize, exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        data_key = save_acquisition(self, data_server, "camera_image", str(detector), adorned, exposure_time=float(exposure_time), readout_area=str(readout_area))
-        return data_key
+        return save_acquisition(self, data_server, "camera_image", str(detector), adorned)
 
     def _acquire_stem_image_advanced(self, imsize: int, dwell_time: float, detector_list: list, scan_region: list[float]) -> list[str]:
         """
@@ -182,7 +180,7 @@ class ThermoMicroscope(Microscope):
         adorned_images = adorned if isinstance(adorned, (list, tuple)) else [adorned]
 
         data_server = self._detector_proxies.get("data")
-        return [save_acquisition(self, data_server, "stem_image_advanced", detector_list, adorned_images, dataset_name="images", dwell_time=float(dwell_time), scan_region=[float(v) for v in scan_region])]
+        return [save_acquisition(self, data_server, "stem_image_advanced", detector_list, adorned_images, dataset_name="images")]
 
     def _acquire_stem_data_advanced(self, imsize: int, dwell_time: float, detector: str, scan_region: list[float]) -> str:
         """
@@ -196,7 +194,7 @@ class ThermoMicroscope(Microscope):
         settings = StemDataSettings(dwell_time=dwell_time, detector_types=[camera_detector], size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
         adorned = self._microscope.acquisition.acquire_stem_data_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        return save_acquisition(self, data_server, "stem_data", str(detector), adorned, dataset_name="stem_data", dwell_time=float(dwell_time), scan_region=[float(v) for v in scan_region])
+        return save_acquisition(self, data_server, "stem_data", str(detector), adorned, dataset_name="stem_data")
 
     # test: not sure this is how we want to save
     def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> str:
@@ -208,7 +206,7 @@ class ThermoMicroscope(Microscope):
         settings.exposure_time_type = ExposureTimeType.LIVE_TIME
         spectrum = self._microscope.analysis.eds.acquire_spectrum(settings)
         data_server = self._detector_proxies.get("data")
-        return save_acquisition(self, data_server, "spectrum", detector_name, spectrum, dataset_name="spectrum", exposure_time=float(exposure_time))
+        return save_acquisition(self, data_server, "spectrum", detector_name, spectrum, dataset_name="spectrum")
 
     def _place_beam(self, position) -> None:
         """
