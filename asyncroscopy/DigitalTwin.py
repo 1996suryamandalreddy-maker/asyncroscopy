@@ -5,21 +5,18 @@ Useful for testing and development without requiring AutoScript hardware.
 """
 
 import json
-from datetime import datetime
-from pathlib import Path
 
 import numpy as np
 import pyTEMlib.image_tools as it
 import pyTEMlib.probe_tools as pt
 import tango
-from ase.io import read
 from ase import Atoms
 from ase.build import bulk
-from PIL import Image, TiffImagePlugin
 from tango import AttrWriteType, DevState
 from tango.server import Device, attribute, device_property
 
 from asyncroscopy.Microscope import Microscope
+from asyncroscopy.software.DataWriter import save_acquisition
 
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
@@ -65,8 +62,8 @@ class DigitalTwin(Microscope):
     )
     acquisition_file_format = device_property(
         dtype=str,
-        default_value="tiff",
-        doc="Acquisition file format. TIFF stores simulated image data and metadata.",
+        default_value="h5",
+        doc="Acquisition file format. HDF5 stores simulated acquisition data and metadata.",
     )
     data_device_address = device_property(
         dtype=str,
@@ -445,26 +442,6 @@ class DigitalTwin(Microscope):
         self._beam_pos_x = float(x)
         self._beam_pos_y = float(y)
 
-    def _make_filename(self, acquisition_type: str, detector: str, data_server, extension: str = "tiff") -> Path:
-        save_directory = self.acquisition_save_directory
-        if data_server is not None:
-            try:
-                save_directory = data_server.save_path
-            except tango.DevFailed as exc:
-                self.warn_stream(f"DATA device not ready: {exc}")
-
-        directory = Path(save_directory).expanduser()
-        directory.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
-        name = f"{acquisition_type}_{detector}_{stamp}.{extension.lower().lstrip('.')}"
-        return directory / name
-
-    def _register_path(self, path: Path) -> str:
-        data_server = self._detector_proxies.get("data")
-        if data_server is None:
-            return str(path)
-        return data_server.register_path(str(path))
-
     def _viewport_metadata(self) -> dict:
         fov_ang = self._fov * 1e10
         stage_xyz_ang = self._stage_position[:3] * 1e10
@@ -487,11 +464,6 @@ class DigitalTwin(Microscope):
             "world_bounds_angstrom": self._world_bounds_ang,
             "particle_count": len(self._particle_records_base),
         }
-
-    def _save_tiff(self, path: Path, image: np.ndarray, metadata: dict) -> None:
-        tiff_info = TiffImagePlugin.ImageFileDirectory_v2()
-        tiff_info[270] = json.dumps(metadata)
-        Image.fromarray(np.asarray(image)).save(str(path), format="TIFF", tiffinfo=tiff_info)
 
     def _render_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> np.ndarray:
         """Simulate STEM image acquisition using convolutions of the pseudo-potential and electron probe."""
@@ -537,53 +509,21 @@ class DigitalTwin(Microscope):
         noisy_image += self._lowfreq_noise(noisy_image, noise_level=0.1, freq_scale=0.1, rng=rng) * blur_noise_level
         return np.clip(noisy_image, 0.0, 1.0).astype(np.float32)
 
-    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> str:
-        """Simulate STEM acquisition, save a TIFF with metadata, and return its DATA/Tiled key."""
-        detector = detector_list[0].upper() if detector_list else "HAADF"
-        image = self._render_stem_image(int(imsize), float(dwell_time), detector_list)
-        data_server = self._detector_proxies.get("data")
-        extension = str(self.acquisition_file_format or "tiff")
-        path = self._make_filename("stem_image", detector, data_server, extension)
-        metadata = {
-            "acquisition_type": "stem_image",
-            "detector": detector,
-            "dwell_time": float(dwell_time),
-            "shape": list(image.shape),
-            "dtype": str(image.dtype),
-            "simulation_backend": self.__class__.__name__,
-            **self._viewport_metadata(),
-        }
-        self._save_tiff(path, image, metadata)
-        return self._register_path(path)
-
-    def _acquire_stem_image_advanced(
+    def _acquire_scanned_image(
         self,
         imsize: int,
         dwell_time: float,
-        detector_list: list[str],
-        scan_region: list[float],
-    ) -> list[str]:
-        """Perform advanced simulated STEM acquisition and return DATA/Tiled keys."""
-        saved_paths = []
+        detector_list: list[str] = ["haadf"],
+        scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+    ) -> str:
+        """Simulate STEM acquisition, save HDF5 data with metadata, and return its DATA/Tiled key."""
+        detector_list = [detector.upper() for detector in detector_list]
+        data_server = self._detector_proxies.get("data")
+        images = []
         for detector in detector_list:
             image = self._render_stem_image(int(imsize), float(dwell_time), [detector])
-            detector_name = detector.upper()
-            data_server = self._detector_proxies.get("data")
-            extension = str(self.acquisition_file_format or "tiff")
-            path = self._make_filename("stem_image", detector_name, data_server, extension)
-            metadata = {
-                "acquisition_type": "stem_image_advanced",
-                "detector": detector_name,
-                "dwell_time": float(dwell_time),
-                "scan_region": [float(v) for v in scan_region],
-                "shape": list(image.shape),
-                "dtype": str(image.dtype),
-                "simulation_backend": self.__class__.__name__,
-                **self._viewport_metadata(),
-            }
-            self._save_tiff(path, image, metadata)
-            saved_paths.append(self._register_path(path))
-        return saved_paths
+            images.append(image)
+        return save_acquisition(self, data_server, "stem_image", detector_list, images)
 
     def _simulate_spectrum(self, detector_name: str, exposure_time: float) -> dict[str, float]:
         """Simulate EDS spectrum acquisition at the current beam position weighted by surrounding particles."""
@@ -639,27 +579,11 @@ class DigitalTwin(Microscope):
         return {el: val / total for el, val in noisy.items()}
 
     def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> str:
-        """Simulate spectrum acquisition, save a NumPy file, and return its DATA/Tiled key."""
+        """Simulate spectrum acquisition, save HDF5 data, and return its DATA/Tiled key."""
         spectrum = self._simulate_spectrum(detector_name, exposure_time)
         data_server = self._detector_proxies.get("data")
-        path = self._make_filename("spectrum", detector_name, data_server, "npy")
-        spectrum_array = np.array(
-            list(spectrum.items()),
-            dtype=[("element", "U8"), ("intensity", "f8")],
-        )
-        # TODO: migrate simulated spectra to .emd once the EDS data model is settled.
-        np.save(path, spectrum_array)
-        metadata = {
-            "acquisition_type": "spectrum",
-            "detector": detector_name,
-            "exposure_time": float(exposure_time),
-            "format_note": "Temporary .npy spectrum; migrate to .emd later.",
-            "spectrum": spectrum,
-            "simulation_backend": self.__class__.__name__,
-            **self._viewport_metadata(),
-        }
-        path.with_suffix(".json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-        return self._register_path(path)
+        spectrum_array = np.array(list(spectrum.values()), dtype=np.float64)
+        return save_acquisition(self, data_server, "spectrum", detector_name, spectrum_array, dataset_name="spectrum")
 
     def _place_beam(self, position) -> None:
         """Place the electron beam at the specified [x, y] coordinates."""

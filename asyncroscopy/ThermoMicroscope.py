@@ -18,18 +18,14 @@ DATA/Tiled unique id for that saved acquisition.
 
 import math
 import time
-from datetime import datetime
-from pathlib import Path
 
-import h5py
 import numpy as np
 import tango
 from tango import AttrWriteType, DevState
 from tango.server import attribute, device_property
 
 from asyncroscopy.Microscope import Microscope
-
-DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
+from asyncroscopy.software.DataWriter import DEFAULT_ACQUISITION_DIR, save_acquisition
 
 # AutoScript imports — only available on the microscope PC.
 # Wrapped in try/except so the device can still be imported and tested
@@ -73,8 +69,8 @@ class ThermoMicroscope(Microscope):
     )
     acquisition_file_format = device_property(
         dtype=str,
-        default_value="tiff",
-        doc="Acquisition file format. TIFF preserves AutoScript image metadata.",
+        default_value="h5",
+        doc="Acquisition file format. HDF5 stores acquisition data and parsed metadata attributes.",
     )
     data_device_address = device_property(
         dtype=str,
@@ -152,16 +148,23 @@ class ThermoMicroscope(Microscope):
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> str:
+    def _acquire_scanned_image(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector_list: list[str] = ["haadf"],
+        scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+    ) -> str:
         """
-        Call AutoScript acquisition, save the adorned image, and return its path.
+        Call AutoScript scanned image acquisition, save one HDF5 file, and return its DATA/Tiled key.
         """
-        detector_type = detector_list[0].upper() if detector_list else "HAADF"
-        adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
+        detector_list = [d.upper() for d in detector_list]
+        settings = StemAcquisitionSettings(dwell_time=dwell_time, detector_types=detector_list, size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
+        adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
+        if not isinstance(adorned, list):
+            adorned = [adorned]
         data_server = self._detector_proxies.get("data")
-        path = self._make_filename("stem_image", detector_type, data_server)
-        adorned.save(str(path))
-        return data_server.register_path(str(path))
+        return save_acquisition(self, data_server, "stem_image", detector_list, adorned)
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
@@ -171,45 +174,13 @@ class ThermoMicroscope(Microscope):
         settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize, exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        path = self._make_filename("camera_image", detector, data_server)
-        adorned.save(str(path))
-        return data_server.register_path(str(path))
+        return save_acquisition(self, data_server, "camera_image", str(detector), adorned)
 
-    def _acquire_stem_image_advanced(
-        self,
-        imsize: int,
-        dwell_time: float,
-        detector_list: list,
-        scan_region: list[float],
-    ) -> list[str]:
+    def _acquire_scanned_data_advanced(self, imsize: int, dwell_time: float, detector: str, scan_region: list[float]) -> str:
         """
-        Call AutoScript acquisition, save adorned images, and return their paths.
-        """
-        detector_list = [d.upper() for d in detector_list]
+        Trigger AutoScript advanced scanned data acquisition with a camera detector.
 
-        settings = StemAcquisitionSettings(dwell_time=dwell_time, detector_types=detector_list, size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
-
-        adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
-        adorned_images = adorned if isinstance(adorned, list) else [adorned]
-        saved_paths = []
-        data_server = self._detector_proxies.get("data")
-        for image, detector in zip(adorned_images, detector_list):
-            path = self._make_filename("stem_image", detector, data_server)
-            image.save(str(path))
-            saved_paths.append(data_server.register_path(str(path)))
-        return saved_paths
-
-    def _acquire_stem_data_advanced(
-        self,
-        imsize: int,
-        dwell_time: float,
-        detector: str,
-        scan_region: list[float],
-    ) -> str:
-        """
-        Trigger AutoScript advanced STEM data acquisition with a camera detector.
-
-        AutoScript offloads the 4D STEM data storage for Ceta acquisitions, so
+        AutoScript offloads the 4D scanned data storage for Ceta acquisitions, so
         this command returns an acknowledgement and the settings used rather
         than a local saved file path.
         """
@@ -217,23 +188,7 @@ class ThermoMicroscope(Microscope):
         settings = StemDataSettings(dwell_time=dwell_time, detector_types=[camera_detector], size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
         adorned = self._microscope.acquisition.acquire_stem_data_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        path = self._make_filename("stem_data", detector, data_server)
-        adorned.save(str(path))
-        return data_server.register_path(str(path))
-
-    def _make_filename(self, acquisition_type: str, detector: str, data_server, extension: str = "tiff") -> Path:
-        save_directory = self.acquisition_save_directory
-        if data_server is not None:
-            try:
-                save_directory = data_server.save_path
-            except tango.DevFailed as exc:
-                self.warn_stream(f"DATA device not ready: {exc}")
-
-        directory = Path(save_directory).expanduser()
-        directory.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
-        name = f"{acquisition_type}_{detector}_{stamp}.{extension.lower().lstrip('.')}"
-        return directory / name
+        return save_acquisition(self, data_server, "stem_data", str(detector), adorned, dataset_name="stem_data")
 
     # test: not sure this is how we want to save
     def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> str:
@@ -245,10 +200,7 @@ class ThermoMicroscope(Microscope):
         settings.exposure_time_type = ExposureTimeType.LIVE_TIME
         spectrum = self._microscope.analysis.eds.acquire_spectrum(settings)
         data_server = self._detector_proxies.get("data")
-        path = self._make_filename("spectrum", detector_name, data_server, "emd")
-        with h5py.File(path, "w") as emd:
-            emd.create_dataset("spectrum", data=spectrum.data)
-        return data_server.register_path(str(path))
+        return save_acquisition(self, data_server, "spectrum", detector_name, spectrum, dataset_name="spectrum")
 
     def _place_beam(self, position) -> None:
         """

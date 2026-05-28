@@ -42,16 +42,17 @@ class TestThermoMicroscope:
         scan_proxy.dwell_time = 1e-6
         scan_proxy.imsize = 512
 
-        saved_path = thermo_proxy.acquire_scanned_image()
+        saved_path = thermo_proxy.acquire_scanned_image(["haadf"])
 
         assert isinstance(saved_path, str)
-        assert saved_path.endswith(".tiff")
-        assert Path(saved_path).read_bytes() == b"fake-tiff"
+        assert saved_path.endswith(".h5")
+        assert Path(saved_path).read_bytes() == b"fake-h5"
         assert patched_path_acquisition == [
             {
                 "imsize": 512,
                 "dwell_time": pytest.approx(1e-6),
                 "detector_list": ["haadf"],
+                "scan_region": [0.0, 0.0, 1.0, 1.0],
             }
         ]
 
@@ -63,32 +64,47 @@ class TestThermoMicroscope:
     ) -> None:
         scan_proxy.dwell_time = 2e-6
         scan_proxy.imsize = 256
+        scan_proxy.scan_region = [0.0, 0.0, 1.0, 1.0]
 
-        saved_path = thermo_proxy.acquire_scanned_image()
+        saved_path = thermo_proxy.acquire_scanned_image(["haadf"])
 
         assert Path(saved_path).exists()
         assert patched_path_acquisition[-1] == {
             "imsize": 256,
             "dwell_time": pytest.approx(2e-6),
             "detector_list": ["haadf"],
+            "scan_region": [0.0, 0.0, 1.0, 1.0],
         }
 
-    def test_advanced_scan_settings_propagate_into_acquisition(
+    def test_acquire_scanned_image_accepts_detector_list(
         self,
         thermo_proxy: tango.DeviceProxy,
         scan_proxy: tango.DeviceProxy,
-        patched_advanced_path_acquisition: list[dict],
+        patched_path_acquisition: list[dict],
+    ) -> None:
+        scan_proxy.dwell_time = 2e-6
+        scan_proxy.imsize = 256
+        scan_proxy.scan_region = [0.0, 0.0, 1.0, 1.0]
+
+        saved_path = thermo_proxy.acquire_scanned_image(["haadf", "bf"])
+
+        assert Path(saved_path).exists()
+        assert patched_path_acquisition[-1]["detector_list"] == ["haadf", "bf"]
+
+    def test_scan_region_propagates_into_acquisition(
+        self,
+        thermo_proxy: tango.DeviceProxy,
+        scan_proxy: tango.DeviceProxy,
+        patched_scanned_path_acquisition: list[dict],
     ) -> None:
         scan_proxy.dwell_time = 3e-6
         scan_proxy.imsize = 128
         scan_proxy.scan_region = [0.1, 0.2, 0.3, 0.4]
-        scan_proxy.haadf = True
-        scan_proxy.bf = False
 
-        saved_path = thermo_proxy.acquire_scanned_image_advanced()
+        saved_path = thermo_proxy.acquire_scanned_image(["haadf"])
 
-        assert Path(saved_path).read_bytes() == b"fake-advanced-tiff"
-        assert patched_advanced_path_acquisition == [
+        assert Path(saved_path).read_bytes() == b"fake-stem-h5"
+        assert patched_scanned_path_acquisition == [
             {
                 "imsize": 128,
                 "dwell_time": pytest.approx(3e-6),
@@ -97,10 +113,9 @@ class TestThermoMicroscope:
             }
         ]
 
-    def test_advanced_stem_image_helper_uses_relative_region(self, tmp_path) -> None:
+    def test_scanned_image_helper_uses_relative_region(self, monkeypatch, tmp_path) -> None:
         class FakeImage:
-            def save(self, path: str) -> None:
-                Path(path).write_bytes(b"fake")
+            data = np.array([[1, 2], [3, 4]], dtype=np.uint16)
 
         class FakeAcquisition:
             def __init__(self) -> None:
@@ -115,12 +130,12 @@ class TestThermoMicroscope:
         microscope._microscope = types.SimpleNamespace(acquisition=acquisition)
         microscope._detector_proxies = {"data": FakeDataServer()}
 
-        def fake_new_path(self, acquisition_type: str, detector: str, data_server):
-            return tmp_path / f"{acquisition_type}_{detector}.tiff"
+        def fake_new_path(device, acquisition_type: str, detector: str, data_server=None, extension="h5"):
+            return tmp_path / f"{acquisition_type}_{detector}.h5"
 
-        microscope._make_filename = types.MethodType(fake_new_path, microscope)
+        monkeypatch.setattr("asyncroscopy.software.DataWriter.acquisition_filename", fake_new_path)
 
-        saved_paths = ThermoMicroscope._acquire_stem_image_advanced(
+        saved_path = ThermoMicroscope._acquire_scanned_image(
             microscope,
             imsize=128,
             dwell_time=4e-6,
@@ -129,7 +144,10 @@ class TestThermoMicroscope:
         )
 
         settings = acquisition.settings
-        assert saved_paths[0].endswith(".tiff")
+        assert saved_path.endswith(".h5")
+        with h5py.File(saved_path, "r") as h5:
+            assert h5["image"][()].tolist() == [[1, 2], [3, 4]]
+            assert h5["image"].attrs["detector"] == "HAADF"
         assert settings.size == 128
         assert settings.dwell_time == pytest.approx(4e-6)
         assert settings.detector_types == ["HAADF"]
@@ -143,7 +161,7 @@ class TestThermoMicroscope:
         self,
         thermo_proxy: tango.DeviceProxy,
         scan_proxy: tango.DeviceProxy,
-        patched_stem_data_acquisition: list[dict],
+        patched_scanned_data_acquisition: list[dict],
     ) -> None:
         scan_proxy.dwell_time = 10e-3
         scan_proxy.imsize = 128
@@ -152,7 +170,7 @@ class TestThermoMicroscope:
         result = thermo_proxy.acquire_scanned_data_advanced()
 
         assert result == "fake-stem-data-key"
-        assert patched_stem_data_acquisition == [
+        assert patched_scanned_data_acquisition == [
             {
                 "imsize": 128,
                 "dwell_time": pytest.approx(10e-3),
@@ -161,10 +179,9 @@ class TestThermoMicroscope:
             }
         ]
 
-    def test_stem_data_advanced_helper_saves_and_registers_ceta_with_relative_region(self, tmp_path) -> None:
+    def test_scanned_data_advanced_helper_saves_and_registers_ceta_with_relative_region(self, monkeypatch, tmp_path) -> None:
         class FakeImage:
-            def save(self, path: str) -> None:
-                Path(path).write_bytes(b"fake-stem-data")
+            data = np.array([[5, 6], [7, 8]], dtype=np.uint16)
 
         class FakeAcquisition:
             def __init__(self) -> None:
@@ -178,9 +195,13 @@ class TestThermoMicroscope:
         microscope = ThermoMicroscope.__new__(ThermoMicroscope)
         microscope._microscope = types.SimpleNamespace(acquisition=acquisition)
         microscope._detector_proxies = {"data": FakeDataServer()}
-        microscope._make_filename = types.MethodType(lambda self, acquisition_type, detector, data_server: tmp_path / f"{acquisition_type}_{detector}.tiff", microscope)
 
-        result = ThermoMicroscope._acquire_stem_data_advanced(
+        def fake_new_path(device, acquisition_type: str, detector: str, data_server=None, extension="h5"):
+            return tmp_path / f"{acquisition_type}_{detector}.h5"
+
+        monkeypatch.setattr("asyncroscopy.software.DataWriter.acquisition_filename", fake_new_path)
+
+        result = ThermoMicroscope._acquire_scanned_data_advanced(
             microscope,
             imsize=128,
             dwell_time=10e-3,
@@ -189,7 +210,9 @@ class TestThermoMicroscope:
         )
 
         settings = acquisition.settings
-        assert Path(result).read_bytes() == b"fake-stem-data"
+        with h5py.File(result, "r") as h5:
+            assert h5["stem_data"][()].tolist() == [[5, 6], [7, 8]]
+            assert h5["stem_data"].attrs["detector"] == "BM-Ceta"
         assert settings.size == 128
         assert settings.dwell_time == pytest.approx(10e-3)
         assert settings.detector_types == [CameraType.BM_CETA]
@@ -211,7 +234,7 @@ class TestThermoMicroscope:
 
         saved_path = thermo_proxy.acquire_camera_image()
 
-        assert Path(saved_path).read_bytes() == b"fake-camera-tiff"
+        assert Path(saved_path).read_bytes() == b"fake-camera-h5"
         assert patched_camera_path_acquisition == [
             {
                 "imsize": 2048,
@@ -233,7 +256,7 @@ class TestThermoMicroscope:
 
         saved_path = thermo_proxy.acquire_flucam_image()
 
-        assert Path(saved_path).read_bytes() == b"fake-camera-tiff"
+        assert Path(saved_path).read_bytes() == b"fake-camera-h5"
         assert patched_camera_path_acquisition == [
             {
                 "imsize": 1024,
@@ -253,10 +276,10 @@ class TestThermoMicroscope:
 
         saved_path = thermo_proxy.acquire_spectrum("eds")
 
-        assert Path(saved_path).read_bytes() == b"fake-emd"
+        assert Path(saved_path).read_bytes() == b"fake-spectrum-h5"
         assert patched_spectrum_path_acquisition == [{"detector_name": "eds", "exposure_time": pytest.approx(0.25)}]
 
-    def test_spectrum_helper_saves_emd_and_registers(self, tmp_path) -> None:
+    def test_spectrum_helper_saves_hdf5_and_registers(self, monkeypatch, tmp_path) -> None:
         class FakeSpectrum:
             data = np.array([1, 2, 3], dtype=np.uint32)
 
@@ -272,13 +295,18 @@ class TestThermoMicroscope:
         microscope = ThermoMicroscope.__new__(ThermoMicroscope)
         microscope._microscope = types.SimpleNamespace(analysis=types.SimpleNamespace(eds=eds))
         microscope._detector_proxies = {"data": FakeDataServer()}
-        microscope._make_filename = types.MethodType(lambda self, acquisition_type, detector, data_server, extension="tiff": tmp_path / f"{acquisition_type}_{detector}.{extension}", microscope)
+
+        def fake_new_path(device, acquisition_type: str, detector: str, data_server=None, extension="h5"):
+            return tmp_path / f"{acquisition_type}_{detector}.{extension}"
+
+        monkeypatch.setattr("asyncroscopy.software.DataWriter.acquisition_filename", fake_new_path)
 
         result = ThermoMicroscope._acquire_spectrum(microscope, "eds", 0.25)
 
-        assert result.endswith(".emd")
-        with h5py.File(result, "r") as emd:
-            assert emd["spectrum"][()].tolist() == [1, 2, 3]
+        assert result.endswith(".h5")
+        with h5py.File(result, "r") as h5:
+            assert h5["spectrum"][()].tolist() == [1, 2, 3]
+            assert h5["spectrum"].attrs["acquisition_type"] == "spectrum"
         assert eds.settings.eds_detector == EdsDetectorType.SUPER_X
         assert eds.settings.exposure_time == pytest.approx(0.25)
         assert eds.settings.exposure_time_type == ExposureTimeType.LIVE_TIME

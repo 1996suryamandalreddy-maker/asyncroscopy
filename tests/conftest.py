@@ -194,22 +194,22 @@ def thermo_proxy(tango_ctx):
 @pytest.fixture
 def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    Patch ThermoMicroscope._acquire_stem_image so acquire_scanned_image() works
+    Patch ThermoMicroscope._acquire_scanned_image so acquire_scanned_image() works
     without AutoScript/hardware.
     """
-    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list):
+    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list = ["haadf"], scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]):
         # Deterministic image makes tests stable
         arr = np.arange(imsize * imsize, dtype=np.uint16)
         return FakeAdornedImage(arr.reshape(imsize, imsize))
 
     monkeypatch.setattr(
         ThermoMicroscope,
-        "_acquire_stem_image",
+        "_acquire_scanned_image",
         fake_acquire,
     )
     monkeypatch.setattr(
         DigitalTwin,
-        "_acquire_stem_image",
+        "_acquire_scanned_image",
         fake_acquire,
     )
 
@@ -218,33 +218,7 @@ def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
 def patched_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
     calls = []
 
-    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list):
-        calls.append(
-            {
-                "imsize": imsize,
-                "dwell_time": dwell_time,
-                "detector_list": list(detector_list),
-            }
-        )
-        path = tmp_path / f"stem_{imsize}.tiff"
-        path.write_bytes(b"fake-tiff")
-        return str(path)
-
-    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_image", fake_acquire)
-    return calls
-
-
-@pytest.fixture
-def patched_advanced_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
-    calls = []
-
-    def fake_acquire(
-        self,
-        imsize: int,
-        dwell_time: float,
-        detector_list: list,
-        scan_region: list[float],
-    ):
+    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list = ["haadf"], scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]):
         calls.append(
             {
                 "imsize": imsize,
@@ -253,16 +227,37 @@ def patched_advanced_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path)
                 "scan_region": list(scan_region),
             }
         )
-        path = tmp_path / f"stem_advanced_{imsize}.tiff"
-        path.write_bytes(b"fake-advanced-tiff")
-        return [str(path)]
+        path = tmp_path / f"stem_{imsize}.h5"
+        path.write_bytes(b"fake-h5")
+        return str(path)
 
-    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_image_advanced", fake_acquire)
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_scanned_image", fake_acquire)
     return calls
 
 
 @pytest.fixture
-def patched_stem_data_acquisition(monkeypatch: pytest.MonkeyPatch):
+def patched_scanned_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    calls = []
+
+    def fake_acquire(self, imsize: int, dwell_time: float, detector_list: list = ["haadf"], scan_region: list[float] = [0.0, 0.0, 1.0, 1.0]):
+        calls.append(
+            {
+                "imsize": imsize,
+                "dwell_time": dwell_time,
+                "detector_list": list(detector_list),
+                "scan_region": list(scan_region),
+            }
+        )
+        path = tmp_path / f"stem_{imsize}.h5"
+        path.write_bytes(b"fake-stem-h5")
+        return str(path)
+
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_scanned_image", fake_acquire)
+    return calls
+
+
+@pytest.fixture
+def patched_scanned_data_acquisition(monkeypatch: pytest.MonkeyPatch):
     calls = []
 
     def fake_acquire(
@@ -282,7 +277,7 @@ def patched_stem_data_acquisition(monkeypatch: pytest.MonkeyPatch):
         )
         return "fake-stem-data-key"
 
-    monkeypatch.setattr(ThermoMicroscope, "_acquire_stem_data_advanced", fake_acquire)
+    monkeypatch.setattr(ThermoMicroscope, "_acquire_scanned_data_advanced", fake_acquire)
     return calls
 
 
@@ -299,8 +294,8 @@ def patched_camera_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path):
                 "readout_area": readout_area,
             }
         )
-        path = tmp_path / f"camera_{imsize}.tiff"
-        path.write_bytes(b"fake-camera-tiff")
+        path = tmp_path / f"camera_{imsize}.h5"
+        path.write_bytes(b"fake-camera-h5")
         return str(path)
 
     monkeypatch.setattr(ThermoMicroscope, "_acquire_camera_image", fake_acquire)
@@ -313,8 +308,8 @@ def patched_spectrum_path_acquisition(monkeypatch: pytest.MonkeyPatch, tmp_path)
 
     def fake_acquire(self, detector_name: str, exposure_time: float):
         calls.append({"detector_name": detector_name, "exposure_time": exposure_time})
-        path = tmp_path / f"spectrum_{detector_name}.emd"
-        path.write_bytes(b"fake-emd")
+        path = tmp_path / f"spectrum_{detector_name}.h5"
+        path.write_bytes(b"fake-spectrum-h5")
         return str(path)
 
     monkeypatch.setattr(ThermoMicroscope, "_acquire_spectrum", fake_acquire)

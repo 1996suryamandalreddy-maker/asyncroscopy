@@ -123,7 +123,7 @@ class DATA(Device):
         async def register_with_tiled_client() -> None:
             client = from_uri(self._uri(), api_key=self._api_key)
             await register(client, path, walkers=[ONE_NODE_PER_FILE_WALKER], key_from_filename=identity)
-            # here is where we insert a new reader type
+            # TODO: here is where we insert a new reader type
 
         asyncio.run(asyncio.wait_for(register_with_tiled_client(), timeout))
         self._tiled_server_status = "running; registered path"

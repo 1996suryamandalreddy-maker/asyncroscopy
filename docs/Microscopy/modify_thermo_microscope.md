@@ -18,9 +18,7 @@ If you’re editing this class, you’re usually doing one of these:
 
 5. **ADD a new functionality pertaining to a microscope api - Adding Internal acquisition helpers**
 - examples - already existing
-   - `_acquire_stem_image`
-   - `_acquire_stem_image_advanced`
+   - `_acquire_scanned_image`
    - `_acquire_spectrum`
 -  **Adding or changing acquisition settings**
    (Extend what is read from detector devices—e.g., dwell time, resolution, scan region—and ensure they propagate correctly into acquisition helpers.)
-

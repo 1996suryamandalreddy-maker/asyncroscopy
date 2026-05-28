@@ -129,7 +129,13 @@ class DigitalTwinBeta(Microscope):
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    def _acquire_stem_image(self, imsize: int, dwell_time: float, detector_list: list) -> np.ndarray:
+    def _acquire_scanned_image(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector_list: list[str] = ["haadf"],
+        scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+    ) -> np.ndarray:
         """
         Acquire a simulated STEM image using the pre-cooked sample state.
         Requires _cook_sample_recipe() to have been called immediately before this.
@@ -216,7 +222,7 @@ class DigitalTwinBeta(Microscope):
         particle_lookup  = self._particle_lookup     # {label -> metadata}
 
         # ── Rebuild _particle_records from cooked projection ──────────────────────
-        # This keeps the contract that _acquire_stem_image always refreshes
+        # This keeps the contract that _acquire_scanned_image always refreshes
         # _particle_records to match whatever the current image will show,
         # accounting for stage shift/tilt applied in _cook_sample_recipe.
         #
@@ -263,7 +269,7 @@ class DigitalTwinBeta(Microscope):
             })
 
         self._particle_records = particle_records
-        print(f"_acquire_stem_image: {len(particle_records)} particles in FOV")
+        print(f"_acquire_scanned_image: {len(particle_records)} particles in FOV")
 
         # ── Pseudo-potential + PSF convolution (unchanged logic) ──────────────────
         edge     = 2 * edge_crop * pixel_size
@@ -294,18 +300,6 @@ class DigitalTwinBeta(Microscope):
 
         return np.array(noisy_image, dtype=np.float32)
 
-    def _acquire_stem_image_advanced(
-        self,
-        imsize: int,
-        dwell_time: float,
-        detector_list: list[str],
-        scan_region: list[float],
-    ) -> list[np.ndarray]:
-        return [
-            self._acquire_stem_image(imsize, dwell_time, [detector])
-            for detector in detector_list
-        ]
-    
     def _make_sample_recipe(self):
         """
         Build three persistent data structures for the sample:
@@ -319,13 +313,13 @@ class DigitalTwinBeta(Microscope):
 
         # ── World geometry ──────────────────────────────────────────────────────────
         fov_ang     = self._fov * 1e10          # Angstroms, lateral
-        world_z_ang = fov_ang * 0.5             # thin slab, same as _acquire_stem_image
+        world_z_ang = fov_ang * 0.5             # thin slab, same as _acquire_scanned_image
         vox_size    = fov_ang / self._imsize    # Angstroms per voxel (isotropic)
 
         nx = ny = self._imsize
         nz = max(1, int(round(world_z_ang / vox_size)))
 
-        # ── Particle parameters (mirror _acquire_stem_image) ────────────────────────
+        # ── Particle parameters (mirror _acquire_scanned_image) ────────────────────────
         particle_radius  = 16.0
         radius_std       = 2.0
         aspect_ratio     = 0.4
@@ -354,7 +348,7 @@ class DigitalTwinBeta(Microscope):
                         [0, np.sin(g),  np.cos(g)]])
             return Rz @ Ry @ Rx
 
-        # ── 1. Place particle centres (same exclusion logic as _acquire_stem_image) ─
+        # ── 1. Place particle centres (same exclusion logic as _acquire_scanned_image) ─
         placed_centers   = []
         placed_particles = []
         particle_lookup  = {}   # label (1-based int) -> metadata dict
@@ -406,7 +400,7 @@ class DigitalTwinBeta(Microscope):
 
         # ── 2. Build 3-D label map ─────────────────────────────────────────────────
         # Each voxel gets the integer label of whichever particle owns it (0 = none).
-        # We use an ellipsoidal test identical to _acquire_stem_image's r_scaled mask.
+        # We use an ellipsoidal test identical to _acquire_scanned_image's r_scaled mask.
         label_map = np.zeros((nx, ny, nz), dtype=np.uint8)
 
         # Pre-build voxel coordinate arrays once (Angstrom positions of voxel centres)
@@ -484,7 +478,7 @@ class DigitalTwinBeta(Microscope):
         to both the atom positions and the label map, then project both to 2-D.
 
         After this call, self._cooked_atoms and self._cooked_projection are ready
-        for consumption by _acquire_stem_image.
+        for consumption by _acquire_scanned_image.
 
         Projection strategy
         -------------------
