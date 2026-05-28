@@ -14,16 +14,19 @@ DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
 
 def acquisition_filename(
+    device,
     acquisition_type: str,
     detector: str,
     data_server=None,
-    save_directory: str | None = None,
     extension: str = "h5",
 ) -> Path:
     """Create a timestamped acquisition filename."""
-    if save_directory is None:
-        save_directory = DEFAULT_ACQUISITION_DIR
-    if data_server is not None and hasattr(data_server, "save_path"):
+    save_directory = DEFAULT_ACQUISITION_DIR
+    try:
+        save_directory = device.acquisition_save_directory
+    except AttributeError:
+        pass
+    if data_server is not None:
         save_directory = data_server.save_path
 
     directory = Path(save_directory).expanduser()
@@ -32,42 +35,22 @@ def acquisition_filename(
     return directory / f"{acquisition_type}_{detector}_{stamp}.{extension.lower().lstrip('.')}"
 
 
-def device_acquisition_filename(device, acquisition_type: str, detector: str, data_server=None, extension: str = "h5") -> Path:
-    """Create an acquisition filename using a Tango device's save directory when available."""
-    save_directory = DEFAULT_ACQUISITION_DIR
-    try:
-        save_directory = device.acquisition_save_directory
-    except AttributeError:
-        pass
-    return acquisition_filename(acquisition_type, detector, data_server, save_directory, extension)
+def save_acquisition(device, data_server, acquisition_type: str, detectors, data, dataset_name: str = "image", **attrs) -> str:
+    """Save one acquisition to one HDF5 file and return its DATA/Tiled key."""
+    has_labeled_datasets = isinstance(detectors, (list, tuple))
+    detector_list = list(detectors) if has_labeled_datasets else [detectors]
+    data_list = list(data) if isinstance(data, (list, tuple)) else [data]
+    detector_label = "_".join([str(detector) for detector in detector_list])
+    path = acquisition_filename(device, acquisition_type, detector_label, data_server)
 
-
-def register_acquisition_path(path: str | Path, data_server=None) -> str:
-    """Register a saved acquisition with DATA, or return the path if DATA is absent."""
-    if data_server is None:
-        return str(path)
-    return data_server.register_path(str(path))
-
-
-def save_dataset(path: str | Path, name: str, source, **attrs) -> None:
-    """Save one dataset to an acquisition HDF5 file."""
-    save_acquisition_hdf5(path, [{"name": name, "source": source, "attrs": attrs}])
-
-
-def save_labeled_datasets(
-    path: str | Path,
-    group_name: str,
-    sources,
-    labels: list[str],
-    **attrs,
-) -> None:
-    """Save several correlated datasets into one HDF5 group."""
     datasets = []
-    for index, source in enumerate(sources):
-        label = labels[index] if index < len(labels) else f"item_{index}"
-        dataset_attrs = {**attrs, "detector": label}
-        datasets.append({"name": f"{group_name}/{label}", "source": source, "attrs": dataset_attrs})
+    for index, source in enumerate(data_list):
+        detector = str(detector_list[index]) if index < len(detector_list) else f"item_{index}"
+        name = f"{dataset_name}/{detector}" if has_labeled_datasets else dataset_name
+        datasets.append({"name": name, "source": source, "attrs": {"acquisition_type": acquisition_type, **attrs, "detector": detector}})
+
     save_acquisition_hdf5(path, datasets)
+    return data_server.register_path(str(path)) if data_server is not None else str(path)
 
 
 def save_acquisition_hdf5(path: str | Path, datasets: list[dict], file_attrs: dict | None = None) -> None:

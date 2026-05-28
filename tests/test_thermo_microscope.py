@@ -137,7 +137,7 @@ class TestThermoMicroscope:
         def fake_new_path(device, acquisition_type: str, detector: str, data_server=None, extension="h5"):
             return tmp_path / f"{acquisition_type}_{detector}.h5"
 
-        monkeypatch.setattr("asyncroscopy.ThermoMicroscope.device_acquisition_filename", fake_new_path)
+        monkeypatch.setattr("asyncroscopy.software.DataWriter.acquisition_filename", fake_new_path)
 
         saved_paths = ThermoMicroscope._acquire_stem_image_advanced(
             microscope,
@@ -203,7 +203,7 @@ class TestThermoMicroscope:
         def fake_new_path(device, acquisition_type: str, detector: str, data_server=None, extension="h5"):
             return tmp_path / f"{acquisition_type}_{detector}.h5"
 
-        monkeypatch.setattr("asyncroscopy.ThermoMicroscope.device_acquisition_filename", fake_new_path)
+        monkeypatch.setattr("asyncroscopy.software.DataWriter.acquisition_filename", fake_new_path)
 
         result = ThermoMicroscope._acquire_stem_data_advanced(
             microscope,
@@ -303,7 +303,7 @@ class TestThermoMicroscope:
         def fake_new_path(device, acquisition_type: str, detector: str, data_server=None, extension="h5"):
             return tmp_path / f"{acquisition_type}_{detector}.{extension}"
 
-        monkeypatch.setattr("asyncroscopy.ThermoMicroscope.device_acquisition_filename", fake_new_path)
+        monkeypatch.setattr("asyncroscopy.software.DataWriter.acquisition_filename", fake_new_path)
 
         result = ThermoMicroscope._acquire_spectrum(microscope, "eds", 0.25)
 

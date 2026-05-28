@@ -25,7 +25,7 @@ from tango import AttrWriteType, DevState
 from tango.server import attribute, device_property
 
 from asyncroscopy.Microscope import Microscope
-from asyncroscopy.software.DataWriter import device_acquisition_filename, register_acquisition_path, save_dataset, save_labeled_datasets
+from asyncroscopy.software.DataWriter import save_acquisition
 
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
@@ -157,10 +157,8 @@ class ThermoMicroscope(Microscope):
         detector_type = detector_list[0].upper() if detector_list else "HAADF"
         adorned = self._microscope.acquisition.acquire_stem_image(detector_type, imsize, dwell_time)
         data_server = self._detector_proxies.get("data")
-        path = device_acquisition_filename(self, "stem_image", detector_type, data_server)
-        save_dataset(path, "image", adorned, acquisition_type="stem_image", detector=detector_type, dwell_time=float(dwell_time))
-        key = register_acquisition_path(path, data_server)
-        return key
+        data_key = save_acquisition(self, data_server, "stem_image", detector_type, adorned, dwell_time=float(dwell_time))
+        return data_key
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
@@ -170,39 +168,23 @@ class ThermoMicroscope(Microscope):
         settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize, exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        path = device_acquisition_filename(self, "camera_image", detector, data_server)
-        save_dataset(path, "image", adorned, acquisition_type="camera_image", detector=str(detector), exposure_time=float(exposure_time), readout_area=str(readout_area))
-        return register_acquisition_path(path, data_server)
+        data_key = save_acquisition(self, data_server, "camera_image", str(detector), adorned, exposure_time=float(exposure_time), readout_area=str(readout_area))
+        return data_key
 
-    def _acquire_stem_image_advanced(
-        self,
-        imsize: int,
-        dwell_time: float,
-        detector_list: list,
-        scan_region: list[float],
-    ) -> list[str]:
+    def _acquire_stem_image_advanced(self, imsize: int, dwell_time: float, detector_list: list, scan_region: list[float]) -> list[str]:
         """
         Call AutoScript acquisition, save adorned images, and return their paths.
         """
         detector_list = [d.upper() for d in detector_list]
-
         settings = StemAcquisitionSettings(dwell_time=dwell_time, detector_types=detector_list, size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
 
         adorned = self._microscope.acquisition.acquire_stem_images_advanced(settings)
         adorned_images = adorned if isinstance(adorned, (list, tuple)) else [adorned]
-        data_server = self._detector_proxies.get("data")
-        detector_label = "_".join(detector_list) if detector_list else "STEM"
-        path = device_acquisition_filename(self, "stem_image", detector_label, data_server)
-        save_labeled_datasets(path, "images", adorned_images, detector_list, acquisition_type="stem_image_advanced", dwell_time=float(dwell_time), scan_region=[float(v) for v in scan_region])
-        return [register_acquisition_path(path, data_server)]
 
-    def _acquire_stem_data_advanced(
-        self,
-        imsize: int,
-        dwell_time: float,
-        detector: str,
-        scan_region: list[float],
-    ) -> str:
+        data_server = self._detector_proxies.get("data")
+        return [save_acquisition(self, data_server, "stem_image_advanced", detector_list, adorned_images, dataset_name="images", dwell_time=float(dwell_time), scan_region=[float(v) for v in scan_region])]
+
+    def _acquire_stem_data_advanced(self, imsize: int, dwell_time: float, detector: str, scan_region: list[float]) -> str:
         """
         Trigger AutoScript advanced STEM data acquisition with a camera detector.
 
@@ -214,9 +196,7 @@ class ThermoMicroscope(Microscope):
         settings = StemDataSettings(dwell_time=dwell_time, detector_types=[camera_detector], size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
         adorned = self._microscope.acquisition.acquire_stem_data_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        path = device_acquisition_filename(self, "stem_data", detector, data_server)
-        save_dataset(path, "stem_data", adorned, acquisition_type="stem_data", detector=str(detector), dwell_time=float(dwell_time), scan_region=[float(v) for v in scan_region])
-        return register_acquisition_path(path, data_server)
+        return save_acquisition(self, data_server, "stem_data", str(detector), adorned, dataset_name="stem_data", dwell_time=float(dwell_time), scan_region=[float(v) for v in scan_region])
 
     # test: not sure this is how we want to save
     def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> str:
@@ -228,9 +208,7 @@ class ThermoMicroscope(Microscope):
         settings.exposure_time_type = ExposureTimeType.LIVE_TIME
         spectrum = self._microscope.analysis.eds.acquire_spectrum(settings)
         data_server = self._detector_proxies.get("data")
-        path = device_acquisition_filename(self, "spectrum", detector_name, data_server)
-        save_dataset(path, "spectrum", spectrum, acquisition_type="spectrum", detector=detector_name, exposure_time=float(exposure_time))
-        return register_acquisition_path(path, data_server)
+        return save_acquisition(self, data_server, "spectrum", detector_name, spectrum, dataset_name="spectrum", exposure_time=float(exposure_time))
 
     def _place_beam(self, position) -> None:
         """

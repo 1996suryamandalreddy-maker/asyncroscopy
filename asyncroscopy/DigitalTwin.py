@@ -16,7 +16,7 @@ from tango import AttrWriteType, DevState
 from tango.server import Device, attribute, device_property
 
 from asyncroscopy.Microscope import Microscope
-from asyncroscopy.software.DataWriter import device_acquisition_filename, register_acquisition_path, save_dataset, save_labeled_datasets
+from asyncroscopy.software.DataWriter import save_acquisition
 
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
@@ -514,18 +514,14 @@ class DigitalTwin(Microscope):
         detector = detector_list[0].upper() if detector_list else "HAADF"
         image = self._render_stem_image(int(imsize), float(dwell_time), detector_list)
         data_server = self._detector_proxies.get("data")
-        path = device_acquisition_filename(self, "stem_image", detector, data_server)
         metadata = {
-            "acquisition_type": "stem_image",
-            "detector": detector,
             "dwell_time": float(dwell_time),
             "shape": list(image.shape),
             "dtype": str(image.dtype),
             "simulation_backend": self.__class__.__name__,
             **self._viewport_metadata(),
         }
-        save_dataset(path, "image", image, **metadata)
-        return register_acquisition_path(path, data_server)
+        return save_acquisition(self, data_server, "stem_image", detector, image, **metadata)
 
     def _acquire_stem_image_advanced(
         self,
@@ -536,8 +532,6 @@ class DigitalTwin(Microscope):
     ) -> list[str]:
         """Perform advanced simulated STEM acquisition and return DATA/Tiled keys."""
         data_server = self._detector_proxies.get("data")
-        detector_label = "_".join([detector.upper() for detector in detector_list]) if detector_list else "STEM"
-        path = device_acquisition_filename(self, "stem_image", detector_label, data_server)
         images = []
         detector_names = []
         for detector in detector_list:
@@ -546,14 +540,12 @@ class DigitalTwin(Microscope):
             images.append(image)
             detector_names.append(detector_name)
         metadata = {
-            "acquisition_type": "stem_image_advanced",
             "dwell_time": float(dwell_time),
             "scan_region": [float(v) for v in scan_region],
             "simulation_backend": self.__class__.__name__,
             **self._viewport_metadata(),
         }
-        save_labeled_datasets(path, "images", images, detector_names, **metadata)
-        return [register_acquisition_path(path, data_server)]
+        return [save_acquisition(self, data_server, "stem_image_advanced", detector_names, images, dataset_name="images", **metadata)]
 
     def _simulate_spectrum(self, detector_name: str, exposure_time: float) -> dict[str, float]:
         """Simulate EDS spectrum acquisition at the current beam position weighted by surrounding particles."""
@@ -612,20 +604,16 @@ class DigitalTwin(Microscope):
         """Simulate spectrum acquisition, save HDF5 data, and return its DATA/Tiled key."""
         spectrum = self._simulate_spectrum(detector_name, exposure_time)
         data_server = self._detector_proxies.get("data")
-        path = device_acquisition_filename(self, "spectrum", detector_name, data_server)
         elements = list(spectrum)
         spectrum_array = np.array([spectrum[element] for element in elements], dtype=np.float64)
         metadata = {
-            "acquisition_type": "spectrum",
-            "detector": detector_name,
             "exposure_time": float(exposure_time),
             "elements": elements,
             "spectrum": spectrum,
             "simulation_backend": self.__class__.__name__,
             **self._viewport_metadata(),
         }
-        save_dataset(path, "spectrum", spectrum_array, **metadata)
-        return register_acquisition_path(path, data_server)
+        return save_acquisition(self, data_server, "spectrum", detector_name, spectrum_array, dataset_name="spectrum", **metadata)
 
     def _place_beam(self, position) -> None:
         """Place the electron beam at the specified [x, y] coordinates."""
