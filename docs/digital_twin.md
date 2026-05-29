@@ -38,6 +38,8 @@ Simulated image and spectrum acquisitions use the same HDF5 writer as the hardwa
 - `move_stage([x, y, z, alpha, beta])`
 - `get_stage()`
 - `set_fov(fov)`
+- `set_defocus(defocus)`
+- `get_defocus()`
 - `acquire_scanned_image(["haadf"])`
 - `place_beam([x, y])`
 - `acquire_spectrum("eds")`

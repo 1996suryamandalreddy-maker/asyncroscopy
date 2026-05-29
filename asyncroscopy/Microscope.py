@@ -236,6 +236,20 @@ class Microscope(Device, metaclass=CombinedMeta):
         self._unblank_beam()
 
     @command(dtype_in=DevFloat)
+    def set_defocus(self, defocus):
+        """
+        set the defocus in meters
+        """
+        self._set_defocus(defocus)
+
+    @command(dtype_out=DevFloat)
+    def get_defocus(self):
+        """
+        read the defocus in meters
+        """
+        return self._get_defocus()
+
+    @command(dtype_in=DevFloat)
     def set_fov(self, fov):
         """
         set the field of view for the next acquisition
@@ -351,6 +365,14 @@ class Microscope(Device, metaclass=CombinedMeta):
         pass
 
     def _unblank_beam(self):
+        # define in the inherit class
+        pass
+
+    def _set_defocus(self, defocus):
+        # define in the inherit class
+        pass
+
+    def _get_defocus(self):
         # define in the inherit class
         pass
 

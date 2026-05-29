@@ -24,6 +24,8 @@ from tiled.client.register import identity, register
 DEFAULT_TILED_URI = "http://10.46.217.241:9091"
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 ONE_NODE_PER_FILE_WALKER = "tiled.client.register:one_node_per_item"
+REGISTER_TIMEOUT_SECONDS = 120
+REGISTER_POLL_SECONDS = 0.25
 
 
 class DATA(Device):
@@ -118,16 +120,26 @@ class DATA(Device):
     @command(dtype_in=str, dtype_out=str)
     def register_path(self, path: str) -> str:
         path = path.strip()
-        timeout = 10 # seconds
+        key = PureWindowsPath(path).name if _is_windows_drive_path(path) else Path(path).name
 
         async def register_with_tiled_client() -> None:
             client = from_uri(self._uri(), api_key=self._api_key)
             await register(client, path, walkers=[ONE_NODE_PER_FILE_WALKER], key_from_filename=identity)
-            # TODO: here is where we insert a new reader type
+            if not hasattr(client, "__getitem__"):
+                return
+            deadline = time.monotonic() + REGISTER_TIMEOUT_SECONDS
+            while True:
+                try:
+                    client[key]
+                    return
+                except KeyError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(f"Tiled did not expose {key} within {REGISTER_TIMEOUT_SECONDS} seconds")
+                    await asyncio.sleep(REGISTER_POLL_SECONDS)
 
-        asyncio.run(asyncio.wait_for(register_with_tiled_client(), timeout))
+        asyncio.run(asyncio.wait_for(register_with_tiled_client(), REGISTER_TIMEOUT_SECONDS))
         self._tiled_server_status = "running; registered path"
-        return PureWindowsPath(path).name if _is_windows_drive_path(path) else Path(path).name
+        return key
 
     def _uri(self) -> str:
         return f"http://{self._host}:{self._port}"

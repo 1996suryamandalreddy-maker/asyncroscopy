@@ -163,3 +163,44 @@ class TestDataDevice:
         monkeypatch.setattr("asyncroscopy.software.DATA.register", fake_register)
 
         assert data_proxy.register_path(windows_path) == "frame.h5"
+
+    def test_register_path_waits_until_tiled_key_is_readable(
+        self,
+        data_proxy: tango.DeviceProxy,
+        monkeypatch,
+        tmp_path,
+    ) -> None:
+        saved = tmp_path / "frame.h5"
+        saved.write_bytes(b"fake-h5")
+        data_proxy.host = "127.0.0.1"
+        data_proxy.port = 9091
+
+        class FakeClient:
+            def __init__(self):
+                self.calls = 0
+
+            def __getitem__(self, key):
+                self.calls += 1
+                if self.calls < 3:
+                    raise KeyError(key)
+                return object()
+
+        fake_client = FakeClient()
+        sleeps = []
+
+        def fake_from_uri(*args, **kwargs):
+            return fake_client
+
+        async def fake_register(*args, **kwargs):
+            return None
+
+        async def fake_sleep(seconds):
+            sleeps.append(seconds)
+
+        monkeypatch.setattr("asyncroscopy.software.DATA.from_uri", fake_from_uri)
+        monkeypatch.setattr("asyncroscopy.software.DATA.register", fake_register)
+        monkeypatch.setattr("asyncroscopy.software.DATA.asyncio.sleep", fake_sleep)
+
+        assert data_proxy.register_path(str(saved)) == "frame.h5"
+        assert fake_client.calls == 3
+        assert sleeps == [0.25, 0.25]

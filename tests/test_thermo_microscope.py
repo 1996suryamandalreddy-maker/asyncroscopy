@@ -146,8 +146,8 @@ class TestThermoMicroscope:
         settings = acquisition.settings
         assert saved_path.endswith(".h5")
         with h5py.File(saved_path, "r") as h5:
-            assert h5["image"][()].tolist() == [[1, 2], [3, 4]]
-            assert h5["image"].attrs["detector"] == "HAADF"
+            assert h5["image/HAADF"][()].tolist() == [[1, 2], [3, 4]]
+            assert h5["image/HAADF"].attrs["detector"] == "HAADF"
         assert settings.size == 128
         assert settings.dwell_time == pytest.approx(4e-6)
         assert settings.detector_types == ["HAADF"]
@@ -310,6 +310,16 @@ class TestThermoMicroscope:
         assert eds.settings.eds_detector == EdsDetectorType.SUPER_X
         assert eds.settings.exposure_time == pytest.approx(0.25)
         assert eds.settings.exposure_time_type == ExposureTimeType.LIVE_TIME
+
+    def test_defocus_helpers_read_and_write_autoscript_optics(self) -> None:
+        optics = types.SimpleNamespace(defocus=0.0)
+        microscope = ThermoMicroscope.__new__(ThermoMicroscope)
+        microscope._microscope = types.SimpleNamespace(optics=optics)
+
+        ThermoMicroscope._set_defocus(microscope, 8e-9)
+
+        assert optics.defocus == pytest.approx(8e-9)
+        assert ThermoMicroscope._get_defocus(microscope) == pytest.approx(8e-9)
 
     def test_disconnect_sets_state_off(self, thermo_proxy: tango.DeviceProxy) -> None:
         thermo_proxy.Disconnect()
