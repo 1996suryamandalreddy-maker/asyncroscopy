@@ -43,7 +43,6 @@ class DATA(Device):
         self._save_path = os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR", DEFAULT_ACQUISITION_DIR)
         self._api_key = "secret"
         self._tiled_process = None
-        self._tiled_watch_process = None
         self._tiled_server = "yes" if self._tiled_alive() else "no"
         self._tiled_server_status = ""
         self.info_stream("DATA device initialised")
@@ -72,6 +71,7 @@ class DATA(Device):
 
     @command(dtype_out=str)
     def get_config(self) -> str:
+        self._tiled_server = "yes" if self._tiled_alive() else "no"
         return json.dumps({"host": self._host, "port": self._port, "uri": self._uri(), "save_path": self._save_path, "tiled_server": self._tiled_server, "tiled_server_status": self._tiled_server_status})
 
     @command(dtype_in=str, dtype_out=str)
@@ -90,7 +90,7 @@ class DATA(Device):
     def start_tiled_server(self, timeout = 30) -> str:
         if self._tiled_alive():
             self._tiled_server = "yes"
-            self._ensure_tiled_watcher()
+            self._tiled_server_status = "running"
             return self.get_config()
 
         catalog = _path_text(Path(self._save_path).expanduser() / ".asyncroscopy_tiled_catalog.db")
@@ -112,7 +112,7 @@ class DATA(Device):
             time.sleep(0.5)
         self._tiled_server = "yes" if self._tiled_alive() else "no"
         if self._tiled_server == "yes":
-            self._ensure_tiled_watcher()
+            self._tiled_server_status = "running"
         else:
             self._tiled_server_status = f"not running; exit_code={self._tiled_process.poll()}"
         return self.get_config()
@@ -150,16 +150,6 @@ class DATA(Device):
                 return True
         except (OSError, URLError):
             return False
-
-    def _ensure_tiled_watcher(self) -> None:
-        if self._tiled_watch_process is not None and self._tiled_watch_process.poll() is None:
-            self._tiled_server_status = "running; watcher active"
-            return
-
-        command = [self._tiled_executable(), "register", self._uri(), self._save_path, "--api-key", self._api_key, "--keep-ext", "--walker", ONE_NODE_PER_FILE_WALKER, "--watch"]
-        self._tiled_watch_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True)
-        time.sleep(0.5)
-        self._tiled_server_status = "running; watcher started" if self._tiled_watch_process.poll() is None else "running; watcher failed"
 
     @staticmethod
     def _parse_uri(uri: str) -> tuple[str, int]:
