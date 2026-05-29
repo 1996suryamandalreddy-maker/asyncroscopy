@@ -47,7 +47,7 @@ def save_acquisition(device, data_server, acquisition_type: str, detectors, data
     for index, source in enumerate(data_list):
         detector = str(detector_list[index]) if index < len(detector_list) else f"item_{index}"
         if dataset_name == "image" and isinstance(detectors, (list, tuple)):
-            name = detector
+            name = f"image/{detector}"
         else:
             name = f"{dataset_name}/{detector}" if has_labeled_datasets else dataset_name
         datasets.append({"name": name, "source": source, "attrs": {"acquisition_type": acquisition_type, "detector": detector}})

@@ -40,7 +40,7 @@ def test_save_acquisition_hdf5_writes_data_and_xml_leaf_attrs(tmp_path):
         assert h5["images/HAADF"].attrs["detector"] == "HAADF"
 
 
-def test_save_acquisition_writes_scanned_images_as_ordered_root_detector_datasets(tmp_path):
+def test_save_acquisition_writes_scanned_images_as_ordered_image_detector_datasets(tmp_path):
     data_server = FakeDataServer(tmp_path)
     detectors = ["HAADF", "BF-S", "DF-S"]
     images = [np.full((2, 2), index, dtype=np.uint8) for index in range(len(detectors))]
@@ -48,7 +48,8 @@ def test_save_acquisition_writes_scanned_images_as_ordered_root_detector_dataset
     path = save_acquisition(object(), data_server, "stem_image", detectors, images)
 
     with h5py.File(path, "r") as h5:
-        assert list(h5.keys()) == detectors
+        assert list(h5.keys()) == ["image"]
+        assert list(h5["image"].keys()) == detectors
         for index, detector in enumerate(detectors):
-            assert h5[detector][()].tolist() == images[index].tolist()
-            assert h5[detector].attrs["detector"] == detector
+            assert h5[f"image/{detector}"][()].tolist() == images[index].tolist()
+            assert h5[f"image/{detector}"].attrs["detector"] == detector
