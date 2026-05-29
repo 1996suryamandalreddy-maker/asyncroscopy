@@ -21,6 +21,11 @@ class TestDigitalTwin:
     def test_manufacturer_is_digital_twin(self, twin_proxy: tango.DeviceProxy):
         assert twin_proxy.manufacturer == "UTKTeam"
 
+    def test_defocus_commands_round_trip(self, twin_proxy: tango.DeviceProxy):
+        twin_proxy.set_defocus(8e-9)
+
+        assert twin_proxy.get_defocus() == pytest.approx(8e-9)
+
     def test_get_image_returns_saved_hdf5(self, twin_proxy: tango.DeviceProxy, scan_proxy: tango.DeviceProxy):
         scan_proxy.imsize = 32
         scan_proxy.dwell_time = 1e-6

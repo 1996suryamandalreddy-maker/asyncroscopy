@@ -63,6 +63,7 @@ class DigitalTwinBeta(Microscope):
         self._manufacturer = "UTKTeam"
         self._beam_pos_x = 0.5
         self._beam_pos_y = 0.5
+        self._defocus = 0.0
         self._particle_records = []
         self._imsize = 512
         self._fov = 200e-10  # meters, i.e. 200 angstroms
@@ -638,6 +639,14 @@ class DigitalTwinBeta(Microscope):
         """set field of view in meters"""
         # For the digital twin, we can just store this as a property and use it in acquisition simulations.
         self._fov = fov
+
+    def _set_defocus(self, defocus) -> None:
+        """Set defocus in meters."""
+        self._defocus = float(defocus)
+
+    def _get_defocus(self) -> float:
+        """Get defocus in meters."""
+        return self._defocus
 
 
     def _get_stage(self):

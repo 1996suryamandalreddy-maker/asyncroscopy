@@ -240,6 +240,15 @@ class ThermoMicroscope(Microscope):
         """
         self._microscope.optics.blanker.unblank()
 
+    def _set_defocus(self, defocus) -> None:
+        """Set defocus in meters."""
+        if self._microscope is not None:
+            self._microscope.optics.defocus = float(defocus)
+
+    def _get_defocus(self) -> float:
+        """Get defocus in meters."""
+        return self._microscope.optics.defocus
+
     def _caibrate_screen_current(self) -> None:
         original_gun_lens = self._microscope.optics.monochromator.focus
         gun_lens_series = np.linspace(10, 150, 15)

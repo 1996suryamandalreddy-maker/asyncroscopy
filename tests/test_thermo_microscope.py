@@ -311,6 +311,16 @@ class TestThermoMicroscope:
         assert eds.settings.exposure_time == pytest.approx(0.25)
         assert eds.settings.exposure_time_type == ExposureTimeType.LIVE_TIME
 
+    def test_defocus_helpers_read_and_write_autoscript_optics(self) -> None:
+        optics = types.SimpleNamespace(defocus=0.0)
+        microscope = ThermoMicroscope.__new__(ThermoMicroscope)
+        microscope._microscope = types.SimpleNamespace(optics=optics)
+
+        ThermoMicroscope._set_defocus(microscope, 8e-9)
+
+        assert optics.defocus == pytest.approx(8e-9)
+        assert ThermoMicroscope._get_defocus(microscope) == pytest.approx(8e-9)
+
     def test_disconnect_sets_state_off(self, thermo_proxy: tango.DeviceProxy) -> None:
         thermo_proxy.Disconnect()
         assert thermo_proxy.state() == tango.DevState.OFF
