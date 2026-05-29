@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import signal
 import subprocess
@@ -13,21 +12,14 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
-from urllib.error import URLError
-from urllib.request import urlopen
 
 import tango
 
 
 DEFAULT_TANGO_HOST = "10.46.217.241"
 DEFAULT_TANGO_PORT = 9094
-DEFAULT_TILED_HOST = "10.46.217.241"
-DEFAULT_TILED_PORT = 9091
-DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
-TILED_API_KEY = "secret"
 DATABASE_TIMEOUT_SECONDS = 120
 DEVICE_TIMEOUT_SECONDS = 120
-TILED_TIMEOUT_SECONDS = 30
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
@@ -163,28 +155,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="real",
         help="Microscope backend to start. Defaults to real.",
     )
-    parser.add_argument(
-        "--tiled-host",
-        default=None,
-        help=f"Tiled HTTP server host configured on the DATA device. Defaults to {DEFAULT_TILED_HOST}.",
-    )
-    parser.add_argument(
-        "--tiled-port",
-        type=int,
-        default=None,
-        help=f"Tiled HTTP server port configured on the DATA device. Defaults to {DEFAULT_TILED_PORT}.",
-    )
-    parser.add_argument(
-        "--save-path",
-        default=None,
-        help=f"Acquisition directory served by Tiled. Defaults to {DEFAULT_ACQUISITION_DIR}.",
-    )
-    parser.add_argument(
-        "--start-tiled",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Start the Tiled HTTP server as a tracked process. Defaults to yes.",
-    )
     return parser.parse_args(argv)
 
 
@@ -258,19 +228,10 @@ def status_line(status: str, message: str, detail: str = "") -> None:
         print(f"  {tag}  {message}")
 
 
-def make_environment(host: str, port: int, tiled_host: str, tiled_port: int, save_path: str) -> dict[str, str]:
+def make_environment(host: str, port: int) -> dict[str, str]:
     tango_host = f"{host}:{port}"
-    tiled_uri = f"http://{tiled_host}:{tiled_port}"
     os.environ["TANGO_HOST"] = tango_host
-    os.environ["ASYNCROSCOPY_TILED_URI"] = tiled_uri
-    os.environ["ASYNCROSCOPY_ACQUISITION_DIR"] = save_path
-    return {
-        **os.environ,
-        "TANGO_HOST": tango_host,
-        "ASYNCROSCOPY_TILED_URI": tiled_uri,
-        "ASYNCROSCOPY_ACQUISITION_DIR": save_path,
-        "PYTHONUNBUFFERED": "1",
-    }
+    return {**os.environ, "TANGO_HOST": tango_host, "PYTHONUNBUFFERED": "1"}
 
 
 def start_process(key: str, label: str, command: list[str], environment: dict[str, str]) -> ManagedProcess:
@@ -401,21 +362,9 @@ def stop_python_process_matching(pattern: str) -> bool:
     return result.returncode == 0
 
 
-def clear_old_processes(database_port: int, tiled_port: int, devices: list[DeviceConfig], clear_tiled: bool) -> None:
-    stopped_databases = stop_processes_on_port(database_port)
-    status_line(
-        "OK" if stopped_databases else "SKIP",
-        f"database port {database_port}",
-        f"{stopped_databases} process(es) signaled",
-    )
-
-    if clear_tiled:
-        stopped_tiled = stop_processes_on_port(tiled_port)
-        status_line(
-            "OK" if stopped_tiled else "SKIP",
-            f"Tiled port {tiled_port}",
-            f"{stopped_tiled} process(es) signaled",
-        )
+def clear_old_processes(port: int, devices: list[DeviceConfig]) -> None:
+    stopped_databases = stop_processes_on_port(port)
+    status_line("OK" if stopped_databases else "SKIP", f"database port {port}", f"{stopped_databases} process(es) signaled")
 
     stopped_servers = 0
     cleanup_patterns = {f"{device.class_name} {device.instance_name}" for device in devices}
@@ -441,26 +390,6 @@ def wait_for_database(host: str, port: int, timeout: int) -> float:
             print(color(".", Style.dim), end="", flush=True)
             time.sleep(1)
     raise TimeoutError(f"Tango database did not become ready after {timeout}s. Last error: {last_error}")
-
-
-def tiled_alive(uri: str) -> bool:
-    try:
-        with urlopen(uri, timeout=0.3):
-            return True
-    except (OSError, URLError):
-        return False
-
-
-def wait_for_tiled(uri: str, process: ManagedProcess, timeout: int) -> float:
-    start = time.monotonic()
-    while time.monotonic() - start < timeout:
-        if tiled_alive(uri):
-            return time.monotonic() - start
-        if not process.running:
-            raise RuntimeError(f"Tiled server exited early with code {process.process.poll()}")
-        print(color(".", Style.dim), end="", flush=True)
-        time.sleep(0.5)
-    raise TimeoutError(f"Tiled server did not become ready at {uri} after {timeout}s")
 
 
 def wait_for_device(device_name: str, timeout: int) -> float:
@@ -496,98 +425,6 @@ def register_devices(devices: list[DeviceConfig]) -> None:
         status_line("OK", f"property: {property_name} = {property_value[0]}")
 
 
-def configure_data_device(
-    host: str,
-    port: int,
-    tiled_host: str,
-    tiled_port: int,
-    save_path: str,
-) -> dict[str, object]:
-    data = tango.DeviceProxy(f"tango://{host}:{port}/asyncroscopy/data/default")
-    config = {
-        "host": tiled_host,
-        "port": tiled_port,
-        "save_path": save_path,
-    }
-    return json.loads(data.configure(json.dumps(config)))
-
-
-def refresh_data_config(host: str, port: int) -> dict[str, object]:
-    data = tango.DeviceProxy(f"tango://{host}:{port}/asyncroscopy/data/default")
-    _ = data.tiled_server
-    return json.loads(data.get_config())
-
-
-def tiled_executable() -> str:
-    candidate = Path(sys.executable).with_name("tiled")
-    return str(candidate) if candidate.exists() else "tiled"
-
-
-def is_windows_drive_path(path: str | Path) -> bool:
-    text = str(path)
-    return len(text) >= 3 and text[1] == ":" and text[0].isalpha() and text[2] in {"\\", "/"}
-
-
-def path_text(path: Path) -> str:
-    return str(path).replace("\\", "/") if is_windows_drive_path(path) else str(path)
-
-
-def tiled_catalog_path(save_path: str) -> str:
-    return path_text(Path(save_path).expanduser() / ".asyncroscopy_tiled_catalog.db")
-
-
-def init_tiled_catalog(save_path: str) -> str:
-    catalog = tiled_catalog_path(save_path)
-    if not (is_windows_drive_path(save_path) and os.name != "nt"):
-        Path(save_path).expanduser().mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        [tiled_executable(), "catalog", "init", "--if-not-exists", catalog],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    return catalog
-
-
-def start_tracked_tiled_server(
-    tiled_host: str,
-    tiled_port: int,
-    save_path: str,
-    environment: dict[str, str],
-) -> ManagedProcess | None:
-    uri = f"http://{tiled_host}:{tiled_port}"
-    if tiled_alive(uri):
-        status_line("OK", "Tiled server", f"already reachable at {uri}")
-        return None
-
-    catalog = init_tiled_catalog(save_path)
-    server = start_process(
-        "tiled",
-        "Tiled HTTP server",
-        [
-            tiled_executable(),
-            "serve",
-            "catalog",
-            catalog,
-            "--read",
-            save_path,
-            "--public",
-            "--api-key",
-            TILED_API_KEY,
-            "--host",
-            tiled_host,
-            "--port",
-            str(tiled_port),
-        ],
-        environment,
-    )
-    print("  WAIT  Tiled HTTP server", end="", flush=True)
-    elapsed = wait_for_tiled(uri, server, TILED_TIMEOUT_SECONDS)
-    print(f" {color('OK', Style.green)} pid={server.pid} ready in {elapsed:.1f}s")
-    return server
-
-
 def print_debug_output(processes: Iterable[ManagedProcess]) -> None:
     print()
     print(color("Debug output", Style.bold + Style.yellow))
@@ -610,11 +447,9 @@ def print_inventory(devices: list[DeviceConfig]) -> None:
         status_line("RUN", device.key.ljust(key_width), f"{device.class_name.ljust(class_width)}  {device.device_name}")
 
 
-def print_summary(host: str, port: int, tiled_config: dict[str, object], processes: list[ManagedProcess], ready_times: dict[str, float]) -> None:
-    print_section(7, 7, "Startup summary")
+def print_summary(host: str, port: int, processes: list[ManagedProcess], ready_times: dict[str, float]) -> None:
+    print_section(5, 5, "Startup summary")
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
-    print(f"  {color('TILED_URI', Style.bold):<18} {tiled_config.get('uri', '-')}")
-    print(f"  {color('SAVE_PATH', Style.bold):<18} {tiled_config.get('save_path', '-')}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
     print()
     print(f"  {'SERVER':<14} {'PID':>8} {'READY':>10}  COMMAND")
@@ -644,32 +479,25 @@ def main(argv: list[str] | None = None) -> int:
     start_database = prompt_bool("Start Tango database", True)
     should_register_devices = prompt_bool("Register devices", True)
     device_timeout = prompt_int("Device startup timeout seconds", DEVICE_TIMEOUT_SECONDS)
-    tiled_host = args.tiled_host or prompt_str("Tiled server host", DEFAULT_TILED_HOST)
-    tiled_port = args.tiled_port if args.tiled_port is not None else prompt_int("Tiled server port", DEFAULT_TILED_PORT)
-    save_path = args.save_path or prompt_str("Acquisition save path", DEFAULT_ACQUISITION_DIR)
-    start_tiled = args.start_tiled if args.start_tiled is not None else prompt_bool("Start tracked Tiled server", True)
 
-    environment = make_environment(host, port, tiled_host, tiled_port, save_path)
+    environment = make_environment(host, port)
     processes: list[ManagedProcess] = []
     ready_times: dict[str, float] = {}
-    tiled_config: dict[str, object] = {}
 
     print()
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
-    print(f"  {color('TILED_URI', Style.bold):<18} http://{tiled_host}:{tiled_port}")
-    print(f"  {color('SAVE_PATH', Style.bold):<18} {save_path}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
     print(f"  {color('MICROSCOPE', Style.bold):<18} {args.microscope} ({microscope.class_name})")
     print_inventory(devices)
 
     try:
-        print_section(1, 7, "Clearing old processes")
+        print_section(1, 5, "Clearing old processes")
         if clear_first:
-            clear_old_processes(port, tiled_port, devices, start_tiled)
+            clear_old_processes(port, devices)
         else:
             status_line("SKIP", "old process cleanup")
 
-        print_section(2, 7, "Starting Tango database")
+        print_section(2, 5, "Starting Tango database")
         if start_database:
             database = start_process(
                 "database",
@@ -688,13 +516,13 @@ def main(argv: list[str] | None = None) -> int:
             ready_times["database"] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
-        print_section(3, 7, "Registering devices")
+        print_section(3, 5, "Registering devices")
         if should_register_devices:
             register_devices(devices)
         else:
             status_line("SKIP", "device registration")
 
-        print_section(4, 7, "Starting support device servers")
+        print_section(4, 5, "Starting device servers")
         for device in regular_devices:
             process = start_process(device.key, device.class_name, device.command, environment)
             processes.append(process)
@@ -706,20 +534,6 @@ def main(argv: list[str] | None = None) -> int:
             ready_times[device.key] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
-        print_section(5, 7, "Configuring DATA/Tiled")
-        tiled_config = configure_data_device(host, port, tiled_host, tiled_port, save_path)
-        if start_tiled:
-            tiled_process = start_tracked_tiled_server(tiled_host, tiled_port, save_path, environment)
-            if tiled_process is not None:
-                processes.append(tiled_process)
-            tiled_config = refresh_data_config(host, port)
-            status = str(tiled_config.get("tiled_server", "")).lower()
-            status_line("OK" if status == "yes" else "FAIL", "DATA sees Tiled", str(tiled_config.get("uri", "")))
-        else:
-            status_line("SKIP", "Tiled server startup", "DATA device configured only")
-        status_line("OK", "DATA save path", str(tiled_config.get("save_path", save_path)))
-
-        print_section(6, 7, "Starting dependency device servers")
         for device in dependency_devices:
             print()
             status_line("RUN", device.key, f"{device.module_name}  starting after dependencies")
@@ -730,7 +544,7 @@ def main(argv: list[str] | None = None) -> int:
             ready_times[device.key] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
-        print_summary(host, port, tiled_config, processes, ready_times)
+        print_summary(host, port, processes, ready_times)
         print()
         print(color("Leave this terminal open while you use the servers. Press Ctrl+C to stop them.", Style.dim))
         while True:

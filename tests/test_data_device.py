@@ -64,6 +64,7 @@ class TestDataDevice:
 
         assert returned["tiled_server"] == "yes"
         key_value = popen_calls[0]["command"][8]
+        assert key_value == popen_calls[1]["command"][5]
         assert popen_calls == [
             {
                 "command": [
@@ -86,7 +87,26 @@ class TestDataDevice:
                     "stderr": subprocess.STDOUT,
                     "text": True,
                 },
-            }
+            },
+            {
+                "command": [
+                    "tiled",
+                    "register",
+                    "http://127.0.0.1:9091",
+                    str(tmp_path),
+                    "--api-key",
+                    key_value,
+                    "--keep-ext",
+                    "--walker",
+                    "tiled.client.register:one_node_per_item",
+                    "--watch",
+                ],
+                "kwargs": {
+                    "stdout": subprocess.DEVNULL,
+                    "stderr": subprocess.STDOUT,
+                    "text": True,
+                },
+            },
         ]
         assert run_commands == [
             [
