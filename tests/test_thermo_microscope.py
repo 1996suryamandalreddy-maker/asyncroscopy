@@ -146,8 +146,8 @@ class TestThermoMicroscope:
         settings = acquisition.settings
         assert saved_path.endswith(".h5")
         with h5py.File(saved_path, "r") as h5:
-            assert h5["image"][()].tolist() == [[1, 2], [3, 4]]
-            assert h5["image"].attrs["detector"] == "HAADF"
+            assert h5["HAADF"][()].tolist() == [[1, 2], [3, 4]]
+            assert h5["HAADF"].attrs["detector"] == "HAADF"
         assert settings.size == 128
         assert settings.dwell_time == pytest.approx(4e-6)
         assert settings.detector_types == ["HAADF"]

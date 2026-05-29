@@ -46,7 +46,10 @@ def save_acquisition(device, data_server, acquisition_type: str, detectors, data
     datasets = []
     for index, source in enumerate(data_list):
         detector = str(detector_list[index]) if index < len(detector_list) else f"item_{index}"
-        name = f"{dataset_name}/{detector}" if has_labeled_datasets else dataset_name
+        if dataset_name == "image" and isinstance(detectors, (list, tuple)):
+            name = detector
+        else:
+            name = f"{dataset_name}/{detector}" if has_labeled_datasets else dataset_name
         datasets.append({"name": name, "source": source, "attrs": {"acquisition_type": acquisition_type, "detector": detector}})
 
     save_acquisition_hdf5(path, datasets)
@@ -55,7 +58,7 @@ def save_acquisition(device, data_server, acquisition_type: str, detectors, data
 
 def save_acquisition_hdf5(path: str | Path, datasets: list[dict], file_attrs: dict | None = None) -> None:
     """Save one acquisition event to one HDF5 file."""
-    with h5py.File(path, "w") as h5:
+    with h5py.File(path, "w", track_order=True) as h5:
         for key, value in (file_attrs or {}).items():
             h5.attrs[key] = value if isinstance(value, (str, int, float, bool, np.number)) else json.dumps(value)
 
@@ -65,7 +68,8 @@ def save_acquisition_hdf5(path: str | Path, datasets: list[dict], file_attrs: di
             name = item["name"]
             if "/" in name:
                 group_name, dataset_name = name.rsplit("/", 1)
-                dset = h5.require_group(group_name).create_dataset(dataset_name, data=data, compression=None)
+                group = h5[group_name] if group_name in h5 else h5.create_group(group_name, track_order=True)
+                dset = group.create_dataset(dataset_name, data=data, compression=None)
             else:
                 dset = h5.create_dataset(name, data=data, compression=None)
 

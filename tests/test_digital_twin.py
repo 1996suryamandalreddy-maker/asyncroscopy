@@ -30,10 +30,10 @@ class TestDigitalTwin:
         assert saved_path.suffix == ".h5"
         assert saved_path.exists()
         with h5py.File(saved_path, "r") as h5:
-            image = h5["image"][()]
+            image = h5["HAADF"][()]
             assert image.shape == (32, 32)
-            assert h5["image"].attrs["acquisition_type"] == "stem_image"
-            assert h5["image"].attrs["detector"] == "HAADF"
+            assert h5["HAADF"].attrs["acquisition_type"] == "stem_image"
+            assert h5["HAADF"].attrs["detector"] == "HAADF"
 
     def test_stage_navigation_changes_and_restores_view(
         self,
@@ -55,16 +55,16 @@ class TestDigitalTwin:
 
         twin_proxy.move_stage([0.0, 0.0, 0.0, 0.0, 0.0])
         with h5py.File(twin_proxy.acquire_scanned_image(["haadf"]), "r") as h5:
-            image_a = h5["image"][()]
+            image_a = h5["HAADF"][()]
 
         twin_proxy.move_stage([8e-9, -7e-9, 0.0, 0.0, 0.0])
         with h5py.File(twin_proxy.acquire_scanned_image(["haadf"]), "r") as h5:
-            image_b = h5["image"][()]
+            image_b = h5["HAADF"][()]
         assert not np.array_equal(image_a, image_b)
 
         twin_proxy.move_stage([0.0, 0.0, 0.0, 0.0, 0.0])
         with h5py.File(twin_proxy.acquire_scanned_image(["haadf"]), "r") as h5:
-            image_a_again = h5["image"][()]
+            image_a_again = h5["HAADF"][()]
         assert np.array_equal(image_a, image_a_again)
 
     def test_spectrum_is_repeatable_at_same_pose_and_beam(
