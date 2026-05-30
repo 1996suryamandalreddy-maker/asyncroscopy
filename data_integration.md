@@ -28,10 +28,18 @@ import json
 import tango
 
 data = tango.DeviceProxy("asyncroscopy/data/default")
+data.set_timeout_millis(120_000)
 data.host = "10.46.217.241"
 data.port = 9091
 data.save_path = "/path/served/by/tiled"
 ```
+
+Changing `data.save_path` restarts a DATA-managed Tiled HTTP server with the
+new directory. The DATA device intentionally does not run a filesystem watcher:
+each acquisition is registered explicitly after it is written to avoid watcher
+overhead during in-situ experiments. The extended Tango timeout allows a
+managed Tiled server time to initialize or restart. `scripts/run_servers.py`
+sets this timeout automatically.
 
 Acquire as usual, and treat the return value as the Tiled key:
 
@@ -46,8 +54,19 @@ There are two data-related servers:
 - `asyncroscopy/data/default` is the DATA Tango device server. It belongs to asyncroscopy and bridges notebooks or microscope devices to Tiled.
 - `http://10.46.217.241:9091` is the Tiled HTTP data server. It indexes and serves files.
 
-The DATA device is started with the other Tango devices. The Tiled HTTP server
-is started separately and must already be reachable.
+`scripts/run_servers.py` starts the DATA device and its managed Tiled HTTP
+server together. It also shuts down the managed Tiled server with the rest of
+the server stack. To inspect the active directory, use:
+
+```python
+import json
+
+json.loads(data.get_config())["tiled_server_serving"]
+```
+
+If the DATA device connects to an already-running external Tiled HTTP server,
+it manually registers acquisitions but does not terminate that external server
+during shutdown.
 
 ## Direct Tiled access
 

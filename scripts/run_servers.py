@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import signal
 import subprocess
@@ -12,14 +13,18 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import urlsplit
 
 import tango
 
 
 DEFAULT_TANGO_HOST = "10.46.217.241"
 DEFAULT_TANGO_PORT = 9094
+DEFAULT_TILED_URI = "http://10.46.217.241:9091"
+DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 DATABASE_TIMEOUT_SECONDS = 120
 DEVICE_TIMEOUT_SECONDS = 120
+TILED_COMMAND_TIMEOUT_MILLIS = 120_000
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
@@ -228,10 +233,16 @@ def status_line(status: str, message: str, detail: str = "") -> None:
         print(f"  {tag}  {message}")
 
 
-def make_environment(host: str, port: int) -> dict[str, str]:
+def make_environment(host: str, port: int, tiled_host: str, tiled_port: int, acquisition_dir: str) -> dict[str, str]:
     tango_host = f"{host}:{port}"
     os.environ["TANGO_HOST"] = tango_host
-    return {**os.environ, "TANGO_HOST": tango_host, "PYTHONUNBUFFERED": "1"}
+    return {
+        **os.environ,
+        "TANGO_HOST": tango_host,
+        "ASYNCROSCOPY_TILED_URI": f"http://{tiled_host}:{tiled_port}",
+        "ASYNCROSCOPY_ACQUISITION_DIR": acquisition_dir,
+        "PYTHONUNBUFFERED": "1",
+    }
 
 
 def start_process(key: str, label: str, command: list[str], environment: dict[str, str]) -> ManagedProcess:
@@ -362,9 +373,13 @@ def stop_python_process_matching(pattern: str) -> bool:
     return result.returncode == 0
 
 
-def clear_old_processes(port: int, devices: list[DeviceConfig]) -> None:
+def clear_old_processes(port: int, devices: list[DeviceConfig], tiled_port: int | None = None) -> None:
     stopped_databases = stop_processes_on_port(port)
     status_line("OK" if stopped_databases else "SKIP", f"database port {port}", f"{stopped_databases} process(es) signaled")
+
+    if tiled_port is not None and tiled_port != port:
+        stopped_tiled = stop_processes_on_port(tiled_port)
+        status_line("OK" if stopped_tiled else "SKIP", f"Tiled port {tiled_port}", f"{stopped_tiled} process(es) signaled")
 
     stopped_servers = 0
     cleanup_patterns = {f"{device.class_name} {device.instance_name}" for device in devices}
@@ -425,6 +440,24 @@ def register_devices(devices: list[DeviceConfig]) -> None:
         status_line("OK", f"property: {property_name} = {property_value[0]}")
 
 
+def start_tiled_server() -> dict:
+    data = tango.DeviceProxy("asyncroscopy/data/default")
+    data.set_timeout_millis(TILED_COMMAND_TIMEOUT_MILLIS)
+    config = json.loads(data.start_tiled_server())
+    if config["tiled_server"] != "yes":
+        raise RuntimeError(f"Tiled HTTP server failed to start: {config['tiled_server_status']}")
+    return config
+
+
+def stop_tiled_server() -> None:
+    try:
+        data = tango.DeviceProxy("asyncroscopy/data/default")
+        data.set_timeout_millis(TILED_COMMAND_TIMEOUT_MILLIS)
+        data.stop_tiled_server()
+    except Exception:
+        pass
+
+
 def print_debug_output(processes: Iterable[ManagedProcess]) -> None:
     print()
     print(color("Debug output", Style.bold + Style.yellow))
@@ -447,7 +480,7 @@ def print_inventory(devices: list[DeviceConfig]) -> None:
         status_line("RUN", device.key.ljust(key_width), f"{device.class_name.ljust(class_width)}  {device.device_name}")
 
 
-def print_summary(host: str, port: int, processes: list[ManagedProcess], ready_times: dict[str, float]) -> None:
+def print_summary(host: str, port: int, processes: list[ManagedProcess], ready_times: dict[str, float], tiled_config: dict | None = None) -> None:
     print_section(5, 5, "Startup summary")
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
@@ -458,11 +491,22 @@ def print_summary(host: str, port: int, processes: list[ManagedProcess], ready_t
         ready = ready_times.get(process.key)
         ready_text = f"{ready:.1f}s" if ready is not None else "-"
         print(f"  {process.key:<14} {process.pid:>8} {ready_text:>10}  {' '.join(process.command)}")
+    if tiled_config is not None:
+        print()
+        print(f"  {color('TILED_URI', Style.bold):<18} {tiled_config['uri']}")
+        print(f"  {color('TILED_SERVING', Style.bold):<18} {tiled_config['tiled_server_serving']}")
     print()
     print(color("All asyncroscopy servers are ready.", Style.bold + Style.green))
 
 
 def main(argv: list[str] | None = None) -> int:
+    def request_shutdown(_signum, _frame) -> None:
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, request_shutdown)
+    if hasattr(signal, "SIGHUP"):
+        signal.signal(signal.SIGHUP, request_shutdown)
+
     args = parse_args(argv)
     devices = build_devices(args.microscope)
     microscope = selected_microscope(devices)
@@ -475,14 +519,20 @@ def main(argv: list[str] | None = None) -> int:
 
     host = prompt_str("Tango database host", DEFAULT_TANGO_HOST)
     port = prompt_int("Tango database port", DEFAULT_TANGO_PORT)
+    default_tiled = urlsplit(os.environ.get("ASYNCROSCOPY_TILED_URI", DEFAULT_TILED_URI))
+    tiled_host = prompt_str("Tiled HTTP host", default_tiled.hostname or host)
+    tiled_port = prompt_int("Tiled HTTP port", default_tiled.port or 9091)
+    acquisition_dir = prompt_str("Acquisition save path", os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR", DEFAULT_ACQUISITION_DIR))
+    should_start_tiled = prompt_bool("Start Tiled HTTP server", True)
     clear_first = prompt_bool("Clear old processes first", True)
     start_database = prompt_bool("Start Tango database", True)
     should_register_devices = prompt_bool("Register devices", True)
     device_timeout = prompt_int("Device startup timeout seconds", DEVICE_TIMEOUT_SECONDS)
 
-    environment = make_environment(host, port)
+    environment = make_environment(host, port, tiled_host, tiled_port, acquisition_dir)
     processes: list[ManagedProcess] = []
     ready_times: dict[str, float] = {}
+    tiled_config = None
 
     print()
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
@@ -493,7 +543,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         print_section(1, 5, "Clearing old processes")
         if clear_first:
-            clear_old_processes(port, devices)
+            clear_old_processes(port, devices, tiled_port if should_start_tiled else None)
         else:
             status_line("SKIP", "old process cleanup")
 
@@ -534,6 +584,12 @@ def main(argv: list[str] | None = None) -> int:
             ready_times[device.key] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
+        if should_start_tiled:
+            tiled_config = start_tiled_server()
+            status_line("OK", "Tiled HTTP server", f"{tiled_config['uri']} serving {tiled_config['tiled_server_serving']}")
+        else:
+            status_line("SKIP", "Tiled HTTP server")
+
         for device in dependency_devices:
             print()
             status_line("RUN", device.key, f"{device.module_name}  starting after dependencies")
@@ -544,7 +600,7 @@ def main(argv: list[str] | None = None) -> int:
             ready_times[device.key] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
-        print_summary(host, port, processes, ready_times)
+        print_summary(host, port, processes, ready_times, tiled_config)
         print()
         print(color("Leave this terminal open while you use the servers. Press Ctrl+C to stop them.", Style.dim))
         while True:
@@ -553,6 +609,7 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print()
         print(color("Shutdown requested. Stopping managed processes...", Style.yellow))
+        stop_tiled_server()
         stop_all(processes)
         status_line("OK", "shutdown complete")
         return 0
@@ -560,6 +617,7 @@ def main(argv: list[str] | None = None) -> int:
         print()
         print(color(f"Startup failed: {exc}", Style.bold + Style.red))
         print_debug_output(processes)
+        stop_tiled_server()
         stop_all(processes)
         return 1
 
