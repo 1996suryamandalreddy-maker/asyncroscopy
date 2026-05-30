@@ -90,6 +90,7 @@ class DATA(Device):
         if value == self._save_path:
             return
 
+        _ensure_directory(value)
         self._save_path = value
         self._synchronize_tiled_processes()
 
@@ -99,17 +100,16 @@ class DATA(Device):
 
     @command(dtype_out=str)
     def get_config(self) -> str:
-        return json.dumps(
-            {
-                "host": self._host,
-                "port": self._port,
-                "uri": self._uri(),
-                "save_path": self._save_path,
-                "tiled_server": self._tiled_server,
-                "tiled_server_status": self._tiled_server_status,
-                "tiled_server_serving": self._tiled_serve_path,
-            }
-        )
+        config = {
+            "host": self._host,
+            "port": self._port,
+            "uri": self._uri(),
+            "save_path": self._save_path,
+            "tiled_server": self._tiled_server,
+            "tiled_server_status": self._tiled_server_status,
+            "tiled_server_serving": self._tiled_serve_path,
+        }
+        return json.dumps(config)
 
     @command(dtype_in=str, dtype_out=str)
     def configure(self, config_json: str) -> str:
@@ -131,18 +131,25 @@ class DATA(Device):
             self._tiled_server_status = "running; files register manually"
             return self.get_config()
 
-        catalog = _path_text(Path(self._save_path).expanduser() / ".asyncroscopy_tiled_catalog.db")
+        catalog = str(Path(self._save_path).expanduser() / ".asyncroscopy_tiled_catalog.db")
+        if _is_windows_drive_path(catalog):
+            catalog = catalog.replace("\\", "/")
+
         try:
-            if not (_is_windows_drive_path(self._save_path) and os.name != "nt"):
-                Path(self._save_path).expanduser().mkdir(parents=True, exist_ok=True)
-            subprocess.run([self._tiled_executable(), "catalog", "init", "--if-not-exists", catalog], check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            _ensure_directory(self._save_path)
+            command = [self._tiled_executable(), "catalog", "init", "--if-not-exists", catalog]
+            subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         except Exception as exc:
             self._tiled_server = "no"
             self._tiled_server_status = str(exc)
             return self.get_config()
 
-        self._tiled_process = subprocess.Popen([self._tiled_executable(),"serve","catalog",catalog,"--read",self._save_path,"--public","--api-key",self._api_key,
-                                                "--host",self._host,"--port",str(self._port)], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True)
+        command = [
+            self._tiled_executable(), "serve", "catalog", catalog,
+            "--read", self._save_path, "--public", "--api-key", self._api_key,
+            "--host", self._host, "--port", str(self._port),
+        ]
+        self._tiled_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True)
         self._tiled_serve_path = self._save_path
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline and not self._tiled_alive():
@@ -223,20 +230,16 @@ class DATA(Device):
             self._tiled_server_status = "not running"
 
     def _stop_tiled_processes(self) -> None:
-        self._stop_process(self._tiled_process)
+        process = self._tiled_process
+        if process is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
         self._tiled_process = None
         self._tiled_serve_path = None
-
-    @staticmethod
-    def _stop_process(process, timeout: float = 5.0) -> None:
-        if process is None or process.poll() is not None:
-            return
-        process.terminate()
-        try:
-            process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=timeout)
 
     @staticmethod
     def _parse_uri(uri: str) -> tuple[str, int]:
@@ -255,8 +258,9 @@ def _is_windows_drive_path(path: str | Path | PureWindowsPath) -> bool:
     return isinstance(path, PureWindowsPath) or (len(text) >= 3 and text[1] == ":" and text[0].isalpha() and text[2] in {"\\", "/"})
 
 
-def _path_text(path: Path | PureWindowsPath) -> str:
-    return str(path).replace("\\", "/") if _is_windows_drive_path(path) else str(path)
+def _ensure_directory(path: str | Path) -> None:
+    if not (_is_windows_drive_path(path) and os.name != "nt"):
+        Path(path).expanduser().mkdir(parents=True, exist_ok=True)
 
 
 if __name__ == "__main__":

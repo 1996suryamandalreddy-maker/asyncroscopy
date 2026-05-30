@@ -440,20 +440,15 @@ def register_devices(devices: list[DeviceConfig]) -> None:
         status_line("OK", f"property: {property_name} = {property_value[0]}")
 
 
-def start_tiled_server() -> dict:
+def get_data_proxy() -> tango.DeviceProxy:
     data = tango.DeviceProxy("asyncroscopy/data/default")
     data.set_timeout_millis(TILED_COMMAND_TIMEOUT_MILLIS)
-    config = json.loads(data.start_tiled_server())
-    if config["tiled_server"] != "yes":
-        raise RuntimeError(f"Tiled HTTP server failed to start: {config['tiled_server_status']}")
-    return config
+    return data
 
 
 def stop_tiled_server() -> None:
     try:
-        data = tango.DeviceProxy("asyncroscopy/data/default")
-        data.set_timeout_millis(TILED_COMMAND_TIMEOUT_MILLIS)
-        data.stop_tiled_server()
+        get_data_proxy().stop_tiled_server()
     except Exception:
         pass
 
@@ -585,7 +580,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
         if should_start_tiled:
-            tiled_config = start_tiled_server()
+            tiled_config = json.loads(get_data_proxy().start_tiled_server())
+            if tiled_config["tiled_server"] != "yes":
+                raise RuntimeError(f"Tiled HTTP server failed to start: {tiled_config['tiled_server_status']}")
             status_line("OK", "Tiled HTTP server", f"{tiled_config['uri']} serving {tiled_config['tiled_server_serving']}")
         else:
             status_line("SKIP", "Tiled HTTP server")
