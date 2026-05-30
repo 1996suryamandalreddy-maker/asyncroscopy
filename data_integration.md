@@ -34,12 +34,10 @@ data.port = 9091
 data.save_path = "/path/served/by/tiled"
 ```
 
-Changing `data.save_path` restarts a DATA-managed Tiled HTTP server with the
-new directory. The DATA device intentionally does not run a filesystem watcher:
-each acquisition is registered explicitly after it is written to avoid watcher
-overhead during in-situ experiments. The extended Tango timeout allows a
-managed Tiled server time to initialize or restart. `scripts/run_servers.py`
-sets this timeout automatically.
+Changing `data.save_path` creates the directory and restarts a DATA-managed
+Tiled HTTP server. Each acquisition is registered explicitly after it is
+written; DATA does not run a filesystem watcher. `scripts/run_servers.py` sets
+the extended Tango timeout automatically.
 
 Acquire as usual, and treat the return value as the Tiled key:
 

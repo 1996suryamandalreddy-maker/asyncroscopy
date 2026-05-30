@@ -25,6 +25,13 @@ class TestDataDevice:
         assert returned["save_path"] == config["save_path"]
         assert returned["uri"] == "http://127.0.0.1:9091"
 
+    def test_save_path_creates_missing_directory(self, data_proxy: tango.DeviceProxy, tmp_path) -> None:
+        save_path = tmp_path / "new" / "acquisitions"
+
+        data_proxy.save_path = str(save_path)
+
+        assert save_path.is_dir()
+
     def test_start_tiled_server_uses_catalog_server_command(
         self,
         data_proxy: tango.DeviceProxy,
