@@ -21,6 +21,12 @@ DEFAULT_TANGO_PORT = 9094
 DATABASE_TIMEOUT_SECONDS = 120
 DEVICE_TIMEOUT_SECONDS = 120
 
+# AutoScript connection defaults — must match ThermoMicroscope's device_property
+# fallbacks so that accepting the prompts reproduces today's behaviour. Override
+# at the prompt to point at a simulator (e.g. localhost:7521).
+DEFAULT_AUTOSCRIPT_HOST = "10.46.217.241"
+DEFAULT_AUTOSCRIPT_PORT = 9095
+
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
 if str(PROJECT_DIR) not in sys.path:
@@ -407,7 +413,7 @@ def wait_for_device(device_name: str, timeout: int) -> float:
     raise TimeoutError(f"{device_name} did not become ready after {timeout}s. Last error: {last_error}")
 
 
-def register_devices(devices: list[DeviceConfig]) -> None:
+def register_devices(devices: list[DeviceConfig], microscope_properties: dict[str, list[str]]) -> None:
     database = tango.Database()
     status_line("OK", "database", f"{database.get_db_host()}:{database.get_db_port()}")
 
@@ -420,7 +426,7 @@ def register_devices(devices: list[DeviceConfig]) -> None:
         status_line("OK", device.device_name)
 
     microscope = selected_microscope(devices)
-    for property_name, property_value in MICROSCOPE_PROPERTIES.items():
+    for property_name, property_value in microscope_properties.items():
         database.put_device_property(microscope.device_name, {property_name: property_value})
         status_line("OK", f"property: {property_name} = {property_value[0]}")
 
@@ -480,6 +486,13 @@ def main(argv: list[str] | None = None) -> int:
     should_register_devices = prompt_bool("Register devices", True)
     device_timeout = prompt_int("Device startup timeout seconds", DEVICE_TIMEOUT_SECONDS)
 
+    microscope_properties = dict(MICROSCOPE_PROPERTIES)
+    if args.microscope == "real":
+        autoscript_host = prompt_str("AutoScript host IP", DEFAULT_AUTOSCRIPT_HOST)
+        autoscript_port = prompt_int("AutoScript host port", DEFAULT_AUTOSCRIPT_PORT)
+        microscope_properties["autoscript_host_ip"] = [autoscript_host]
+        microscope_properties["autoscript_host_port"] = [str(autoscript_port)]
+
     environment = make_environment(host, port)
     processes: list[ManagedProcess] = []
     ready_times: dict[str, float] = {}
@@ -518,7 +531,7 @@ def main(argv: list[str] | None = None) -> int:
 
         print_section(3, 5, "Registering devices")
         if should_register_devices:
-            register_devices(devices)
+            register_devices(devices, microscope_properties)
         else:
             status_line("SKIP", "device registration")
 
