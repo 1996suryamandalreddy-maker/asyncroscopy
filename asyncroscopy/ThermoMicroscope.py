@@ -132,7 +132,9 @@ class ThermoMicroscope(Microscope):
                 self.info_stream(f"Skipping {name}: no address configured")
                 continue
             try:
-                self._detector_proxies[name] = tango.DeviceProxy(address)
+                proxy = tango.DeviceProxy(address)
+                proxy.set_timeout_millis(12_000)
+                self._detector_proxies[name] = proxy
                 self.info_stream(f"Connected to detector proxy: {name} @ {address}")
             except tango.DevFailed as e:
                 self.error_stream(f"Failed to connect to {name} proxy at {address}: {e}")
