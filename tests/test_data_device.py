@@ -1,6 +1,7 @@
 import json
 import subprocess
 
+import pytest
 import tango
 
 from asyncroscopy.software.DATA import DATA
@@ -24,6 +25,13 @@ class TestDataDevice:
         assert returned["save_path"] == config["save_path"]
         assert returned["uri"] == "http://127.0.0.1:9091"
 
+    def test_save_path_creates_missing_directory(self, data_proxy: tango.DeviceProxy, tmp_path) -> None:
+        save_path = tmp_path / "new" / "acquisitions"
+
+        data_proxy.save_path = str(save_path)
+
+        assert save_path.is_dir()
+
     def test_start_tiled_server_uses_catalog_server_command(
         self,
         data_proxy: tango.DeviceProxy,
@@ -39,8 +47,20 @@ class TestDataDevice:
             return len(calls) > 1
 
         class FakeProcess:
+            def __init__(self):
+                self.running = True
+
             def poll(self):
-                return None
+                return None if self.running else 0
+
+            def terminate(self):
+                self.running = False
+
+            def wait(self, timeout):
+                return 0
+
+            def kill(self):
+                self.running = False
 
         def fake_popen(command, **kwargs):
             popen_calls.append({"command": command, "kwargs": kwargs})
@@ -64,7 +84,6 @@ class TestDataDevice:
 
         assert returned["tiled_server"] == "yes"
         key_value = popen_calls[0]["command"][8]
-        assert key_value == popen_calls[1]["command"][5]
         assert popen_calls == [
             {
                 "command": [
@@ -88,25 +107,6 @@ class TestDataDevice:
                     "text": True,
                 },
             },
-            {
-                "command": [
-                    "tiled",
-                    "register",
-                    "http://127.0.0.1:9091",
-                    str(tmp_path),
-                    "--api-key",
-                    key_value,
-                    "--keep-ext",
-                    "--walker",
-                    "tiled.client.register:one_node_per_item",
-                    "--watch",
-                ],
-                "kwargs": {
-                    "stdout": subprocess.DEVNULL,
-                    "stderr": subprocess.STDOUT,
-                    "text": True,
-                },
-            },
         ]
         assert run_commands == [
             [
@@ -117,6 +117,7 @@ class TestDataDevice:
                 str(tmp_path / ".asyncroscopy_tiled_catalog.db"),
             ],
         ]
+        data_proxy.stop_tiled_server()
 
     def test_register_path_registers_single_file(
         self,
@@ -204,3 +205,92 @@ class TestDataDevice:
         assert data_proxy.register_path(str(saved)) == "frame.h5"
         assert fake_client.calls == 3
         assert sleeps == [0.25, 0.25]
+
+    def test_save_path_change_restarts_managed_server(
+        self,
+        data_proxy: tango.DeviceProxy,
+        monkeypatch,
+        tmp_path,
+    ) -> None:
+        popen_calls = []
+        processes = []
+
+        class FakeProcess:
+            def __init__(self):
+                self.running = True
+                self.terminated = False
+
+            def poll(self):
+                return None if self.running else 0
+
+            def terminate(self):
+                self.terminated = True
+                self.running = False
+
+            def wait(self, timeout):
+                return 0
+
+            def kill(self):
+                self.running = False
+
+        def fake_popen(command, **kwargs):
+            process = FakeProcess()
+            processes.append(process)
+            popen_calls.append({"command": command, "kwargs": kwargs})
+            return process
+
+        def fake_alive(self):
+            return self._tiled_process is not None and self._tiled_process.poll() is None
+
+        run_commands = []
+        monkeypatch.setattr(DATA, "_tiled_alive", fake_alive)
+        monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
+        monkeypatch.setattr("asyncroscopy.software.DATA.subprocess.Popen", fake_popen)
+        monkeypatch.setattr(
+            "asyncroscopy.software.DATA.subprocess.run",
+            lambda command, **_: (
+                run_commands.append(command)
+                or type("Result", (), {"returncode": 0, "stdout": ""})()
+            ),
+        )
+
+        first_path = tmp_path / "first"
+        second_path = tmp_path / "second"
+
+        data_proxy.save_path = str(first_path)
+        data_proxy.start_tiled_server()
+        data_proxy.save_path = str(second_path)
+        config = json.loads(data_proxy.get_config())
+
+        assert processes[0].terminated is True
+        assert [call["command"][5] for call in popen_calls] == [str(first_path), str(second_path)]
+        assert config["tiled_server_serving"] == str(second_path)
+        assert config["tiled_server_status"] == "running; serving path; files register manually"
+
+        data_proxy.stop_tiled_server()
+
+    def test_register_path_error_reports_save_and_serving_paths(
+        self,
+        data_proxy: tango.DeviceProxy,
+        monkeypatch,
+        tmp_path,
+    ) -> None:
+        save_path = tmp_path / "current"
+        requested_path = save_path / "missing.h5"
+        data_proxy.save_path = str(save_path)
+
+        async def fake_register(*args, **kwargs):
+            raise FileNotFoundError(requested_path)
+
+        monkeypatch.setattr("asyncroscopy.software.DATA.from_uri", lambda *args, **kwargs: object())
+        monkeypatch.setattr("asyncroscopy.software.DATA.register", fake_register)
+
+        with pytest.raises(tango.DevFailed) as exc_info:
+            data_proxy.register_path(str(requested_path))
+
+        message = str(exc_info.value)
+        status = json.loads(data_proxy.get_config())["tiled_server_status"]
+        assert "File registration failed:" in message
+        assert f"Requested file:\n    {requested_path}" in status
+        assert f"Data save path:\n    {save_path}" in status
+        assert "Tiled server serving:\n    " in status
