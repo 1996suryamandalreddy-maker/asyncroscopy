@@ -537,7 +537,7 @@ def main(argv: list[str] | None = None) -> int:
         microscope_properties["autoscript_host_ip"] = [autoscript_host]
         microscope_properties["autoscript_host_port"] = [str(autoscript_port)]
 
-    environment = make_environment(host, port)
+    environment = make_environment(host, port, tiled_host, tiled_port, acquisition_dir)
     processes: list[ManagedProcess] = []
     ready_times: dict[str, float] = {}
     tiled_config = None
