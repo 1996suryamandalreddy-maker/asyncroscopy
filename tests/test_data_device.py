@@ -1,9 +1,8 @@
 import json
 import subprocess
-
 import tango
 
-from asyncroscopy.software.DATA import DATA
+from asyncroscopy.software.DATA import DATA, _path_text
 
 
 class TestDataDevice:
@@ -71,7 +70,7 @@ class TestDataDevice:
                     "tiled",
                     "serve",
                     "catalog",
-                    str(tmp_path / ".asyncroscopy_tiled_catalog.db"),
+                    _path_text(tmp_path / ".asyncroscopy_tiled_catalog.db"),
                     "--read",
                     str(tmp_path),
                     "--public",
@@ -114,7 +113,7 @@ class TestDataDevice:
                 "catalog",
                 "init",
                 "--if-not-exists",
-                str(tmp_path / ".asyncroscopy_tiled_catalog.db"),
+                _path_text(tmp_path / ".asyncroscopy_tiled_catalog.db"),
             ],
         ]
 
