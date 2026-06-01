@@ -102,7 +102,9 @@ def tango_database() -> Generator[tuple[str, int, dict[str, str]], None, None]:
     os.environ["TANGO_HOST"] = tango_host
 
     try:
-        with tempfile.TemporaryDirectory(prefix="asyncroscopy-tango-db-") as db_dir:
+        with tempfile.TemporaryDirectory(
+            prefix="asyncroscopy-tango-db-", ignore_cleanup_errors=True
+        ) as db_dir:
             proc = subprocess.Popen(
                 [sys.executable, "-m", "tango.databaseds.database", "2"],
                 cwd=db_dir,
@@ -118,10 +120,14 @@ def tango_database() -> Generator[tuple[str, int, dict[str, str]], None, None]:
             except Exception as exc:
                 pytest.skip(f"Tango database server could not be started: {exc}")
 
-            yield host, port, env
+            try:
+                yield host, port, env
+            finally:
+                # Stop the DB process before the temp dir is removed, otherwise
+                # Windows can't delete the still-open tango_database.db (WinError 32).
+                for proc in reversed(managed):
+                    proc.stop()
     finally:
-        for proc in reversed(managed):
-            proc.stop()
         if old_tango_host is None:
             os.environ.pop("TANGO_HOST", None)
         else:
