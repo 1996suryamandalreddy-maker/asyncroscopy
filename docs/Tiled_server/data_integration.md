@@ -10,10 +10,14 @@ The save format is one HDF5 file per acquisition event. Each correlated output
 is stored as a dataset in that file, with parsed AutoScript XML leaf metadata
 written as HDF5 dataset attributes.
 
+Acquisition commands that feed this pipeline include `acquire_scanned_image`,
+`acquire_spectrum`, `acquire_camera_image`, `acquire_flucam_image`, and
+`acquire_scanned_data_advanced`. Each returns the Tiled key of its saved file.
+
 Typical dataset names are:
 
-- `image` for single image acquisitions
-- `images/HAADF`, `images/BF`, etc. for multi-detector STEM acquisitions
+- `image/HAADF`, `image/BF`, etc. for STEM image acquisitions (one dataset per detector)
+- `image` for single camera / flucam acquisitions
 - `spectrum` for spectra
 - `stem_data` for STEM data acquisitions
 
