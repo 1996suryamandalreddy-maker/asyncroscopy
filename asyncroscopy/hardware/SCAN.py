@@ -49,7 +49,7 @@ class SCAN(Device):
         label="Output Format",
         dtype=str,
         access=AttrWriteType.READ_WRITE,
-        doc="Output format for the acquired images, defaults to .h5, options are .tiff, .png, .bmp (Autoscript supprots this natively)",
+        doc="Output format for acquired images: '.h5' (default, one file with sub-groups per detector) or '.tiff' (one Velox-compatible TIFF per detector, metadata embedded by AutoScript)",
     )
 
     # ------------------------------------------------------------------

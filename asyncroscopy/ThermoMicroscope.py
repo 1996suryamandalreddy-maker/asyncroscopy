@@ -18,13 +18,13 @@ DATA/Tiled unique id for that saved acquisition.
 
 import math
 import time
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import tango
 from tango import AttrWriteType, DevState
-from tango.server import attribute, command,  device_property
-
-
+from tango.server import attribute, command, device_property
 
 from asyncroscopy.Microscope import Microscope
 from asyncroscopy.software.DataWriter import DEFAULT_ACQUISITION_DIR, save_acquisition
@@ -232,9 +232,37 @@ class ThermoMicroscope(Microscope):
         self._get_stage()
 
 
-    #------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
+    def _persist(self, adorned, acquisition_type, detector, data_server, dataset_name="image"):
+        """Save acquired images in the format requested by the SCAN device.
+        """
+        fmt = self._detector_proxies["scan"].output_format  # ".h5" default
+        if fmt == ".h5":
+            return save_acquisition(self, data_server, acquisition_type, detector, adorned, dataset_name=dataset_name)
+        if fmt != ".tiff":
+            raise ValueError(f"Unsupported output_format {fmt!r}; expected '.h5' or '.tiff'")
+
+        # .tiff → AutoScript native save, one file per detector sharing one stamp
+        images = list(adorned) if isinstance(adorned, (list, tuple)) else [adorned]
+        detectors = list(detector) if isinstance(detector, (list, tuple)) else [detector]
+        if len(images) != len(detectors):
+            raise ValueError(f"Got {len(images)} images for {len(detectors)} detector(s) {detectors}")
+
+        save_dir = data_server.save_path if data_server is not None else DEFAULT_ACQUISITION_DIR
+        directory = Path(save_dir).expanduser()
+        directory.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
+        stem = f"{acquisition_type}_{stamp}"
+        # AutoScript returns images in the requested detector order (assumed; verify on hardware)
+        for img, det in zip(images, detectors):
+            path = directory / f"{stem}_{det}.tiff"
+            img.save(str(path))
+            if data_server is not None:
+                data_server.register_path(str(path))
+        return stem
+
     def _acquire_scanned_image(
         self,
         imsize: int,
@@ -251,7 +279,8 @@ class ThermoMicroscope(Microscope):
         if not isinstance(adorned, list):
             adorned = [adorned]
         data_server = self._detector_proxies.get("data")
-        return save_acquisition(self, data_server, "stem_image", detector_list, adorned)
+        return self._persist(adorned, "stem_image", detector_list, data_server)
+
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
@@ -261,7 +290,7 @@ class ThermoMicroscope(Microscope):
         settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize, exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        return save_acquisition(self, data_server, "camera_image", str(detector), adorned)
+        return self._persist(adorned, "camera_image", str(detector), data_server)
 
     def _acquire_scanned_data_advanced(self, imsize: int, dwell_time: float, detector: str, scan_region: list[float]) -> str:
         """
