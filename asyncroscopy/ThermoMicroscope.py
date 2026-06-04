@@ -199,22 +199,32 @@ class ThermoMicroscope(Microscope):
 
     def read_fov(self) -> float:
         """Field of view in meters (STEM mode only)."""
+        if self._microscope is None:
+            return float("nan")
         return self._get_fov()
 
     def read_defocus(self) -> float:
         """Defocus in meters."""
+        if self._microscope is None:
+            return float("nan")
         return self._get_defocus()
 
     def read_acceleration_voltage(self) -> float:
         """Accelerating voltage in volts."""
+        if self._microscope is None:
+            return float("nan")
         return self._microscope.source.acceleration_voltage.value
 
     def read_camera_length(self) -> float:
         """Camera length in meters (only meaningful in DIFFRACTION mode)."""
+        if self._microscope is None:
+            return float("nan")
         return self._microscope.optics.camera_length.value.calibrated
 
     def read_beam_state(self) -> bool:
         """Beam blanked state: True when blanked, False when unblanked."""
+        if self._microscope is None:
+            return False
         return self._microscope.optics.blanker.is_beam_blanked
 
     # ------------------------------------------------------------------
@@ -238,7 +248,8 @@ class ThermoMicroscope(Microscope):
     def _persist(self, adorned, acquisition_type, detector, data_server, dataset_name="image"):
         """Save acquired images in the format requested by the SCAN device.
         """
-        fmt = self._detector_proxies["scan"].output_format  # ".h5" default
+        scan = self._detector_proxies.get("scan")
+        fmt = scan.output_format if scan is not None else ".h5"  # ".h5" default
         if fmt == ".h5":
             return save_acquisition(self, data_server, acquisition_type, detector, adorned, dataset_name=dataset_name)
         if fmt != ".tiff":
