@@ -6,20 +6,23 @@ See more at https://github.com/bluesky/tiled.
 and returns the registered Tiled key through Tango. `asyncroscopy/software/DATA.py`
 is the Tango data device for registering those files with the Tiled HTTP server.
 
-The save format is one HDF5 file per acquisition event. Each correlated output
-is stored as a dataset in that file, with parsed AutoScript XML leaf metadata
-written as HDF5 dataset attributes.
+The default format is one HDF5 file per acquisition event: each correlated
+output is a dataset, with parsed AutoScript XML leaf metadata as HDF5 attributes.
+Image acquisitions can instead write `.tiff` (Velox-compatible, one file per
+detector) via `scan.output_format = ".tiff"`; spectra and STEM data are always
+HDF5.
 
 Acquisition commands that feed this pipeline include `acquire_scanned_image`,
 `acquire_spectrum`, `acquire_camera_image`, `acquire_flucam_image`, and
-`acquire_scanned_data_advanced`. Each returns the Tiled key of its saved file.
+`acquire_scanned_data_advanced`.
 
-Typical dataset names are:
+What a command returns — and how you read it back — depends on the format:
 
-- `image/HAADF`, `image/BF`, etc. for STEM image acquisitions (one dataset per detector)
-- `image` for single camera / flucam acquisitions
-- `spectrum` for spectra
-- `stem_data` for STEM data acquisitions
+- **`.h5`** (default): returns one Tiled key, read nested.
+  `client[key]["image"]["HAADF"]` (one sub-dataset per detector), `["spectrum"]`,
+  or `["stem_data"]`; single camera / flucam frames use `image`.
+- **`.tiff`**: returns a shared *stem*. Rebuild one key per detector as
+  `client[f"{stem}_{DET}.tiff"]`; `.read()` returns the array directly (no nesting).
 
 ## Notebook setup
 
@@ -43,10 +46,12 @@ Tiled HTTP server. Each acquisition is registered explicitly after it is
 written; DATA does not run a filesystem watcher. `scripts/run_servers.py` sets
 the extended Tango timeout automatically.
 
-Acquire as usual, and treat the return value as the Tiled key:
+Acquire as usual. With the default `.h5` the return value is the Tiled key; with
+`.tiff` it is the shared stem (see the format contract above):
 
 ```python
-tiled_key = mic.acquire_scanned_image()
+key = mic.acquire_scanned_image(["HAADF", "BF-S"])   # .h5  → client[key]["image"]["HAADF"]
+# scan.output_format = ".tiff"                        # .tiff → client[f"{key}_HAADF.tiff"].read()
 ```
 
 ## Server Roles
