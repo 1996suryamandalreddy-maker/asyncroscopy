@@ -22,7 +22,9 @@ import time
 import numpy as np
 import tango
 from tango import AttrWriteType, DevState
-from tango.server import attribute, device_property
+from tango.server import attribute, command,  device_property
+
+
 
 from asyncroscopy.Microscope import Microscope
 from asyncroscopy.software.DataWriter import DEFAULT_ACQUISITION_DIR, save_acquisition
@@ -89,6 +91,54 @@ class ThermoMicroscope(Microscope):
         doc="This microscope uses AutoScript for control and acquisition",
     )
 
+    fov = attribute(
+        label="Field of View",
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit = "m",
+        # min_value= TODO: set these
+        # max_value= TODO: set these
+        doc="Current field of view in micrometers",
+    )
+
+    defocus = attribute(
+        label="Defocus",
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit = "m",
+        # min_value= TODO: set these
+        # max_value= TODO: set these
+        doc="Current defocus in micrometers",
+    )
+
+    camera_length = attribute(
+        label="Camera Length",
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit = "m",
+        # min_value= TODO: set these
+        # max_value= TODO: set these
+        doc="Current camera length in meters",
+    )
+
+    beam_state = attribute(
+        label="Beam State",
+        dtype=bool,
+        access=AttrWriteType.READ,
+        doc="Current beam state, either 'blanked' or 'unblanked'",
+    )
+
+    acceleration_voltage = attribute(
+        label="Acceleration Voltage",
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit = "V",
+        # min_value= TODO: set these
+        # max_value= TODO: set these
+        doc="Current acceleration voltage in volts",
+    )
+
+
     # ------------------------------------------------------------------
     # Initialisation
     # ------------------------------------------------------------------
@@ -147,7 +197,42 @@ class ThermoMicroscope(Microscope):
         # TODO: query self._microscope.optics.mode when AutoScript available
         return self._manufacturer
 
+    def read_fov(self) -> float:
+        """Field of view in meters (STEM mode only)."""
+        return self._get_fov()
+
+    def read_defocus(self) -> float:
+        """Defocus in meters."""
+        return self._get_defocus()
+
+    def read_acceleration_voltage(self) -> float:
+        """Accelerating voltage in volts."""
+        return self._microscope.source.acceleration_voltage.value
+
+    def read_camera_length(self) -> float:
+        """Camera length in meters (only meaningful in DIFFRACTION mode)."""
+        return self._microscope.optics.camera_length.value.calibrated
+
+    def read_beam_state(self) -> bool:
+        """Beam blanked state: True when blanked, False when unblanked."""
+        return self._microscope.optics.blanker.is_beam_blanked
+
     # ------------------------------------------------------------------
+    # Commands pertaining to setting children attributes, e.g. stage position, scan parameters, EDS settings, etc. --> iuser accesses it in a jupyter notebook using the device proxy
+    # ------------------------------------------------------------------
+
+    @command
+    def register_stage(self):
+        """Read the live stage position from hardware and publish it onto the
+        STAGE child device.
+
+        Call this from the notebook before reading the STAGE device so its
+        x/y/z/alpha attributes reflect the current hardware position.
+        """
+        self._get_stage()
+
+
+    #------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
     def _acquire_scanned_image(
@@ -220,7 +305,7 @@ class ThermoMicroscope(Microscope):
     def _get_fov(self) -> float:
         """get field of view in meters"""
         return self._microscope.optics.scan_field_of_view
-    
+
     def _set_column_valves(self, state: str) -> None:
         """Set column valves state."""
         if self._microscope is not None:
@@ -230,7 +315,7 @@ class ThermoMicroscope(Microscope):
                 self._microscope.vacuum.column_valves.close()
             else:
                 print(f"Invalid valve state '{state}'. Use 'open' or 'close'.")
-        
+
     def _blank_beam(self) -> None:
         """blank beam"""
         if self._microscope is not None:
@@ -300,6 +385,7 @@ class ThermoMicroscope(Microscope):
         # set proxy attributes with current stage position
         stage = self._detector_proxies["stage"]
 
+        # TODO: add beta value check
         position = self._microscope.specimen.stage.position
         position = np.array(position)
 
@@ -315,6 +401,8 @@ class ThermoMicroscope(Microscope):
 
     def _move_stage(self, position) -> None:
         """Move stage to specified position [x, y, z, alpha, beta]."""
+        # TODO: add beta value check
+
         x = float(position[0])
         y = float(position[1])
         z = float(position[2])

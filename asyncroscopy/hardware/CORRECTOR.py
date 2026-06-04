@@ -130,7 +130,7 @@ class CORRECTOR(Device):
     def get_info(self) -> str:
         """Return general information about the CEOS corrector."""
         return self._call("getInfo")
-    
+
 
     @command(dtype_in=str, dtype_out=DevString)
     def acquire_tableau(self, args: str) -> str:
@@ -143,7 +143,7 @@ class CORRECTOR(Device):
             proxy.run_tableau("Fast 18")
             proxy.run_tableau("Full 0")
         """
-    
+
         parts = args.strip().split()
         tab_type, angle_str = parts
         angle = float(angle_str)
@@ -180,11 +180,11 @@ class CORRECTOR(Device):
     # ------------------------------------------------------------------
     # Public commands pertaining to simulation
     # ------------------------------------------------------------------
-    
+
     @command(dtype_in=str)
     def set_aberrations_coeff_sim(self, json_aberrations_string: str):
         self.ab = json.loads(json_aberrations_string)
-        pass 
+        pass
 
     @command(dtype_out=str)
     def get_aberrations_coeff_sim(self):
