@@ -1,5 +1,7 @@
 import json
 import subprocess
+from pathlib import Path
+
 
 import pytest
 import tango
@@ -84,39 +86,45 @@ class TestDataDevice:
 
         assert returned["tiled_server"] == "yes"
         key_value = popen_calls[0]["command"][8]
-        assert popen_calls == [
-            {
-                "command": [
-                    "tiled",
-                    "serve",
-                    "catalog",
-                    str(tmp_path / ".asyncroscopy_tiled_catalog.db"),
-                    "--read",
-                    str(tmp_path),
-                    "--public",
-                    "--api-key",
-                    key_value,
-                    "--host",
-                    "127.0.0.1",
-                    "--port",
-                    "9091",
-                ],
-                "kwargs": {
-                    "stdout": subprocess.DEVNULL,
-                    "stderr": subprocess.STDOUT,
-                    "text": True,
-                },
-            },
+        expected_command = [
+            "tiled",
+            "serve",
+            "catalog",
+            str(tmp_path / ".asyncroscopy_tiled_catalog.db"),
+            "--read",
+            str(tmp_path),
+            "--public",
+            "--api-key",
+            key_value,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "9091",
         ]
-        assert run_commands == [
-            [
-                "tiled",
-                "catalog",
-                "init",
-                "--if-not-exists",
-                str(tmp_path / ".asyncroscopy_tiled_catalog.db"),
-            ],
+
+        assert len(popen_calls) == 1
+        actual_command = popen_calls[0]["command"]
+
+        assert actual_command[:3] == expected_command[:3]
+        assert Path(actual_command[3]) == Path(expected_command[3])
+        assert actual_command[4] == expected_command[4]
+        assert Path(actual_command[5]) == Path(expected_command[5])
+        assert actual_command[6:] == expected_command[6:]
+
+        assert popen_calls[0]["kwargs"] == {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.STDOUT,
+            "text": True,
+        }
+
+        assert len(run_commands) == 1
+        assert run_commands[0][:4] == [
+            "tiled",
+            "catalog",
+            "init",
+            "--if-not-exists",
         ]
+        assert Path(run_commands[0][4]) == Path(tmp_path / ".asyncroscopy_tiled_catalog.db")
         data_proxy.stop_tiled_server()
 
     def test_register_path_registers_single_file(
@@ -262,9 +270,10 @@ class TestDataDevice:
         data_proxy.save_path = str(second_path)
         config = json.loads(data_proxy.get_config())
 
+
         assert processes[0].terminated is True
-        assert [call["command"][5] for call in popen_calls] == [str(first_path), str(second_path)]
-        assert config["tiled_server_serving"] == str(second_path)
+        assert [Path(call["command"][5]) for call in popen_calls] == [Path(first_path), Path(second_path)]
+        assert Path(config["tiled_server_serving"]) == Path(second_path)
         assert config["tiled_server_status"] == "running; serving path; files register manually"
 
         data_proxy.stop_tiled_server()

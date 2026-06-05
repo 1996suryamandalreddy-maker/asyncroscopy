@@ -28,8 +28,8 @@ dependencies = [
     # AutoScript (local wheels)
     "autoscript-core",
     "autoscript-tem-microscope-client",
-    "autoscript-tem-microscope-client-tests",
-    "autoscript-tem-snippets-tests",
+#    "autoscript-tem-microscope-client-tests", -> version 1.17 doesnt have this
+#    "autoscript-tem-snippets-tests", -> version 1.17 doesnt have this
     "autoscript-tem-toolkit",
     "thermoscientific-logging",
     "aicspylibczi>=3.3.1",
@@ -44,9 +44,7 @@ package-dir = { "" = "." }
 include = ["asyncroscopy*"]
 
 [tool.uv.sources]
-autoscript-core = { path = "stubs/autoscript_core-1.0.0-py3-none-any.whl" }
-autoscript-tem-microscope-client = { path = "stubs/autoscript_tem_microscope_client-1.15.0-py3-none-any.whl" }
-autoscript-tem-microscope-client-tests = { path = "stubs/autoscript_tem_microscope_client_tests-1.15.0-py3-none-any.whl" }
-autoscript-tem-snippets-tests = { path = "stubs/autoscript_tem_snippets_tests-1.15.0-py3-none-any.whl" }
-autoscript-tem-toolkit = { path = "stubs/autoscript_tem_toolkit-1.15.0-py3-none-any.whl" }
-thermoscientific-logging = { path = "stubs/thermoscientific_logging-1.0.0-py3-none-any.whl" }
+autoscript-core = { path = "stubs/v_1.17/autoscript_core-1.3.0-py3-none-any.whl" }
+autoscript-tem-microscope-client = { path = "stubs/v_1.17/autoscript_tem_microscope_client-1.17.0-py3-none-any.whl" }
+autoscript-tem-toolkit = { path = "stubs/v_1.17/autoscript_tem_toolkit-1.17.0-py3-none-any.whl" }
+thermoscientific-logging = { path = "stubs/v_1.17/thermoscientific_logging-1.3.0-py3-none-any.whl" }
