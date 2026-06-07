@@ -28,13 +28,14 @@ dependencies = [
     # AutoScript (local wheels)
     "autoscript-core",
     "autoscript-tem-microscope-client",
-#    "autoscript-tem-microscope-client-tests", -> version 1.17 doesnt have this
-#    "autoscript-tem-snippets-tests", -> version 1.17 doesnt have this
+    #    "autoscript-tem-microscope-client-tests", -> version 1.17 doesnt have this
+    #    "autoscript-tem-snippets-tests", -> version 1.17 doesnt have this
     "autoscript-tem-toolkit",
     "thermoscientific-logging",
     "aicspylibczi>=3.3.1",
     "jupyter-book>=2.0.0",
     "tiled[all]>=0.2.9",
+    "pyyaml>=6.0.3",
 ]
 
 [tool.setuptools]
