@@ -35,6 +35,8 @@ dependencies = [
     "aicspylibczi>=3.3.1",
     "jupyter-book>=2.0.0",
     "tiled[all]>=0.2.9",
+    "pyyaml>=6.0.3",
+    "pyqt6>=6.11.0",
 ]
 
 [tool.setuptools]
