@@ -10,8 +10,13 @@ defaults, then stays running so you can use the servers.
 ## TL;DR
 
 ```bash
-uv run scripts/run_servers.py            # real microscope (ThermoMicroscope)
-uv run scripts/run_servers.py --microscope dt   # digital twin (DigitalTwin)
+uv run scripts/run_servers.py            # real microscope (ThermoMicroscope), interactive prompts
+uv run scripts/run_servers.py --microscope dt   # digital twin (DigitalTwin), interactive prompts
+
+# Headless: start straight from a YAML config, no prompts (see "Configs" below)
+uv run scripts/run_servers.py --yaml configs/Spectra300.yaml
+uv run scripts/run_servers.py --yaml configs\ThinkPad-utkarsh-covalent-setup.yaml
+uv run scripts/run_servers.py --yaml configs/Spectra300.yaml --microscope dt
 ```
 
 - Press **Enter** at every prompt to accept the value in `[brackets]`.
@@ -32,9 +37,37 @@ The microscope is started last and given the addresses of the support devices as
 database properties, so it can find them via `DeviceProxy`. In `real` mode it
 also receives the AutoScript host/port.
 
+## Configs (`--yaml`)
+
+The script's startup values — which devices to launch, the microscope class, and
+the hosts/ports/paths — live in a YAML file under [configs/](../../configs). Two
+ship today:
+
+| File | For |
+|------|-----|
+| [configs/Spectra300.yaml](../../configs/Spectra300.yaml) | The real Spectra 300 (the default config). |
+| [configs/ThinkPad-utkarsh-covalent-setup.yaml](../../configs/ThinkPad-utkarsh-covalent-setup.yaml) | A localhost-everywhere setup for local testing. |
+
+Each file has a `microscope:` block (real) and an optional `digital_twin:` block;
+`--microscope {real,dt}` chooses between them. Device `class_name` defaults to the
+key upper-cased (`scan` → `SCAN`). A `microscope.host`/`port` becomes the
+microscope's `autoscript_host_ip`/`_port`. The `mcp:` block is reserved — the
+script does not start MCP yet.
+
+**Two ways to run:**
+
+- **Interactive** (no `--yaml`): the bundled default config seeds the prompt
+  defaults; you confirm or override each at the prompt.
+- **Headless** (`--yaml <file>`): no prompts — the file is the single source of
+  truth (clear/start-DB/register all run; Tiled follows `tiled.autostart`). This
+  is the path the GUI will use.
+
+To make your own, copy `Spectra300.yaml` and edit the hosts/ports/devices.
+
 ## The prompts
 
-Answered top to bottom; defaults shown are the script's built-ins.
+Used only in interactive mode (no `--yaml`). Answered top to bottom; the defaults
+shown come from the active config (`configs/Spectra300.yaml` unless overridden).
 
 | Prompt | Default | What it controls |
 |--------|---------|------------------|
@@ -79,8 +112,9 @@ The run prints progress as five sections:
 - **Tiled failed to start.** Check the save path is writable and the Tiled port
   is free; the failure message comes from the `data` device.
 
-> Not yet implemented (see TODOs in the script): alternate configs as `.yaml`
-> files and a `--debug` flag to stream every server's output live.
+> Not yet implemented (see TODO in the script): a `--debug` flag to stream every
+> server's output live. Alternate configs as `.yaml` files are now supported —
+> see [Configs](#configs---yaml) above.
 
 ## What it does under the hood (manual fallback)
 
