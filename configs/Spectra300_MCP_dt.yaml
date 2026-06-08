@@ -1,25 +1,23 @@
-# Default asyncroscopy server config — Thermo Fisher Spectra 300 TEM.
-# Read by scripts/run_servers.py. Values here reproduce the script's historic
-# built-in defaults, so a headless start equals accepting every prompt.
+# Spectra 300 stack with MCP enabled.
 #
-#   uv run scripts/run_servers.py --yaml configs/Spectra300.yaml            # real, headless
-#   uv run scripts/run_servers.py --yaml configs/Spectra300.yaml --microscope dt
+# Starts Tango, support devices, Tiled, the selected microscope/digital twin,
+# then the FastMCP HTTP server last.
+#
+#   uv run scripts/run_servers.py --yaml configs/Spectra300_MCP.yaml
+#   uv run scripts/run_servers.py --yaml configs/Spectra300_MCP.yaml --microscope dt
 
 microscope:
   class_name: ThermoMicroscope
   module_name: asyncroscopy.ThermoMicroscope
   description: "Thermo Fisher Spectra 300 TEM"
-  host: 10.46.217.241        # AutoScript endpoint -> microscope's autoscript_host_ip / _port
+  host: 127.0.0.1
   port: 9095
 
 digital_twin:
   class_name: DigitalTwin
   module_name: asyncroscopy.DigitalTwin
   description: "Software digital twin"
-  # No host/port: the bundled twin needs no AutoScript endpoint.
 
-# Support device servers. class_name defaults to the key upper-cased
-# (camera -> CAMERA); add `class_name:` to a device only to override that.
 devices:
   camera:    { module_name: asyncroscopy.detectors.CAMERA }
   corrector: { module_name: asyncroscopy.hardware.CORRECTOR }
@@ -30,11 +28,11 @@ devices:
   stage:     { module_name: asyncroscopy.hardware.STAGE }
 
 tango:
-  host: 10.46.217.241
+  host: 127.0.0.1
   port: 9094
 
 tiled:
-  host: 10.46.217.241
+  host: 127.0.0.1
   port: 9091
   acquisition_dir: outputs/tiled_acquisitions
   autostart: true
@@ -42,7 +40,7 @@ tiled:
 device_timeout_seconds: 120
 
 mcp:
-  autostart: false
+  autostart: true
   class_name: ThermoMCP
   name: Spectra300_MCP
   transport: streamable-http
@@ -57,3 +55,5 @@ mcp:
   blocked_functions:
     "*":
       - Init
+      - Kill
+      - RestartServer

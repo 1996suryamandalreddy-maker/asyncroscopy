@@ -37,9 +37,19 @@ tiled:
 
 device_timeout_seconds: 120
 
-# Reserved for a future commit — run_servers.py does NOT start MCP yet.
 mcp:
   autostart: false
   class_name: ThermoMCP
+  name: Spectra300_MCP
+  transport: streamable-http
   http_host: 127.0.0.1
   http_port: 8000
+  data_device_address: asyncroscopy/data/default
+  search_packages:
+    - asyncroscopy
+  blocked_classes:
+    - DataBase
+    - DServer
+  blocked_functions:
+    "*":
+      - Init
