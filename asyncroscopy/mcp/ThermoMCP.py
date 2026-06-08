@@ -10,7 +10,7 @@ class ThermoMCP(MCPServer):
     An MCP Server customized for the Thermo Spectra 300 TEM.
     """
     SUPPORTED_HARDWARE = ["ThermoMicroscope"]
-    DIGITAL_TWIN = "ThermoDigitalTwin"
+    DIGITAL_TWIN = "DigitalTwin"
 
     def __init__(
         self,

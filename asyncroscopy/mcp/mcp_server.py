@@ -1,26 +1,23 @@
-"""
-Bridge between a Tango control system and an MCP (Model Context Protocol) server.
+"""FastMCP bridge for asyncroscopy Tango devices."""
 
-This module queries a Tango database for exported devices, introspects their
-commands, and dynamically registers each command as an MCP tool to make physical
-hardware controllable via LLM agents.
-
-Usage:
-    server = MCPServer("MyServer", tango_host="localhost", tango_port=9094)
-    server.start()   # discovers devices, registers tools, starts HTTP server
-"""
-import os
-import inspect
-import importlib
-import pkgutil
+import argparse
 import base64
+import importlib
+import inspect
 import json
-from inspect import signature, getdoc
-from typing import Any, Dict, Callable, Annotated
-from pydantic import Field
+import pkgutil
+import sys
 import traceback
+from pathlib import Path
+from inspect import signature, getdoc
+from typing import Annotated, Any, Callable
 
+if __name__ == "__main__":
+    sys.modules["asyncroscopy.mcp.mcp_server"] = sys.modules[__name__]
+
+import h5py
 import numpy as np
+from pydantic import Field
 
 from tango import Database, DeviceProxy, CommandInfo, CmdArgType
 from tango.utils import (
@@ -36,8 +33,6 @@ from tango.server import Device
 
 from fastmcp import FastMCP
 from fastmcp.tools import tool, Tool
-from fastmcp.resources import resource
-from fastmcp.prompts import prompt
 from fastmcp.tools.function_tool import ToolMeta
 from fastmcp.resources.function_resource import ResourceMeta
 from fastmcp.prompts.function_prompt import PromptMeta
@@ -58,6 +53,7 @@ class MCPServer:
         blocked_functions: list[str] | dict[str, list[str]] | None = None,
         blocked_classes: list[str] | None = None,
         search_packages: list[str] | None = None,
+        data_device_address: str = "asyncroscopy/data/default",
         verbose: bool = True,
     ):
         """
@@ -65,10 +61,10 @@ class MCPServer:
             name (str): Display name for the MCP server instance.
             tango_host (str): Hostname of the Tango database server (e.g. "localhost").
             tango_port (int): Port of the Tango database server (e.g. 9094).
-            blocked_functions (list[str] | dict[str, list[str]] | None, optional): 
-                Command names to exclude. Can be a simple list for global blocks, 
-                or a dictionary mapping Tango class names to command lists. 
-                Use "*" as a dictionary key for global blocks. Defaults to None, 
+            blocked_functions (list[str] | dict[str, list[str]] | None, optional):
+                Command names to exclude. Can be a simple list for global blocks,
+                or a dictionary mapping Tango class names to command lists.
+                Use "*" as a dictionary key for global blocks. Defaults to None,
                 which applies the built-in block list: ["Init"].
             blocked_classes (list[str] | None, optional): Tango device class names to
                 skip entirely. Defaults to None, which applies the built-in block list
@@ -81,31 +77,35 @@ class MCPServer:
         """
         self.database = Database(tango_host, tango_port)
         self.mcp = FastMCP(name)
-        
-        # Normalize to storage format: dict[class_name, list[command_name]]
-        if blocked_functions is None:
-            self.blocked_functions = {"*": self.DEFAULT_BLOCKED_FUNCTIONS.copy()}
-        elif isinstance(blocked_functions, list):
-            self.blocked_functions = {"*": blocked_functions}
-        else:
-            self.blocked_functions = blocked_functions
-            
+
+        self.blocked_functions = self._normalize_blocked_functions(blocked_functions)
+
         self.blocked_classes = blocked_classes or self.DEFAULT_BLOCKED_CLASSES.copy()
-        self._blocked_classes_normalized = {
-            cls_name.lower() for cls_name in self.blocked_classes
-        }
+        self._blocked_classes_normalized = {cls_name.lower() for cls_name in self.blocked_classes}
 
         self.search_packages = search_packages if search_packages is not None else ["asyncroscopy"]
-        
+        self.data_device_address = data_device_address
+
         self.verbose = verbose
 
-        # Tools are keyed by Tango class, then command name, with the value being the wrapped function
-        self.tools: Dict[str, Dict[str, Callable]] = {}
+        self.tools: dict[str, dict[str, Callable]] = {}
+
+    @classmethod
+    def _normalize_blocked_functions(
+        cls, blocked_functions: list[str] | dict[str, list[str]] | None
+    ) -> dict[str, list[str]]:
+        if blocked_functions is None:
+            return {"*": cls.DEFAULT_BLOCKED_FUNCTIONS.copy()}
+        if isinstance(blocked_functions, list):
+            return {"*": blocked_functions}
+        normalized = {key: list(value) for key, value in blocked_functions.items()}
+        normalized.setdefault("*", [])
+        return normalized
 
     def _is_blocked_class(self, class_name: str) -> bool:
         """Return True when a Tango class should be filtered out."""
         return class_name.lower() in self._blocked_classes_normalized
-        
+
     def _list_all_devices(self) -> list[str]:
         """List all devices exported in the Tango DB."""
         devices = self.database.get_device_exported("*")
@@ -116,7 +116,6 @@ class MCPServer:
         """Return True for Tango admin (dserver) devices."""
         return device_name.lower().startswith("dserver/")
 
-    # @tool cannot register instance methods, but it still adds metadata
     @tool()
     def list_devices(self) -> list[str]:
         """List available devices filtered by blocked classes."""
@@ -126,7 +125,6 @@ class MCPServer:
             if self._is_admin_device(device_name):
                 continue
             try:
-                # Create a DeviceProxy from the found name
                 dev = DeviceProxy(device_name)
                 dev_class = dev.info().dev_class
                 if not self._is_blocked_class(dev_class):
@@ -134,20 +132,17 @@ class MCPServer:
             except Exception:
                 pass
         return available
-    
+
     def get_blocked_functions(self) -> dict[str, list[str]]:
         """Get the list of blocked functions."""
         return self.blocked_functions
 
     def _is_blocked_function(self, dev_class: str, command_name: str) -> bool:
         """Check if a command is blocked."""
-        # Global blocks apply to every class
-        if command_name in self.blocked_functions.get("*", []):
+        global_blocks = self.blocked_functions.get("*", [])
+        if command_name in global_blocks or f"{dev_class}.{command_name}" in global_blocks:
             return True
-        # Class-specific overrides
-        if command_name in self.blocked_functions.get(dev_class, []):
-            return True
-        return False
+        return command_name in self.blocked_functions.get(dev_class, [])
 
     def get_blocked_classes(self) -> list[str]:
         """Get the list of blocked Tango classes."""
@@ -155,49 +150,103 @@ class MCPServer:
 
     def _register_instance_methods(self) -> int:
         """Discover and register all methods decorated with @tool, @resource, or @prompt.
-        
+
         Returns:
             Number of methods successfully registered.
         """
         registered_count = 0
-        
-        # Get all members from this instance's class (including inherited)
-        methods = inspect.getmembers(self, predicate=inspect.ismethod)
-        
-        for name, method in methods:
-            # Skip private/internal methods
-            if name.startswith('_'):
+
+        for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
+            if name.startswith("_"):
                 continue
-            
+
             func = method.__func__
-            
-            # decorators attach a __fastmcp__ metadata object
+            if not hasattr(func, "__fastmcp__"):
+                continue
+
             try:
-                if hasattr(func, '__fastmcp__'):
-                    meta = func.__fastmcp__
-                    
-                    if isinstance(meta, ToolMeta):
-                        self.mcp.add_tool(method)
-                        mcp_type = "tool"
-                    elif isinstance(meta, ResourceMeta):
-                        self.mcp.add_resource(method)
-                        mcp_type = "resource"
-                    elif isinstance(meta, PromptMeta):
-                        self.mcp.add_prompt(method)
-                        mcp_type = "prompt"
-                    else:
-                        if self.verbose:
-                            print(f"Unknown MCP type for {name}")
-                        continue
-                        
-                    registered_count += 1
+                meta = func.__fastmcp__
+                if isinstance(meta, ToolMeta):
+                    self.mcp.add_tool(method)
+                    mcp_type = "tool"
+                elif isinstance(meta, ResourceMeta):
+                    self.mcp.add_resource(method)
+                    mcp_type = "resource"
+                elif isinstance(meta, PromptMeta):
+                    self.mcp.add_prompt(method)
+                    mcp_type = "prompt"
+                else:
                     if self.verbose:
-                        print(f"Auto-registered {mcp_type}: {name}")
+                        print(f"Unknown MCP type for {name}")
+                    continue
+
+                registered_count += 1
+                if self.verbose:
+                    print(f"Auto-registered {mcp_type}: {name}")
             except Exception as e:
                 if self.verbose:
                     print(f"Failed to auto-register {name}: {e}")
-        
+
         return registered_count
+
+    @tool()
+    def get_data_from_key(
+        self,
+        key: str,
+        max_values: int = 64,
+        data_device_address: str | None = None,
+    ) -> dict[str, Any]:
+        """Read a DATA/Tiled HDF5 acquisition key and return dataset metadata plus small previews."""
+        address = data_device_address or self.data_device_address
+        data = DeviceProxy(address)
+        config = json.loads(data.get_config())
+
+        path = None
+        for root in (config.get("save_path"), config.get("tiled_server_serving")):
+            if not root:
+                continue
+            candidate = Path(root).expanduser() / key
+            if candidate.exists():
+                path = candidate
+                break
+
+        if path is None:
+            raise FileNotFoundError(f"Could not resolve data key {key!r} from DATA device {address!r}")
+
+        result: dict[str, Any] = {
+            "key": key,
+            "path": str(path),
+            "size_bytes": path.stat().st_size,
+        }
+        if path.suffix.lower() not in {".h5", ".hdf5"}:
+            result["format"] = path.suffix.lower().lstrip(".") or "unknown"
+            return result
+
+        result["format"] = "hdf5"
+        datasets: list[dict[str, Any]] = []
+        with h5py.File(path, "r") as h5:
+            result["attrs"] = self._hdf5_attrs_to_json(h5.attrs)
+
+            def visit(name: str, obj: Any) -> None:
+                if not isinstance(obj, h5py.Dataset):
+                    return
+                item: dict[str, Any] = {
+                    "name": name,
+                    "shape": list(obj.shape),
+                    "dtype": str(obj.dtype),
+                    "attrs": self._hdf5_attrs_to_json(obj.attrs),
+                }
+                preview = np.asarray(obj[()]).reshape(-1)[: max(0, int(max_values))]
+                item["preview"] = self._numpy_to_python(preview)
+                datasets.append(item)
+
+            h5.visititems(visit)
+        result["datasets"] = datasets
+        return result
+
+    @staticmethod
+    def _hdf5_attrs_to_json(attrs: Any) -> dict[str, Any]:
+        return {key: MCPServer._numpy_to_python(value) for key, value in attrs.items()}
 
     @staticmethod
     def _is_dev_encoded_type(cmd_type: CmdArgType) -> bool:
@@ -248,7 +297,7 @@ class MCPServer:
         if is_str_type(cmd_type, inc_array=True):
             return list[str]
         return list
-        
+
     @staticmethod
     def _tango_type_to_python(cmd_type: CmdArgType) -> Any:
         if cmd_type == CmdArgType.DevVoid:
@@ -283,7 +332,7 @@ class MCPServer:
     @staticmethod
     def _normalize_command_result(out_type: CmdArgType, result: Any) -> Any:
         """Convert Tango command output into JSON-safe data for MCP transport."""
-        
+
         # Convert numpy types (including nested containers) to native Python types
         result = MCPServer._numpy_to_python(result)
         if not MCPServer._is_dev_encoded_type(out_type):
@@ -377,7 +426,7 @@ class MCPServer:
         if header_doc:
             lines.append(header_doc)
             lines.append("")
-        
+
         lines.append(f"Tango Device Class: {dev_class}")
         lines.append(f"Tango Command: {command_name}")
 
@@ -396,7 +445,7 @@ class MCPServer:
                 lines.append(f"Output Description: {out_desc}")
 
         return "\n".join(lines).strip()
-    
+
     def _get_param_name(self, dev_class: str, command_name: str) -> str:
         """Pull the first non-self parameter name from the source method signature."""
         cls = self._get_tango_device_class(dev_class)
@@ -409,7 +458,6 @@ class MCPServer:
 
         try:
             params = list(inspect.signature(method).parameters.values())
-            # Skip 'self' if present
             for p in params:
                 if p.name != "self":
                     return p.name
@@ -426,13 +474,13 @@ class MCPServer:
         dev_class: str,
     ) -> Callable:
         """Create a wrapper function with a proper signature for a Tango command.
-        
+
         Args:
             func: The raw Tango device command method
             cmd_info: The CommandInfo object from Tango
             command_name: The name of the command
             dev_class: The Tango device class name
-            
+
         Returns:
             A wrapper function with a proper signature
         """
@@ -446,11 +494,16 @@ class MCPServer:
         in_type = cmd_info.in_type
         py_type = self._tango_type_to_python(in_type)
         in_desc = cmd_info.in_type_desc
-        
+
         out_type = cmd_info.out_type
         py_return_type = self._tango_type_to_python(out_type)
 
-        if in_desc and in_desc.lower() not in ("uninitialised", "none", "", "uninitialized"):
+        if in_desc and in_desc.lower() not in (
+            "uninitialised",
+            "none",
+            "",
+            "uninitialized",
+        ):
             # Sanitize description - remove newlines to prevent JSON schema breakage
             clean_desc = in_desc.replace("\n", " ").strip()
             arg_type = Annotated[py_type, Field(description=clean_desc)]
@@ -458,6 +511,7 @@ class MCPServer:
             arg_type = py_type
 
         if in_type == CmdArgType.DevVoid:
+
             def wrapper():
                 result = func()
                 return self._normalize_command_result(out_type, result)
@@ -475,9 +529,6 @@ class MCPServer:
                 "out_type": out_type,
             }
 
-            # Use exactly the named parameter. Python naturally supports both 
-            # wrapper(val) and wrapper(param=val) for standard named parameters.
-            # This satisfies strict introspection in frameworks like smolagents.
             exec_str = (
                 f"def wrapper({param_name}: arg_type) -> py_return_type:\n"
                 f"    return self._normalize_command_result(out_type, func({param_name}))"
@@ -485,38 +536,27 @@ class MCPServer:
             exec(exec_str, ns)
             wrapper = ns["wrapper"]
 
-            params = [
-                inspect.Parameter(
-                    param_name,
-                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    annotation=arg_type,
-                )
-            ]
+            params = [inspect.Parameter(param_name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=arg_type)]
 
-        wrapper.__annotations__ = {
-            p.name: p.annotation for p in params
-        }
+        wrapper.__annotations__ = {p.name: p.annotation for p in params}
         wrapper.__annotations__["return"] = py_return_type
 
-        wrapper.__signature__ = inspect.Signature(
-            parameters=params, return_annotation=py_return_type
-        )
+        wrapper.__signature__ = inspect.Signature(parameters=params, return_annotation=py_return_type)
         wrapper.__doc__ = doc
-        
-        # Set unique function name for FastMCP tool registration
+
         unique_name = f"{dev_class}_{command_name}".replace("/", "_").replace("-", "_")
         wrapper.__name__ = unique_name
         wrapper.__qualname__ = unique_name
-        
+
         return wrapper
-    
-    def _find_tools(self) -> Dict[str, Dict[str, tuple[Callable, CommandInfo]]]:
+
+    def _find_tools(self) -> dict[str, dict[str, tuple[Callable, CommandInfo]]]:
         """Discover tools by querying Tango DB for devices and their commands.
-        
+
         Returns a dict mapping dev_class -> command_name -> (func, cmd_info)
         """
         devices = self._list_all_devices()
-        tools: Dict[str, Dict[str, tuple[Callable, CommandInfo]]] = {}
+        tools: dict[str, dict[str, tuple[Callable, CommandInfo]]] = {}
         for device_name in devices:
             if self._is_admin_device(device_name):
                 continue
@@ -557,9 +597,11 @@ class MCPServer:
                 tools[dev_class][command_name] = (func, cmd)
         return tools
 
-    def _print_discovered_tools(self, tools: Dict[str, Dict[str, tuple[Callable, CommandInfo]]]) -> None:
+    def _print_discovered_tools(
+        self, tools: dict[str, dict[str, tuple[Callable, CommandInfo]]]
+    ) -> None:
         """Print discovered tools before registration.
-        
+
         Args:
             tools: Dictionary of discovered tools by class and command name.
         """
@@ -574,28 +616,25 @@ class MCPServer:
 
     def setup(self, print_summary: bool = True):
         """Configure tools and add them to the MCP instance.
-        
+
         Args:
             print_summary: If True, print tool discovery and registration summary.
         """
         raw_tools = self._find_tools()
-        
-        # Convert to final wrapped tools
-        wrapped_tools: Dict[str, Dict[str, Callable]] = {}
+
+        wrapped_tools: dict[str, dict[str, Callable]] = {}
         for dev_class in raw_tools:
             wrapped_tools[dev_class] = {}
             for command_name, (func, cmd_info) in raw_tools[dev_class].items():
                 wrapped = self._create_wrapper(func, cmd_info, command_name, dev_class)
                 wrapped_tools[dev_class][command_name] = wrapped
-        
+
         self.tools = wrapped_tools
         if print_summary:
             self._print_discovered_tools(raw_tools)
 
-        # Auto-register all @tool, @resource, and @prompt decorated instance methods
         num_instance_tools = self._register_instance_methods()
-        
-        # Register wrapped tools with MCP
+
         num_device_tools = 0
         for dev_class in wrapped_tools:
             for command_name, wrapped_func in wrapped_tools[dev_class].items():
@@ -607,26 +646,27 @@ class MCPServer:
                     if self.verbose:
                         print(f"Failed to wrap {dev_class}.{command_name}: {e}")
                         traceback.print_exc()
-        
-        # Print all registered MCP tools
+
         if print_summary:
             self._print_registration_summary(num_device_tools, num_instance_tools)
-    
-    def _print_registration_summary(self, num_device_tools: int, num_instance_tools: int) -> None:
+
+    def _print_registration_summary(
+        self, num_device_tools: int, num_instance_tools: int
+    ) -> None:
         """Print all registered MCP tools.
-        
+
         Args:
             num_device_tools: Number of Tango device command tools registered
             num_instance_tools: Number of instance method tools registered
         """
         if not self.verbose:
             return
-        
+
         print(f"\nRegistered {num_instance_tools} instance method tool(s)")
         print(f"Registered {num_device_tools} Tango device command tool(s)")
         print(f"Total: {num_instance_tools + num_device_tools} tools")
         print("\nAll MCP tools available:")
-        
+
         for dev_class in sorted(self.tools.keys()):
             command_names = sorted(self.tools[dev_class].keys())
             for command_name in command_names:
@@ -634,7 +674,7 @@ class MCPServer:
                 sig = signature(wrapped_func)
                 print(f"  • {dev_class}.{command_name}{sig}")
                 if wrapped_func.__doc__:
-                    for line in wrapped_func.__doc__.split('\n'):
+                    for line in wrapped_func.__doc__.split("\n"):
                         stripped = line.strip()
                         if stripped:
                             print(f"{stripped}")
@@ -648,7 +688,7 @@ class MCPServer:
     def start(self, transport: Transport | None = None, **kwargs):
         """
         Synchronizes with Tango DB and begins serving the MCP protocol.
-        
+
         Args:
             transport: Transport protocol to use ("stdio", "http", "sse", or "streamable-http").
                        Defaults to None, which uses stdio for local piping to agents.
@@ -657,14 +697,67 @@ class MCPServer:
         self.setup()
         self.mcp.run(transport=transport, **kwargs)
 
-if __name__ == "__main__":
-    tango_host = os.environ.get("TANGO_HOST", "localhost:9094")
-    if ":" not in tango_host:
-        raise SystemExit(f"Invalid TANGO_HOST value: {tango_host}. Expected host:port")
-    host, port_str = tango_host.rsplit(":", maxsplit=1)
-    port = int(port_str)
 
-    server = MCPServer(name="MCPServer", tango_host=host, tango_port=port)
-    print(f"Connected to Tango DB at {host}:{port}")
-    print("Exported devices:", server.list_devices())
-    server.start()
+def _load_server_class(class_path: str) -> type[MCPServer]:
+    if "." not in class_path and ":" not in class_path:
+        class_path = f"asyncroscopy.mcp.{class_path}:{class_path}"
+    elif ":" not in class_path:
+        module_name, class_name = class_path.rsplit(".", maxsplit=1)
+        class_path = f"{module_name}:{class_name}"
+
+    module_name, class_name = class_path.split(":", maxsplit=1)
+    module = importlib.import_module(module_name)
+    server_class = getattr(module, class_name)
+    if not issubclass(server_class, MCPServer):
+        raise TypeError(f"{class_path} is not an MCPServer subclass")
+    return server_class
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--class-name", default="MCPServer")
+    parser.add_argument("--name", default="AsyncroscopyMCP")
+    parser.add_argument("--tango-host", default="localhost")
+    parser.add_argument("--tango-port", type=int, default=9094)
+    parser.add_argument("--transport", default="streamable-http")
+    parser.add_argument("--http-host", default="127.0.0.1")
+    parser.add_argument("--http-port", type=int, default=8000)
+    parser.add_argument("--blocked-classes-json", default=None)
+    parser.add_argument("--blocked-functions-json", default=None)
+    parser.add_argument("--search-packages-json", default=None)
+    parser.add_argument("--data-device-address", default="asyncroscopy/data/default")
+    parser.add_argument("--quiet", action="store_true")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    server_class = _load_server_class(args.class_name)
+    blocked_classes = json.loads(args.blocked_classes_json) if args.blocked_classes_json else None
+    blocked_functions = json.loads(args.blocked_functions_json) if args.blocked_functions_json else None
+    search_packages = json.loads(args.search_packages_json) if args.search_packages_json else None
+
+    server = server_class(
+        name=args.name,
+        tango_host=args.tango_host,
+        tango_port=args.tango_port,
+        blocked_classes=blocked_classes,
+        blocked_functions=blocked_functions,
+        search_packages=search_packages,
+        data_device_address=args.data_device_address,
+        verbose=not args.quiet,
+    )
+    if args.transport == "streamable-http":
+        print(
+            f"Starting {args.name} at http://{args.http_host}:{args.http_port}/mcp "
+            f"for Tango DB {args.tango_host}:{args.tango_port}",
+            flush=True,
+        )
+        server.start_http(host=args.http_host, port=args.http_port)
+    else:
+        server.start(transport=args.transport)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

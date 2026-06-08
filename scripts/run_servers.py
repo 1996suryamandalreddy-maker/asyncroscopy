@@ -7,10 +7,11 @@ import argparse
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable
 from urllib.parse import urlsplit
@@ -82,6 +83,7 @@ class ManagedProcess:
     def running(self) -> bool:
         return self.process.poll() is None
 
+
 # TODO: --debug flag where all server output streams to this terminal / log files (next commit).
 
 
@@ -103,6 +105,54 @@ class TiledConfig:
 
 
 @dataclass(frozen=True)
+class MCPConfig:
+    autostart: bool = False
+    class_name: str = "MCPServer"
+    name: str = "AsyncroscopyMCP"
+    transport: str = "streamable-http"
+    http_host: str = "127.0.0.1"
+    http_port: int = 8000
+    blocked_classes: list[str] | None = None
+    blocked_functions: list[str] | dict[str, list[str]] | None = None
+    search_packages: list[str] | None = None
+    data_device_address: str = "asyncroscopy/data/default"
+
+    def command(self, tango_host: str, tango_port: int) -> list[str]:
+        command = [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "asyncroscopy.mcp.mcp_server",
+            "--class-name",
+            self.class_name,
+            "--name",
+            self.name,
+            "--tango-host",
+            tango_host,
+            "--tango-port",
+            str(tango_port),
+            "--transport",
+            self.transport,
+            "--http-host",
+            self.http_host,
+            "--http-port",
+            str(self.http_port),
+            "--data-device-address",
+            self.data_device_address,
+        ]
+        if self.blocked_classes is not None:
+            command.extend(["--blocked-classes-json", json.dumps(self.blocked_classes)])
+        if self.blocked_functions is not None:
+            command.extend(
+                ["--blocked-functions-json", json.dumps(self.blocked_functions)]
+            )
+        if self.search_packages is not None:
+            command.extend(["--search-packages-json", json.dumps(self.search_packages)])
+        return command
+
+
+@dataclass(frozen=True)
 class Config:
     path: Path
     microscope: MicroscopeConfig
@@ -111,6 +161,7 @@ class Config:
     tango_host: str
     tango_port: int
     tiled: TiledConfig
+    mcp: MCPConfig
     device_timeout_seconds: int
 
 
@@ -127,6 +178,22 @@ def _microscope_config(raw: dict) -> MicroscopeConfig:
         description=raw.get("description", ""),
         host=raw.get("host"),
         port=raw.get("port"),
+    )
+
+
+def _mcp_config(raw: dict | None) -> MCPConfig:
+    raw = raw or {}
+    return MCPConfig(
+        autostart=bool(raw.get("autostart", False)),
+        class_name=raw.get("class_name", "MCPServer"),
+        name=raw.get("name", raw.get("class_name", "AsyncroscopyMCP")),
+        transport=raw.get("transport", "streamable-http"),
+        http_host=raw.get("http_host", "127.0.0.1"),
+        http_port=int(raw.get("http_port", 8000)),
+        blocked_classes=raw.get("blocked_classes"),
+        blocked_functions=raw.get("blocked_functions"),
+        search_packages=raw.get("search_packages"),
+        data_device_address=raw.get("data_device_address", "asyncroscopy/data/default"),
     )
 
 
@@ -160,6 +227,7 @@ def load_config(path: Path) -> Config:
             acquisition_dir=_require(tiled, "acquisition_dir", "tiled"),
             autostart=bool(tiled.get("autostart", True)),
         ),
+        mcp=_mcp_config(raw.get("mcp")),
         device_timeout_seconds=int(raw.get("device_timeout_seconds", 120)),
     )
 
@@ -167,7 +235,9 @@ def load_config(path: Path) -> Config:
 def selected_microscope_config(config: Config, mode: str) -> MicroscopeConfig:
     if mode == "dt":
         if config.digital_twin is None:
-            raise ValueError(f"{config.path} has no 'digital_twin' block (needed for --microscope dt)")
+            raise ValueError(
+                f"{config.path} has no 'digital_twin' block (needed for --microscope dt)"
+            )
         return config.digital_twin
     return config.microscope
 
@@ -276,7 +346,13 @@ def print_section(step: int, total: int, title: str) -> None:
 
 
 def status_line(status: str, message: str, detail: str = "") -> None:
-    colors = {"OK": Style.green, "RUN": Style.cyan, "WAIT": Style.yellow, "FAIL": Style.red, "SKIP": Style.dim}
+    colors = {
+        "OK": Style.green,
+        "RUN": Style.cyan,
+        "WAIT": Style.yellow,
+        "FAIL": Style.red,
+        "SKIP": Style.dim,
+    }
     tag = color(f"{status:>4}", colors.get(status, ""))
     if detail:
         print(f"  {tag}  {message:<32} {color(detail, Style.dim)}")
@@ -284,7 +360,9 @@ def status_line(status: str, message: str, detail: str = "") -> None:
         print(f"  {tag}  {message}")
 
 
-def make_environment(host: str, port: int, tiled_host: str, tiled_port: int, acquisition_dir: str) -> dict[str, str]:
+def make_environment(
+    host: str, port: int, tiled_host: str, tiled_port: int, acquisition_dir: str
+) -> dict[str, str]:
     tango_host = f"{host}:{port}"
     os.environ["TANGO_HOST"] = tango_host
     return {
@@ -296,13 +374,23 @@ def make_environment(host: str, port: int, tiled_host: str, tiled_port: int, acq
     }
 
 
-def start_process(key: str, label: str, command: list[str], environment: dict[str, str]) -> ManagedProcess:
+def start_process(
+    key: str, label: str, command: list[str], environment: dict[str, str]
+) -> ManagedProcess:
+    popen_kwargs = {
+        "env": environment,
+        "cwd": PROJECT_DIR,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+    }
+    if os.name == "nt":
+        popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    else:
+        popen_kwargs["start_new_session"] = True
+
     process = subprocess.Popen(
         command,
-        env=environment,
-        cwd=PROJECT_DIR,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        **popen_kwargs,
     )
     for stream in (process.stdout, process.stderr):
         if stream is not None:
@@ -332,13 +420,31 @@ def read_process_output(stream) -> str:
 
 
 def stop_process(process: ManagedProcess, timeout: float = 5.0) -> None:
-    if not process.running:
+    if not process.running and os.name == "nt":
         return
-    process.process.terminate()
+    if os.name == "nt":
+        process.process.terminate()
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            if not process.running:
+                return
+            process.process.terminate()
+        except OSError:
+            process.process.terminate()
     try:
         process.process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        process.process.kill()
+        if os.name == "nt":
+            process.process.kill()
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            except OSError:
+                process.process.kill()
         process.process.wait(timeout=timeout)
 
 
@@ -424,13 +530,23 @@ def stop_python_process_matching(pattern: str) -> bool:
     return result.returncode == 0
 
 
-def clear_old_processes(port: int, devices: list[DeviceConfig], config: Config, tiled_port: int | None = None) -> None:
+def clear_old_processes(
+    port: int,
+    devices: list[DeviceConfig],
+    config: Config,
+    tiled_port: int | None = None,
+    mcp_port: int | None = None,
+) -> None:
     stopped_databases = stop_processes_on_port(port)
     status_line("OK" if stopped_databases else "SKIP", f"database port {port}", f"{stopped_databases} process(es) signaled")
 
     if tiled_port is not None and tiled_port != port:
         stopped_tiled = stop_processes_on_port(tiled_port)
         status_line("OK" if stopped_tiled else "SKIP", f"Tiled port {tiled_port}", f"{stopped_tiled} process(es) signaled")
+
+    if mcp_port is not None and mcp_port not in {port, tiled_port}:
+        stopped_mcp = stop_processes_on_port(mcp_port)
+        status_line("OK" if stopped_mcp else "SKIP", f"MCP port {mcp_port}", f"{stopped_mcp} process(es) signaled")
 
     stopped_servers = 0
     cleanup_patterns = {f"{device.class_name} {device.instance_name}" for device in devices}
@@ -473,7 +589,24 @@ def wait_for_device(device_name: str, timeout: int) -> float:
     raise TimeoutError(f"{device_name} did not become ready after {timeout}s. Last error: {last_error}")
 
 
-def register_devices(devices: list[DeviceConfig], microscope_properties: dict[str, list[str]]) -> None:
+def wait_for_tcp_port(host: str, port: int, timeout: int) -> float:
+    connect_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    start = time.monotonic()
+    last_error: Exception | None = None
+    while time.monotonic() - start < timeout:
+        try:
+            with socket.create_connection((connect_host, port), timeout=1.0):
+                return time.monotonic() - start
+        except OSError as exc:
+            last_error = exc
+            print(color(".", Style.dim), end="", flush=True)
+            time.sleep(1)
+    raise TimeoutError(f"{host}:{port} did not accept TCP connections after {timeout}s. Last error: {last_error}")
+
+
+def register_devices(
+    devices: list[DeviceConfig], microscope_properties: dict[str, list[str]]
+) -> None:
     database = tango.Database()
     status_line("OK", "database", f"{database.get_db_host()}:{database.get_db_port()}")
 
@@ -511,7 +644,9 @@ def print_debug_output(processes: Iterable[ManagedProcess]) -> None:
     for process in processes:
         stdout = read_process_output(process.process.stdout)
         stderr = read_process_output(process.process.stderr)
-        print(f"{color(process.label, Style.bold)}  pid={process.pid}  running={process.running}  returncode={process.process.poll()}")
+        print(
+            f"{color(process.label, Style.bold)}  pid={process.pid}  running={process.running}  returncode={process.process.poll()}"
+        )
         print(f"  command: {' '.join(process.command)}")
         print(f"  stdout: {stdout or '(empty)'}")
         print(f"  stderr: {stderr or '(empty)'}")
@@ -526,8 +661,17 @@ def print_inventory(devices: list[DeviceConfig]) -> None:
         status_line("RUN", device.key.ljust(key_width), f"{device.class_name.ljust(class_width)}  {device.device_name}")
 
 
-def print_summary(host: str, port: int, processes: list[ManagedProcess], ready_times: dict[str, float], tiled_config: dict | None = None) -> None:
-    print_section(5, 5, "Startup summary")
+def print_summary(
+    host: str,
+    port: int,
+    processes: list[ManagedProcess],
+    ready_times: dict[str, float],
+    tiled_config: dict | None = None,
+    mcp_config: MCPConfig | None = None,
+    step: int = 5,
+    total: int = 5,
+) -> None:
+    print_section(step, total, "Startup summary")
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
     print()
@@ -536,11 +680,17 @@ def print_summary(host: str, port: int, processes: list[ManagedProcess], ready_t
     for process in processes:
         ready = ready_times.get(process.key)
         ready_text = f"{ready:.1f}s" if ready is not None else "-"
-        print(f"  {process.key:<14} {process.pid:>8} {ready_text:>10}  {' '.join(process.command)}")
+        print(
+            f"  {process.key:<14} {process.pid:>8} {ready_text:>10}  {' '.join(process.command)}"
+        )
     if tiled_config is not None:
         print()
         print(f"  {color('TILED_URI', Style.bold):<18} {tiled_config['uri']}")
         print(f"  {color('TILED_SERVING', Style.bold):<18} {tiled_config['tiled_server_serving']}")
+    if mcp_config is not None and mcp_config.autostart:
+        print()
+        print(f"  {color('MCP_HTTP', Style.bold):<18} http://{mcp_config.http_host}:{mcp_config.http_port}/mcp")
+        print(f"  {color('MCP_CLASS', Style.bold):<18} {mcp_config.class_name}")
     print()
     print(color("All asyncroscopy servers are ready.", Style.bold + Style.green))
 
@@ -578,6 +728,7 @@ def main(argv: list[str] | None = None) -> int:
         tiled_host, tiled_port = config.tiled.host, config.tiled.port
         acquisition_dir = config.tiled.acquisition_dir
         should_start_tiled = config.tiled.autostart
+        should_start_mcp = config.mcp.autostart
         clear_first = start_database = should_register_devices = True
         device_timeout = config.device_timeout_seconds
         if micro_config.host is not None and micro_config.port is not None:
@@ -591,17 +742,33 @@ def main(argv: list[str] | None = None) -> int:
         default_tiled = urlsplit(os.environ.get("ASYNCROSCOPY_TILED_URI", f"http://{config.tiled.host}:{config.tiled.port}"))
         tiled_host = prompt_str("Tiled HTTP host", default_tiled.hostname or config.tiled.host)
         tiled_port = prompt_int("Tiled HTTP port", default_tiled.port or config.tiled.port)
-        acquisition_dir = prompt_str("Acquisition save path", os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR", config.tiled.acquisition_dir))
+        acquisition_dir = prompt_str(
+            "Acquisition save path",
+            os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR", config.tiled.acquisition_dir),
+        )
         should_start_tiled = prompt_bool("Start Tiled HTTP server", config.tiled.autostart)
+        should_start_mcp = prompt_bool("Start MCP HTTP server", config.mcp.autostart)
         clear_first = prompt_bool("Clear old processes first", True)
         start_database = prompt_bool("Start Tango database", True)
         should_register_devices = prompt_bool("Register devices", True)
         device_timeout = prompt_int("Device startup timeout seconds", config.device_timeout_seconds)
+        if should_start_mcp:
+            config = replace(
+                config,
+                mcp=replace(
+                    config.mcp,
+                    autostart=True,
+                    http_host=prompt_str("MCP HTTP host", config.mcp.http_host),
+                    http_port=prompt_int("MCP HTTP port", config.mcp.http_port),
+                ),
+            )
         if micro_config.host is not None and micro_config.port is not None:
             autoscript_host = prompt_str("AutoScript host IP", str(micro_config.host))
             autoscript_port = prompt_int("AutoScript host port", int(micro_config.port))
             microscope_properties["autoscript_host_ip"] = [autoscript_host]
             microscope_properties["autoscript_host_port"] = [str(autoscript_port)]
+
+    total_steps = 6 if should_start_mcp else 5
 
     environment = make_environment(host, port, tiled_host, tiled_port, acquisition_dir)
     processes: list[ManagedProcess] = []
@@ -613,16 +780,24 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
     print(f"  {color('CONFIG', Style.bold):<18} {config_path}")
     print(f"  {color('MICROSCOPE', Style.bold):<18} {args.microscope} ({microscope.class_name})")
+    if should_start_mcp:
+        print(f"  {color('MCP', Style.bold):<18} {config.mcp.class_name} ({config.mcp.http_host}:{config.mcp.http_port})")
     print_inventory(devices)
 
     try:
-        print_section(1, 5, "Clearing old processes")
+        print_section(1, total_steps, "Clearing old processes")
         if clear_first:
-            clear_old_processes(port, devices, config, tiled_port if should_start_tiled else None)
+            clear_old_processes(
+                port,
+                devices,
+                config,
+                tiled_port if should_start_tiled else None,
+                config.mcp.http_port if should_start_mcp else None,
+            )
         else:
             status_line("SKIP", "old process cleanup")
 
-        print_section(2, 5, "Starting Tango database")
+        print_section(2, total_steps, "Starting Tango database")
         if start_database:
             database = start_process(
                 "database",
@@ -634,20 +809,22 @@ def main(argv: list[str] | None = None) -> int:
             print("  WAIT  database readiness", end="", flush=True)
             elapsed = wait_for_database(host, port, DATABASE_TIMEOUT_SECONDS)
             ready_times["database"] = elapsed
-            print(f" {color('OK', Style.green)} pid={database.pid} ready in {elapsed:.1f}s")
+            print(
+                f" {color('OK', Style.green)} pid={database.pid} ready in {elapsed:.1f}s"
+            )
         else:
             print("  WAIT  existing database readiness", end="", flush=True)
             elapsed = wait_for_database(host, port, DATABASE_TIMEOUT_SECONDS)
             ready_times["database"] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
-        print_section(3, 5, "Registering devices")
+        print_section(3, total_steps, "Registering devices")
         if should_register_devices:
             register_devices(devices, microscope_properties)
         else:
             status_line("SKIP", "device registration")
 
-        print_section(4, 5, "Starting device servers")
+        print_section(4, total_steps, "Starting device servers")
         for device in regular_devices:
             process = start_process(device.key, device.class_name, device.command, environment)
             processes.append(process)
@@ -662,7 +839,9 @@ def main(argv: list[str] | None = None) -> int:
         if should_start_tiled:
             tiled_config = json.loads(get_data_proxy().start_tiled_server())
             if tiled_config["tiled_server"] != "yes":
-                raise RuntimeError(f"Tiled HTTP server failed to start: {tiled_config['tiled_server_status']}")
+                raise RuntimeError(
+                    f"Tiled HTTP server failed to start: {tiled_config['tiled_server_status']}"
+                )
             status_line("OK", "Tiled HTTP server", f"{tiled_config['uri']} serving {tiled_config['tiled_server_serving']}")
         else:
             status_line("SKIP", "Tiled HTTP server")
@@ -677,9 +856,44 @@ def main(argv: list[str] | None = None) -> int:
             ready_times[device.key] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
-        print_summary(host, port, processes, ready_times, tiled_config)
+        if should_start_mcp:
+            print_section(5, total_steps, "Starting MCP server")
+            mcp_process = start_process(
+                "mcp",
+                config.mcp.class_name,
+                config.mcp.command(host, port),
+                environment,
+            )
+            processes.append(mcp_process)
+            status_line("RUN", "mcp", f"{config.mcp.class_name}  pid={mcp_process.pid}")
+            print(
+                f"  WAIT  MCP HTTP {config.mcp.http_host}:{config.mcp.http_port:<21}",
+                end="",
+                flush=True,
+            )
+            elapsed = wait_for_tcp_port(config.mcp.http_host, config.mcp.http_port, device_timeout)
+            ready_times["mcp"] = elapsed
+            print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
+        else:
+            status_line("SKIP", "MCP HTTP server")
+
+        print_summary(
+            host,
+            port,
+            processes,
+            ready_times,
+            tiled_config,
+            config.mcp if should_start_mcp else None,
+            step=total_steps,
+            total=total_steps,
+        )
         print()
-        print(color("Leave this terminal open while you use the servers. Press Ctrl+C to stop them.", Style.dim))
+        print(
+            color(
+                "Leave this terminal open while you use the servers. Press Ctrl+C to stop them.",
+                Style.dim,
+            )
+        )
         while True:
             time.sleep(1)
 
