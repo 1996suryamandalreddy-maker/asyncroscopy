@@ -4,7 +4,8 @@
 database mode** from a single terminal: it clears stale processes, starts the
 Tango database, registers every device, launches each device server, starts the
 Tiled HTTP server, and finally starts the microscope (which depends on the
-others). It is interactive — it asks a short list of questions with sensible
+others). If the active YAML enables `mcp.autostart`, it starts the MCP HTTP
+server last. It is interactive — it asks a short list of questions with sensible
 defaults, then stays running so you can use the servers.
 
 ## TL;DR
@@ -17,6 +18,7 @@ uv run scripts/run_servers.py --microscope dt   # digital twin (DigitalTwin), in
 uv run scripts/run_servers.py --yaml configs/Spectra300.yaml
 uv run scripts/run_servers.py --yaml configs\ThinkPad-utkarsh-covalent-setup.yaml
 uv run scripts/run_servers.py --yaml configs/Spectra300.yaml --microscope dt
+uv run scripts/run_servers.py --yaml configs/Spectra300_MCP.yaml --microscope dt
 ```
 
 - Press **Enter** at every prompt to accept the value in `[brackets]`.
@@ -31,7 +33,8 @@ uv run scripts/run_servers.py --yaml configs/Spectra300.yaml --microscope dt
 |-------|-----------|------------|
 | 1 | support devices | `asyncroscopy/{camera,corrector,data,eds,flucam,scan,stage}/default` |
 | 2 | Tiled HTTP server | started via the `data` device |
-| 3 | microscope (last, depends on the rest) | `asyncroscopy/microscope/default` |
+| 3 | microscope (depends on the rest) | `asyncroscopy/microscope/default` |
+| 4 | MCP HTTP server, when enabled | `http://{mcp.http_host}:{mcp.http_port}/mcp` |
 
 The microscope is started last and given the addresses of the support devices as
 database properties, so it can find them via `DeviceProxy`. In `real` mode it
@@ -40,19 +43,27 @@ also receives the AutoScript host/port.
 ## Configs (`--yaml`)
 
 The script's startup values — which devices to launch, the microscope class, and
-the hosts/ports/paths — live in a YAML file under [configs/](../../configs). Two
+the hosts/ports/paths — live in a YAML file under [configs/](../../configs). Three
 ship today:
 
 | File | For |
 |------|-----|
 | [configs/Spectra300.yaml](../../configs/Spectra300.yaml) | The real Spectra 300 (the default config). |
+| [configs/Spectra300_MCP.yaml](../../configs/Spectra300_MCP.yaml) | Local Spectra 300 / digital-twin startup with MCP autostart enabled. |
 | [configs/ThinkPad-utkarsh-covalent-setup.yaml](../../configs/ThinkPad-utkarsh-covalent-setup.yaml) | A localhost-everywhere setup for local testing. |
 
 Each file has a `microscope:` block (real) and an optional `digital_twin:` block;
 `--microscope {real,dt}` chooses between them. Device `class_name` defaults to the
 key upper-cased (`scan` → `SCAN`). A `microscope.host`/`port` becomes the
-microscope's `autoscript_host_ip`/`_port`. The `mcp:` block is reserved — the
-script does not start MCP yet.
+microscope's `autoscript_host_ip`/`_port`.
+
+The optional `mcp:` block controls the FastMCP server. Set `autostart: true` to
+start it after all Tango devices are ready. The MCP server connects back through
+the Tango database, discovers exported device commands, filters
+`blocked_classes` and `blocked_functions`, and exposes the remaining commands as
+tools. Native MCP helpers can be added by subclassing
+`asyncroscopy.mcp.mcp_server.MCPServer` and decorating methods with `@tool()`,
+`@resource()`, or `@prompt()`.
 
 **Two ways to run:**
 
@@ -77,15 +88,17 @@ shown come from the active config (`configs/Spectra300.yaml` unless overridden).
 | Tiled HTTP port | `9091` | Tiled port. |
 | Acquisition save path | `outputs/tiled_acquisitions` | Directory written and served by Tiled. |
 | Start Tiled HTTP server | `Y` | Start Tiled, or skip if one already runs. |
+| Start MCP HTTP server | from `mcp.autostart` | Start the FastMCP HTTP server after Tango devices are ready. |
 | Clear old processes first | `Y` | Kill stale servers / free the ports before starting. |
 | Start Tango database | `Y` | Start the DB, or attach to one already running. |
 | Register devices | `Y` | Add device entries + microscope properties to the DB. |
 | Device startup timeout (s) | `120` | How long to wait for each device to answer a ping. |
+| MCP HTTP host / port | `127.0.0.1` / `8000` | MCP endpoint for local model clients. Asked only when MCP is enabled interactively. |
 | AutoScript host IP / port | `10.46.217.241` / `9095` | `real` mode only — the microscope PC. Point at a simulator here. |
 
-## The five stages
+## The startup stages
 
-The run prints progress as five sections:
+The run prints progress as five sections, or six when MCP autostart is enabled:
 
 1. **Clearing old processes** — frees the database/Tiled ports and kills any
    leftover device servers (skipped if you answered no).
@@ -95,8 +108,10 @@ The run prints progress as five sections:
    microscope's `*_device_address` (and AutoScript) properties.
 4. **Starting device servers** — launches the support devices, waits for each to
    ping, starts Tiled, then starts the microscope last.
-5. **Startup summary** — prints `TANGO_HOST`, each server's PID and ready time,
-   and the Tiled URI / serving path.
+5. **Starting MCP server** — only when `mcp.autostart` is true; starts FastMCP
+   after the Tango device inventory is live and waits for the HTTP port.
+6. **Startup summary** — prints `TANGO_HOST`, each server's PID and ready time,
+   the Tiled URI / serving path, and the MCP endpoint when enabled.
 
 ## When something goes wrong
 
@@ -135,6 +150,15 @@ uv run python -m asyncroscopy.hardware.SCAN scan_instance
 # The microscope (another terminal)
 export TANGO_HOST=localhost:9094
 uv run python -m asyncroscopy.ThermoMicroscope microscope_instance
+
+# MCP over streamable HTTP (after the DB and devices are up)
+uv run python -m asyncroscopy.mcp.mcp_server \
+  --class-name ThermoMCP \
+  --name Spectra300_MCP \
+  --tango-host localhost \
+  --tango-port 9094 \
+  --http-host 127.0.0.1 \
+  --http-port 8000
 
 # Client side
 export TANGO_HOST=localhost:9094
