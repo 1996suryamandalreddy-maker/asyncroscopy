@@ -98,6 +98,7 @@ class DigitalTwin(Microscope):
         self._manufacturer = "UTKTeam"
         self._beam_pos_x = 0.5
         self._beam_pos_y = 0.5
+        self._defocus = 0.0
         self._imsize = 512
         self._fov = 200e-10  # meters
         self._stage_position = np.zeros(5, dtype=np.float64)  # x, y, z, alpha, beta
@@ -139,7 +140,9 @@ class DigitalTwin(Microscope):
                 self.info_stream(f"Skipping {name}: no address configured")
                 continue
             try:
-                self._detector_proxies[name] = tango.DeviceProxy(address)
+                proxy = tango.DeviceProxy(address)
+                proxy.set_timeout_millis(12_000)
+                self._detector_proxies[name] = proxy
                 self.info_stream(f"Connected to detector proxy: {name} @ {address}")
             except tango.DevFailed as e:
                 self.error_stream(f"Failed to connect to {name} proxy at {address}: {e}")
@@ -593,6 +596,14 @@ class DigitalTwin(Microscope):
     def _set_fov(self, fov) -> None:
         """Set the field of view in meters."""
         self._fov = float(fov)
+
+    def _set_defocus(self, defocus) -> None:
+        """Set defocus in meters."""
+        self._defocus = float(defocus)
+
+    def _get_defocus(self) -> float:
+        """Get defocus in meters."""
+        return self._defocus
 
     def _get_stage(self):
         """Return the current 5-axis stage position."""

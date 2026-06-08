@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import signal
 import subprocess
@@ -12,19 +13,23 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import urlsplit
 
 import tango
+import yaml
 
 
-DEFAULT_TANGO_HOST = "10.46.217.241"
-DEFAULT_TANGO_PORT = 9094
 DATABASE_TIMEOUT_SECONDS = 120
-DEVICE_TIMEOUT_SECONDS = 120
+TILED_COMMAND_TIMEOUT_MILLIS = 120_000
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
+
+# Default config used in interactive mode (no --yaml). Passing --yaml <file>
+# selects a different config AND runs headlessly (no prompts).
+DEFAULT_CONFIG_PATH = PROJECT_DIR / "configs" / "Spectra300.yaml"
 
 
 class Style:
@@ -77,89 +82,140 @@ class ManagedProcess:
     def running(self) -> bool:
         return self.process.poll() is None
 
-# TODO: Break out alternate configs into .yaml files or somthing
-# TODO: ex. UTKSpectra300.yaml, DigitatlTwin.yaml, WDTwin.yaml
-# TODO: --debug flag where all the terminal outputs of the servers show in this termainl (or are saved to file)
-
-MICROSCOPE_MODES = {
-    "real": ("ThermoMicroscope", "asyncroscopy.ThermoMicroscope"),
-    "dt": ("DigitalTwin", "asyncroscopy.DigitalTwin"),
-}
-
-SUPPORT_DEVICES = [
-    DeviceConfig(
-        key="camera",
-        class_name="CAMERA",
-        module_name="asyncroscopy.detectors.CAMERA",
-    ),
-    DeviceConfig(
-        key="corrector",
-        class_name="CORRECTOR",
-        module_name="asyncroscopy.hardware.CORRECTOR",
-    ),
-    DeviceConfig(
-        key="data",
-        class_name="DATA",
-        module_name="asyncroscopy.software.DATA",
-    ),
-    DeviceConfig(
-        key="eds",
-        class_name="EDS",
-        module_name="asyncroscopy.detectors.EDS",
-    ),
-    DeviceConfig(
-        key="flucam",
-        class_name="FLUCAM",
-        module_name="asyncroscopy.detectors.FLUCAM",
-    ),
-    DeviceConfig(
-        key="scan",
-        class_name="SCAN",
-        module_name="asyncroscopy.hardware.SCAN",
-    ),
-    DeviceConfig(
-        key="stage",
-        class_name="STAGE",
-        module_name="asyncroscopy.hardware.STAGE",
-    ),
-]
+# TODO: --debug flag where all server output streams to this terminal / log files (next commit).
 
 
-def build_devices(microscope_mode: str) -> list[DeviceConfig]:
-    microscope_class, microscope_module = MICROSCOPE_MODES[microscope_mode]
+@dataclass(frozen=True)
+class MicroscopeConfig:
+    class_name: str
+    module_name: str
+    description: str = ""
+    host: str | None = None
+    port: int | None = None
+
+
+@dataclass(frozen=True)
+class TiledConfig:
+    host: str
+    port: int
+    acquisition_dir: str
+    autostart: bool = True
+
+
+@dataclass(frozen=True)
+class Config:
+    path: Path
+    microscope: MicroscopeConfig
+    digital_twin: MicroscopeConfig | None
+    support_devices: list[DeviceConfig]
+    tango_host: str
+    tango_port: int
+    tiled: TiledConfig
+    device_timeout_seconds: int
+
+
+def _require(mapping, key: str, where: str):
+    if not isinstance(mapping, dict) or key not in mapping:
+        raise KeyError(f"Config section '{where}' is missing required key '{key}'")
+    return mapping[key]
+
+
+def _microscope_config(raw: dict) -> MicroscopeConfig:
+    return MicroscopeConfig(
+        class_name=_require(raw, "class_name", "microscope"),
+        module_name=_require(raw, "module_name", "microscope"),
+        description=raw.get("description", ""),
+        host=raw.get("host"),
+        port=raw.get("port"),
+    )
+
+
+def load_config(path: Path) -> Config:
+    if not path.exists():
+        raise FileNotFoundError(f"Config file not found: {path}")
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+    support_devices = [
+        DeviceConfig(
+            key=key,
+            class_name=(spec or {}).get("class_name", key.upper()),
+            module_name=_require(spec or {}, "module_name", f"devices.{key}"),
+        )
+        for key, spec in _require(raw, "devices", "(top level)").items()
+    ]
+    digital_twin = raw.get("digital_twin")
+    tango_section = raw.get("tango", {})
+    tiled = _require(raw, "tiled", "(top level)")
+
+    return Config(
+        path=path,
+        microscope=_microscope_config(_require(raw, "microscope", "(top level)")),
+        digital_twin=_microscope_config(digital_twin) if digital_twin else None,
+        support_devices=support_devices,
+        tango_host=_require(tango_section, "host", "tango"),
+        tango_port=int(_require(tango_section, "port", "tango")),
+        tiled=TiledConfig(
+            host=_require(tiled, "host", "tiled"),
+            port=int(_require(tiled, "port", "tiled")),
+            acquisition_dir=_require(tiled, "acquisition_dir", "tiled"),
+            autostart=bool(tiled.get("autostart", True)),
+        ),
+        device_timeout_seconds=int(raw.get("device_timeout_seconds", 120)),
+    )
+
+
+def selected_microscope_config(config: Config, mode: str) -> MicroscopeConfig:
+    if mode == "dt":
+        if config.digital_twin is None:
+            raise ValueError(f"{config.path} has no 'digital_twin' block (needed for --microscope dt)")
+        return config.digital_twin
+    return config.microscope
+
+
+def build_devices(config: Config, mode: str) -> list[DeviceConfig]:
+    micro = selected_microscope_config(config, mode)
     return [
-        *SUPPORT_DEVICES,
+        *config.support_devices,
         DeviceConfig(
             key="microscope",
-            class_name=microscope_class,
-            module_name=microscope_module,
+            class_name=micro.class_name,
+            module_name=micro.module_name,
             start_after_dependencies=True,
         ),
     ]
 
 
-DEVICES = build_devices("real")
-
-MICROSCOPE_DEVICE_KEYS = ("scan", "camera", "flucam", "eds", "stage", "corrector", "data")
-MICROSCOPE_PROPERTIES = {
-    f"{device_key}_device_address": [f"asyncroscopy/{device_key}/default"]
-    for device_key in MICROSCOPE_DEVICE_KEYS
-}
+def device_address_properties(config: Config) -> dict[str, list[str]]:
+    return {
+        f"{device.key}_device_address": [device.device_name]
+        for device in config.support_devices
+    }
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--microscope",
-        choices=sorted(MICROSCOPE_MODES),
+        choices=["real", "dt"],
         default="real",
-        help="Microscope backend to start. Defaults to real.",
+        help="Which block to start: 'real' microscope or 'dt' digital twin. Defaults to real.",
+    )
+    parser.add_argument(
+        "--yaml",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="YAML config to start from. When given, runs headlessly (no prompts). "
+        "When omitted, uses the bundled default config and prompts interactively.",
     )
     return parser.parse_args(argv)
 
 
-def all_microscope_cleanup_patterns() -> set[str]:
-    return {f"{class_name} microscope_instance" for class_name, _ in MICROSCOPE_MODES.values()}
+def all_microscope_cleanup_patterns(config: Config) -> set[str]:
+    classes = {config.microscope.class_name}
+    if config.digital_twin is not None:
+        classes.add(config.digital_twin.class_name)
+    return {f"{class_name} microscope_instance" for class_name in classes}
 
 
 def selected_microscope(devices: list[DeviceConfig]) -> DeviceConfig:
@@ -228,10 +284,16 @@ def status_line(status: str, message: str, detail: str = "") -> None:
         print(f"  {tag}  {message}")
 
 
-def make_environment(host: str, port: int) -> dict[str, str]:
+def make_environment(host: str, port: int, tiled_host: str, tiled_port: int, acquisition_dir: str) -> dict[str, str]:
     tango_host = f"{host}:{port}"
     os.environ["TANGO_HOST"] = tango_host
-    return {**os.environ, "TANGO_HOST": tango_host, "PYTHONUNBUFFERED": "1"}
+    return {
+        **os.environ,
+        "TANGO_HOST": tango_host,
+        "ASYNCROSCOPY_TILED_URI": f"http://{tiled_host}:{tiled_port}",
+        "ASYNCROSCOPY_ACQUISITION_DIR": acquisition_dir,
+        "PYTHONUNBUFFERED": "1",
+    }
 
 
 def start_process(key: str, label: str, command: list[str], environment: dict[str, str]) -> ManagedProcess:
@@ -362,13 +424,17 @@ def stop_python_process_matching(pattern: str) -> bool:
     return result.returncode == 0
 
 
-def clear_old_processes(port: int, devices: list[DeviceConfig]) -> None:
+def clear_old_processes(port: int, devices: list[DeviceConfig], config: Config, tiled_port: int | None = None) -> None:
     stopped_databases = stop_processes_on_port(port)
     status_line("OK" if stopped_databases else "SKIP", f"database port {port}", f"{stopped_databases} process(es) signaled")
 
+    if tiled_port is not None and tiled_port != port:
+        stopped_tiled = stop_processes_on_port(tiled_port)
+        status_line("OK" if stopped_tiled else "SKIP", f"Tiled port {tiled_port}", f"{stopped_tiled} process(es) signaled")
+
     stopped_servers = 0
     cleanup_patterns = {f"{device.class_name} {device.instance_name}" for device in devices}
-    cleanup_patterns.update(all_microscope_cleanup_patterns())
+    cleanup_patterns.update(all_microscope_cleanup_patterns(config))
     for pattern in sorted(cleanup_patterns):
         if stop_python_process_matching(pattern):
             stopped_servers += 1
@@ -407,7 +473,7 @@ def wait_for_device(device_name: str, timeout: int) -> float:
     raise TimeoutError(f"{device_name} did not become ready after {timeout}s. Last error: {last_error}")
 
 
-def register_devices(devices: list[DeviceConfig]) -> None:
+def register_devices(devices: list[DeviceConfig], microscope_properties: dict[str, list[str]]) -> None:
     database = tango.Database()
     status_line("OK", "database", f"{database.get_db_host()}:{database.get_db_port()}")
 
@@ -420,9 +486,22 @@ def register_devices(devices: list[DeviceConfig]) -> None:
         status_line("OK", device.device_name)
 
     microscope = selected_microscope(devices)
-    for property_name, property_value in MICROSCOPE_PROPERTIES.items():
+    for property_name, property_value in microscope_properties.items():
         database.put_device_property(microscope.device_name, {property_name: property_value})
         status_line("OK", f"property: {property_name} = {property_value[0]}")
+
+
+def get_data_proxy() -> tango.DeviceProxy:
+    data = tango.DeviceProxy("asyncroscopy/data/default")
+    data.set_timeout_millis(TILED_COMMAND_TIMEOUT_MILLIS)
+    return data
+
+
+def stop_tiled_server() -> None:
+    try:
+        get_data_proxy().stop_tiled_server()
+    except Exception:
+        pass
 
 
 def print_debug_output(processes: Iterable[ManagedProcess]) -> None:
@@ -447,7 +526,7 @@ def print_inventory(devices: list[DeviceConfig]) -> None:
         status_line("RUN", device.key.ljust(key_width), f"{device.class_name.ljust(class_width)}  {device.device_name}")
 
 
-def print_summary(host: str, port: int, processes: list[ManagedProcess], ready_times: dict[str, float]) -> None:
+def print_summary(host: str, port: int, processes: list[ManagedProcess], ready_times: dict[str, float], tiled_config: dict | None = None) -> None:
     print_section(5, 5, "Startup summary")
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
@@ -458,42 +537,88 @@ def print_summary(host: str, port: int, processes: list[ManagedProcess], ready_t
         ready = ready_times.get(process.key)
         ready_text = f"{ready:.1f}s" if ready is not None else "-"
         print(f"  {process.key:<14} {process.pid:>8} {ready_text:>10}  {' '.join(process.command)}")
+    if tiled_config is not None:
+        print()
+        print(f"  {color('TILED_URI', Style.bold):<18} {tiled_config['uri']}")
+        print(f"  {color('TILED_SERVING', Style.bold):<18} {tiled_config['tiled_server_serving']}")
     print()
     print(color("All asyncroscopy servers are ready.", Style.bold + Style.green))
 
 
 def main(argv: list[str] | None = None) -> int:
+    def request_shutdown(_signum, _frame) -> None:
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, request_shutdown)
+    if hasattr(signal, "SIGHUP"):
+        signal.signal(signal.SIGHUP, request_shutdown)
+
     args = parse_args(argv)
-    devices = build_devices(args.microscope)
+    config_path = args.yaml or DEFAULT_CONFIG_PATH
+    try:
+        config = load_config(config_path)
+    except (FileNotFoundError, KeyError, ValueError) as exc:
+        print(color(f"Config error: {exc}", Style.bold + Style.red))
+        return 1
+
+    headless = args.yaml is not None
+    devices = build_devices(config, args.microscope)
     microscope = selected_microscope(devices)
+    micro_config = selected_microscope_config(config, args.microscope)
     regular_devices = [device for device in devices if not device.start_after_dependencies]
     dependency_devices = [device for device in devices if device.start_after_dependencies]
 
     print_banner("ASYNCROSCOPY SERVER STARTUP")
-    print("Press Enter at any prompt to use the value shown in brackets.")
-    print()
 
-    host = prompt_str("Tango database host", DEFAULT_TANGO_HOST)
-    port = prompt_int("Tango database port", DEFAULT_TANGO_PORT)
-    clear_first = prompt_bool("Clear old processes first", True)
-    start_database = prompt_bool("Start Tango database", True)
-    should_register_devices = prompt_bool("Register devices", True)
-    device_timeout = prompt_int("Device startup timeout seconds", DEVICE_TIMEOUT_SECONDS)
+    microscope_properties = device_address_properties(config)
+    if headless:
+        print(f"Headless start from {config_path}")
+        print()
+        host, port = config.tango_host, config.tango_port
+        tiled_host, tiled_port = config.tiled.host, config.tiled.port
+        acquisition_dir = config.tiled.acquisition_dir
+        should_start_tiled = config.tiled.autostart
+        clear_first = start_database = should_register_devices = True
+        device_timeout = config.device_timeout_seconds
+        if micro_config.host is not None and micro_config.port is not None:
+            microscope_properties["autoscript_host_ip"] = [str(micro_config.host)]
+            microscope_properties["autoscript_host_port"] = [str(micro_config.port)]
+    else:
+        print("Press Enter at any prompt to use the value shown in brackets.")
+        print()
+        host = prompt_str("Tango database host", config.tango_host)
+        port = prompt_int("Tango database port", config.tango_port)
+        default_tiled = urlsplit(os.environ.get("ASYNCROSCOPY_TILED_URI", f"http://{config.tiled.host}:{config.tiled.port}"))
+        tiled_host = prompt_str("Tiled HTTP host", default_tiled.hostname or config.tiled.host)
+        tiled_port = prompt_int("Tiled HTTP port", default_tiled.port or config.tiled.port)
+        acquisition_dir = prompt_str("Acquisition save path", os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR", config.tiled.acquisition_dir))
+        should_start_tiled = prompt_bool("Start Tiled HTTP server", config.tiled.autostart)
+        clear_first = prompt_bool("Clear old processes first", True)
+        start_database = prompt_bool("Start Tango database", True)
+        should_register_devices = prompt_bool("Register devices", True)
+        device_timeout = prompt_int("Device startup timeout seconds", config.device_timeout_seconds)
+        if micro_config.host is not None and micro_config.port is not None:
+            autoscript_host = prompt_str("AutoScript host IP", str(micro_config.host))
+            autoscript_port = prompt_int("AutoScript host port", int(micro_config.port))
+            microscope_properties["autoscript_host_ip"] = [autoscript_host]
+            microscope_properties["autoscript_host_port"] = [str(autoscript_port)]
 
-    environment = make_environment(host, port)
+    environment = make_environment(host, port, tiled_host, tiled_port, acquisition_dir)
     processes: list[ManagedProcess] = []
     ready_times: dict[str, float] = {}
+    tiled_config = None
 
     print()
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
+    print(f"  {color('CONFIG', Style.bold):<18} {config_path}")
     print(f"  {color('MICROSCOPE', Style.bold):<18} {args.microscope} ({microscope.class_name})")
     print_inventory(devices)
 
     try:
         print_section(1, 5, "Clearing old processes")
         if clear_first:
-            clear_old_processes(port, devices)
+            clear_old_processes(port, devices, config, tiled_port if should_start_tiled else None)
         else:
             status_line("SKIP", "old process cleanup")
 
@@ -518,7 +643,7 @@ def main(argv: list[str] | None = None) -> int:
 
         print_section(3, 5, "Registering devices")
         if should_register_devices:
-            register_devices(devices)
+            register_devices(devices, microscope_properties)
         else:
             status_line("SKIP", "device registration")
 
@@ -534,6 +659,14 @@ def main(argv: list[str] | None = None) -> int:
             ready_times[device.key] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
+        if should_start_tiled:
+            tiled_config = json.loads(get_data_proxy().start_tiled_server())
+            if tiled_config["tiled_server"] != "yes":
+                raise RuntimeError(f"Tiled HTTP server failed to start: {tiled_config['tiled_server_status']}")
+            status_line("OK", "Tiled HTTP server", f"{tiled_config['uri']} serving {tiled_config['tiled_server_serving']}")
+        else:
+            status_line("SKIP", "Tiled HTTP server")
+
         for device in dependency_devices:
             print()
             status_line("RUN", device.key, f"{device.module_name}  starting after dependencies")
@@ -544,7 +677,7 @@ def main(argv: list[str] | None = None) -> int:
             ready_times[device.key] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
-        print_summary(host, port, processes, ready_times)
+        print_summary(host, port, processes, ready_times, tiled_config)
         print()
         print(color("Leave this terminal open while you use the servers. Press Ctrl+C to stop them.", Style.dim))
         while True:
@@ -553,6 +686,7 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print()
         print(color("Shutdown requested. Stopping managed processes...", Style.yellow))
+        stop_tiled_server()
         stop_all(processes)
         status_line("OK", "shutdown complete")
         return 0
@@ -560,6 +694,7 @@ def main(argv: list[str] | None = None) -> int:
         print()
         print(color(f"Startup failed: {exc}", Style.bold + Style.red))
         print_debug_output(processes)
+        stop_tiled_server()
         stop_all(processes)
         return 1
 

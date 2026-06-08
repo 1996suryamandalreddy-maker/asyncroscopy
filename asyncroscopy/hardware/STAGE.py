@@ -35,8 +35,8 @@ class STAGE(Device):
         dtype=float,
         access=AttrWriteType.READ_WRITE,
         unit="m",
-        # min_value= TODO: set these
-        # max_value= TODO: set these
+        # min_value= TODO: set these - AS-example -  specimen.stage.get_axis_limits
+        # max_value= TODO: set these - AS-example -  specimen.stage.get_axis_limits
         doc="Stage X position in meters",
     )
 
@@ -105,7 +105,7 @@ class STAGE(Device):
 
     def read_beta_tilt_enabled(self) -> bool:
         return self._beta_tilt_enabled
-    
+
     def write_beta_tilt_enabled(self, value: bool) -> None:
         self._beta_tilt_enabled = value
 
@@ -114,19 +114,19 @@ class STAGE(Device):
 
     def write_x(self, value: float) -> None:
         self._x = value
-    
+
     def read_y(self) -> float:
         return self._y
 
     def write_y(self, value: float) -> None:
         self._y = value
-    
+
     def read_z(self) -> float:
         return self._z
 
     def write_z(self, value: float) -> None:
         self._z = value
-    
+
     def read_alpha(self) -> float:
         return self._alpha
 

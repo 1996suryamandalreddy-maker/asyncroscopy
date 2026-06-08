@@ -21,6 +21,11 @@ class TestDigitalTwin:
     def test_manufacturer_is_digital_twin(self, twin_proxy: tango.DeviceProxy):
         assert twin_proxy.manufacturer == "UTKTeam"
 
+    def test_defocus_commands_round_trip(self, twin_proxy: tango.DeviceProxy):
+        twin_proxy.set_defocus(8e-9)
+
+        assert twin_proxy.get_defocus() == pytest.approx(8e-9)
+
     def test_get_image_returns_saved_hdf5(self, twin_proxy: tango.DeviceProxy, scan_proxy: tango.DeviceProxy):
         scan_proxy.imsize = 32
         scan_proxy.dwell_time = 1e-6
@@ -30,10 +35,10 @@ class TestDigitalTwin:
         assert saved_path.suffix == ".h5"
         assert saved_path.exists()
         with h5py.File(saved_path, "r") as h5:
-            image = h5["image"][()]
+            image = h5["image/HAADF"][()]
             assert image.shape == (32, 32)
-            assert h5["image"].attrs["acquisition_type"] == "stem_image"
-            assert h5["image"].attrs["detector"] == "HAADF"
+            assert h5["image/HAADF"].attrs["acquisition_type"] == "stem_image"
+            assert h5["image/HAADF"].attrs["detector"] == "HAADF"
 
     def test_stage_navigation_changes_and_restores_view(
         self,
@@ -55,16 +60,16 @@ class TestDigitalTwin:
 
         twin_proxy.move_stage([0.0, 0.0, 0.0, 0.0, 0.0])
         with h5py.File(twin_proxy.acquire_scanned_image(["haadf"]), "r") as h5:
-            image_a = h5["image"][()]
+            image_a = h5["image/HAADF"][()]
 
         twin_proxy.move_stage([8e-9, -7e-9, 0.0, 0.0, 0.0])
         with h5py.File(twin_proxy.acquire_scanned_image(["haadf"]), "r") as h5:
-            image_b = h5["image"][()]
+            image_b = h5["image/HAADF"][()]
         assert not np.array_equal(image_a, image_b)
 
         twin_proxy.move_stage([0.0, 0.0, 0.0, 0.0, 0.0])
         with h5py.File(twin_proxy.acquire_scanned_image(["haadf"]), "r") as h5:
-            image_a_again = h5["image"][()]
+            image_a_again = h5["image/HAADF"][()]
         assert np.array_equal(image_a, image_a_again)
 
     def test_spectrum_is_repeatable_at_same_pose_and_beam(

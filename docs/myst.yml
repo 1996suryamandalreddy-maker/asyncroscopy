@@ -36,7 +36,11 @@ project:
         - file: MCP/asyncroscopy_mcp.md
     - title: Operation
       children:
-        - file: Operation/tango_db_mode.md
+        - file: Operation/run-servers.md
+        - file: Operation/troubleshooting.md
+    - title: Tiled Server
+      children:
+        - file: Tiled_server/data_integration.md
     - file: upcoming_changes.md
 
 site:

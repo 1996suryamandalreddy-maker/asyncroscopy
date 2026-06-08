@@ -18,11 +18,13 @@ DATA/Tiled unique id for that saved acquisition.
 
 import math
 import time
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import tango
 from tango import AttrWriteType, DevState
-from tango.server import attribute, device_property
+from tango.server import attribute, command, device_property
 
 from asyncroscopy.Microscope import Microscope
 from asyncroscopy.software.DataWriter import DEFAULT_ACQUISITION_DIR, save_acquisition
@@ -89,6 +91,54 @@ class ThermoMicroscope(Microscope):
         doc="This microscope uses AutoScript for control and acquisition",
     )
 
+    fov = attribute(
+        label="Field of View",
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit = "m",
+        # min_value= TODO: set these
+        # max_value= TODO: set these
+        doc="Current field of view in micrometers",
+    )
+
+    defocus = attribute(
+        label="Defocus",
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit = "m",
+        # min_value= TODO: set these
+        # max_value= TODO: set these
+        doc="Current defocus in micrometers",
+    )
+
+    camera_length = attribute(
+        label="Camera Length",
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit = "m",
+        # min_value= TODO: set these
+        # max_value= TODO: set these
+        doc="Current camera length in meters",
+    )
+
+    beam_state = attribute(
+        label="Beam State",
+        dtype=bool,
+        access=AttrWriteType.READ,
+        doc="Current beam state, either 'blanked' or 'unblanked'",
+    )
+
+    acceleration_voltage = attribute(
+        label="Acceleration Voltage",
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit = "V",
+        # min_value= TODO: set these
+        # max_value= TODO: set these
+        doc="Current acceleration voltage in volts",
+    )
+
+
     # ------------------------------------------------------------------
     # Initialisation
     # ------------------------------------------------------------------
@@ -132,7 +182,9 @@ class ThermoMicroscope(Microscope):
                 self.info_stream(f"Skipping {name}: no address configured")
                 continue
             try:
-                self._detector_proxies[name] = tango.DeviceProxy(address)
+                proxy = tango.DeviceProxy(address)
+                proxy.set_timeout_millis(12_000)
+                self._detector_proxies[name] = proxy
                 self.info_stream(f"Connected to detector proxy: {name} @ {address}")
             except tango.DevFailed as e:
                 self.error_stream(f"Failed to connect to {name} proxy at {address}: {e}")
@@ -145,9 +197,83 @@ class ThermoMicroscope(Microscope):
         # TODO: query self._microscope.optics.mode when AutoScript available
         return self._manufacturer
 
+    def read_fov(self) -> float:
+        """Field of view in meters (STEM mode only)."""
+        if self._microscope is None:
+            return float("nan")
+        return self._get_fov()
+
+    def read_defocus(self) -> float:
+        """Defocus in meters."""
+        if self._microscope is None:
+            return float("nan")
+        return self._get_defocus()
+
+    def read_acceleration_voltage(self) -> float:
+        """Accelerating voltage in volts."""
+        if self._microscope is None:
+            return float("nan")
+        return self._microscope.source.acceleration_voltage.value
+
+    def read_camera_length(self) -> float:
+        """Camera length in meters (only meaningful in DIFFRACTION mode)."""
+        if self._microscope is None:
+            return float("nan")
+        return self._microscope.optics.camera_length.value.calibrated
+
+    def read_beam_state(self) -> bool:
+        """Beam blanked state: True when blanked, False when unblanked."""
+        if self._microscope is None:
+            return False
+        return self._microscope.optics.blanker.is_beam_blanked
+
+    # ------------------------------------------------------------------
+    # Commands pertaining to setting children attributes, e.g. stage position, scan parameters, EDS settings, etc. --> iuser accesses it in a jupyter notebook using the device proxy
+    # ------------------------------------------------------------------
+
+    @command
+    def register_stage(self):
+        """Read the live stage position from hardware and publish it onto the
+        STAGE child device.
+
+        Call this from the notebook before reading the STAGE device so its
+        x/y/z/alpha attributes reflect the current hardware position.
+        """
+        self._get_stage()
+
+
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
+    def _persist(self, adorned, acquisition_type, detector, data_server, dataset_name="image"):
+        """Save acquired images in the format requested by the SCAN device.
+        """
+        scan = self._detector_proxies.get("scan")
+        fmt = scan.output_format if scan is not None else ".h5"  # ".h5" default
+        if fmt == ".h5":
+            return save_acquisition(self, data_server, acquisition_type, detector, adorned, dataset_name=dataset_name)
+        if fmt != ".tiff":
+            raise ValueError(f"Unsupported output_format {fmt!r}; expected '.h5' or '.tiff'")
+
+        # .tiff → AutoScript native save, one file per detector sharing one stamp
+        images = list(adorned) if isinstance(adorned, (list, tuple)) else [adorned]
+        detectors = list(detector) if isinstance(detector, (list, tuple)) else [detector]
+        if len(images) != len(detectors):
+            raise ValueError(f"Got {len(images)} images for {len(detectors)} detector(s) {detectors}")
+
+        save_dir = data_server.save_path if data_server is not None else DEFAULT_ACQUISITION_DIR
+        directory = Path(save_dir).expanduser()
+        directory.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
+        stem = f"{acquisition_type}_{stamp}"
+        # AutoScript returns images in the requested detector order (assumed; verify on hardware)
+        for img, det in zip(images, detectors):
+            path = directory / f"{stem}_{det}.tiff"
+            img.save(str(path))
+            if data_server is not None:
+                data_server.register_path(str(path))
+        return stem
+
     def _acquire_scanned_image(
         self,
         imsize: int,
@@ -164,7 +290,8 @@ class ThermoMicroscope(Microscope):
         if not isinstance(adorned, list):
             adorned = [adorned]
         data_server = self._detector_proxies.get("data")
-        return save_acquisition(self, data_server, "stem_image", detector_list, adorned)
+        return self._persist(adorned, "stem_image", detector_list, data_server)
+
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
@@ -174,7 +301,7 @@ class ThermoMicroscope(Microscope):
         settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize, exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        return save_acquisition(self, data_server, "camera_image", str(detector), adorned)
+        return self._persist(adorned, "camera_image", str(detector), data_server)
 
     def _acquire_scanned_data_advanced(self, imsize: int, dwell_time: float, detector: str, scan_region: list[float]) -> str:
         """
@@ -218,7 +345,7 @@ class ThermoMicroscope(Microscope):
     def _get_fov(self) -> float:
         """get field of view in meters"""
         return self._microscope.optics.scan_field_of_view
-    
+
     def _set_column_valves(self, state: str) -> None:
         """Set column valves state."""
         if self._microscope is not None:
@@ -228,7 +355,7 @@ class ThermoMicroscope(Microscope):
                 self._microscope.vacuum.column_valves.close()
             else:
                 print(f"Invalid valve state '{state}'. Use 'open' or 'close'.")
-        
+
     def _blank_beam(self) -> None:
         """blank beam"""
         if self._microscope is not None:
@@ -239,6 +366,15 @@ class ThermoMicroscope(Microscope):
         unblank beam
         """
         self._microscope.optics.blanker.unblank()
+
+    def _set_defocus(self, defocus) -> None:
+        """Set defocus in meters."""
+        if self._microscope is not None:
+            self._microscope.optics.defocus = float(defocus)
+
+    def _get_defocus(self) -> float:
+        """Get defocus in meters."""
+        return self._microscope.optics.defocus
 
     def _caibrate_screen_current(self) -> None:
         original_gun_lens = self._microscope.optics.monochromator.focus
@@ -289,6 +425,7 @@ class ThermoMicroscope(Microscope):
         # set proxy attributes with current stage position
         stage = self._detector_proxies["stage"]
 
+        # TODO: add beta value check
         position = self._microscope.specimen.stage.position
         position = np.array(position)
 
@@ -304,6 +441,8 @@ class ThermoMicroscope(Microscope):
 
     def _move_stage(self, position) -> None:
         """Move stage to specified position [x, y, z, alpha, beta]."""
+        # TODO: add beta value check
+
         x = float(position[0])
         y = float(position[1])
         z = float(position[2])

@@ -33,7 +33,7 @@ class FakeAdornedImage:
 
 
 # We use DigitalTwin as our simulated microscope for all tests.
-    
+
 @pytest.fixture(scope="session")
 def data_save_dir(tmp_path_factory):
     return tmp_path_factory.mktemp("data-acquisitions")
