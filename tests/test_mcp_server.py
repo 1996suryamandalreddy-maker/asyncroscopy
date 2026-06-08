@@ -18,6 +18,7 @@ import tango
 
 import asyncio
 
+import h5py
 import numpy as np
 
 from fastmcp.prompts import prompt
@@ -62,10 +63,7 @@ class TestMCPServerDBMode:
                 last_error = exc
                 time.sleep(0.1)
 
-        raise TimeoutError(
-            f"Timed out waiting for device '{device_name}' readiness. "
-            f"Last error: {last_error}"
-        )
+        raise TimeoutError(f"Timed out waiting for device '{device_name}' readiness. Last error: {last_error}")
 
     @staticmethod
     def find_free_port(host: str = "127.0.0.1") -> int:
@@ -152,9 +150,7 @@ class TestMCPServerDBMode:
             bufsize=1,
         )
         managed = ManagedProcess(name="tango-db", process=proc)
-        self.wait_for_process_output(
-            proc, "Ready to accept request", timeout, managed.name
-        )
+        self.wait_for_process_output(proc, "Ready to accept request", timeout, managed.name)
         return managed
 
     @staticmethod
@@ -240,9 +236,7 @@ class TestMCPServerDBMode:
                         timeout=30.0,
                     )
                 except Exception as exc:
-                    pytest.skip(
-                        f"DigitalTwin server could not be started in this environment: {exc}"
-                    )
+                    pytest.skip(f"DigitalTwin server could not be started in this environment: {exc}")
                 managed_procs.append(twin_proc)
 
                 try:
@@ -265,11 +259,7 @@ class TestMCPServerDBMode:
         host, port = test_infrastructure
 
         # Create MCPServer and discover tools
-        server = MCPServer(
-            name="MCPServerTest",
-            tango_host=host,
-            tango_port=port,
-        )
+        server = MCPServer(name="MCPServerTest", tango_host=host, tango_port=port)
 
         server.setup(print_summary=True)
         tools = server.tools
@@ -281,9 +271,7 @@ class TestMCPServerDBMode:
         )
 
         # Verify DigitalTwin was discovered
-        assert "DigitalTwin" in tools, (
-            "DigitalTwin class not found in MCP tool discovery"
-        )
+        assert "DigitalTwin" in tools, "DigitalTwin class not found in MCP tool discovery"
 
         # Verify expected tools exist
         digital_twin_tools = tools["DigitalTwin"]
@@ -294,9 +282,9 @@ class TestMCPServerDBMode:
         }
 
         for expected_tool in expected_tools:
-            assert (
-                expected_tool in digital_twin_tools
-            ), f"Expected tool {expected_tool} not found"
+            assert expected_tool in digital_twin_tools, (
+                f"Expected tool {expected_tool} not found"
+            )
 
         # Verify blocked classes are not exposed
         assert "DataBase" not in tools, "DataBase should be blocked"
@@ -319,9 +307,7 @@ class TestMCPServerDBMode:
         server.setup(print_summary=False)
 
         # Verify list_devices method exists
-        assert hasattr(
-            server, "list_devices"
-        ), "list_devices method not found on MCPServer"
+        assert hasattr(server, "list_devices"), "list_devices method not found on MCPServer"
 
         # Call it to verify it works
         deadline = time.monotonic() + 3.0
@@ -345,9 +331,7 @@ class TestMCPServerDBMode:
             if not has_digital_twin:
                 time.sleep(0.1)
 
-        assert has_digital_twin, (
-            f"No DigitalTwin-class device found in list_devices output: {devices}"
-        )
+        assert has_digital_twin, f"No DigitalTwin-class device found in list_devices output: {devices}"
 
     def test_blocked_classes_respected(
         self,
@@ -368,9 +352,8 @@ class TestMCPServerDBMode:
 
         # Verify blocked classes are not in tools
         for blocked_class in ["DataBase", "DServer", "DigitalTwin"]:
-            assert (
-                blocked_class not in tools
-            ), f"Blocked class {blocked_class} was exposed"
+            assert blocked_class not in tools, f"Blocked class {blocked_class} was exposed"
+
 
 class TestMCPSerialization:
     def test_devencoded_type_maps_to_object_schema(self) -> None:
@@ -409,9 +392,7 @@ class TestMCPSerialization:
 
     def test_normalize_command_result_converts_numpy_non_encoded(self) -> None:
         result = np.array([1, 2, 3], dtype=np.uint16)
-        normalized = MCPServer._normalize_command_result(
-            tango.CmdArgType.DevString, result
-        )
+        normalized = MCPServer._normalize_command_result(tango.CmdArgType.DevString, result)
         assert normalized == [1, 2, 3]
 
     def test_normalize_command_result_converts_numpy_nested(self) -> None:
@@ -421,15 +402,47 @@ class TestMCPSerialization:
             "nested": {"values": [np.uint8(3), np.array([[4, 5]])]},
         }
 
-        normalized = MCPServer._normalize_command_result(
-            tango.CmdArgType.DevString, result
-        )
+        normalized = MCPServer._normalize_command_result(tango.CmdArgType.DevString, result)
 
         assert normalized == {
             "array": [1, 2],
             "scalar": 1.25,
             "nested": {"values": [3, [[4, 5]]]},
         }
+
+    def test_get_data_from_key_reads_hdf5_preview(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setattr("asyncroscopy.mcp.mcp_server.Database", lambda host, port: None)
+
+        path = tmp_path / "frame.h5"
+        with h5py.File(path, "w") as h5:
+            dset = h5.create_dataset("image/HAADF", data=np.arange(9).reshape(3, 3))
+            dset.attrs["detector"] = "HAADF"
+
+        class FakeDataProxy:
+            def get_config(self):
+                return (
+                    '{"save_path": "'
+                    + str(tmp_path)
+                    + '", "tiled_server_serving": null}'
+                )
+
+        monkeypatch.setattr("asyncroscopy.mcp.mcp_server.DeviceProxy", lambda address: FakeDataProxy())
+
+        server = MCPServer("test", "localhost", 1234, verbose=False)
+        result = server.get_data_from_key("frame.h5", max_values=4)
+
+        assert result["key"] == "frame.h5"
+        assert result["format"] == "hdf5"
+        assert result["datasets"] == [
+            {
+                "name": "image/HAADF",
+                "shape": [3, 3],
+                "dtype": "int64",
+                "attrs": {"detector": "HAADF"},
+                "preview": [0, 1, 2, 3],
+            }
+        ]
+
 
 class TestMCPServerTypeMapping:
     def test_tango_types_map_to_python(self) -> None:
@@ -438,56 +451,68 @@ class TestMCPServerTypeMapping:
         assert MCPServer._tango_type_to_python(tango.CmdArgType.DevUChar) == np.uint8
         assert MCPServer._tango_type_to_python(tango.CmdArgType.DevEncoded) is dict
 
+
 class TestMCPToolInvocation:
     def test_wrapper_supports_positional_and_keyword(self, monkeypatch) -> None:
         # Mock Database and DeviceProxy to avoid connection errors
         # Must patch where it is used (imported)
         monkeypatch.setattr("asyncroscopy.mcp.mcp_server.Database", lambda host, port: None)
-        
+
         # Mock objects for wrapping
         def mock_func(val):
             return val
-            
-        cmd_info = type('CommandInfo', (), {
-            'in_type': tango.CmdArgType.DevString,
-            'out_type': tango.CmdArgType.DevString,
-            'in_type_desc': 'some string',
-            'out_type_desc': 'result'
-        })
-        
+
+        cmd_info = type(
+            "CommandInfo",
+            (),
+            {
+                "in_type": tango.CmdArgType.DevString,
+                "out_type": tango.CmdArgType.DevString,
+                "in_type_desc": "some string",
+                "out_type_desc": "result",
+            },
+        )
+
         server = MCPServer("test", "localhost", 1234)
         wrapper = server._create_wrapper(mock_func, cmd_info, "MyCmd", "MyClass")
-        
+
         # 1. Positional call
         assert wrapper("hello") == "hello"
-        
+
         # 2. Keyword call with correct name
         import inspect
+
         sig = inspect.signature(wrapper)
         param_name = list(sig.parameters.keys())[0]
         assert wrapper(**{param_name: "world"}) == "world"
 
     def test_void_wrapper_supports_no_args(self, monkeypatch) -> None:
         monkeypatch.setattr("asyncroscopy.mcp.mcp_server.Database", lambda host, port: None)
-        
+
         def mock_func():
             return "done"
-            
-        cmd_info = type('CommandInfo', (), {
-            'in_type': tango.CmdArgType.DevVoid,
-            'out_type': tango.CmdArgType.DevString,
-            'in_type_desc': '',
-            'out_type_desc': ''
-        })
-        
+
+        cmd_info = type(
+            "CommandInfo",
+            (),
+            {
+                "in_type": tango.CmdArgType.DevVoid,
+                "out_type": tango.CmdArgType.DevString,
+                "in_type_desc": "",
+                "out_type_desc": "",
+            },
+        )
+
         server = MCPServer("test", "localhost", 1234)
         wrapper = server._create_wrapper(mock_func, cmd_info, "VoidCmd", "MyClass")
-        
+
         assert wrapper() == "done"
 
 
 class TestMCPRegistration:
-    def test_register_instance_methods_for_tools_resources_prompts(self, monkeypatch) -> None:
+    def test_register_instance_methods_for_tools_resources_prompts(
+        self, monkeypatch
+    ) -> None:
         monkeypatch.setattr("asyncroscopy.mcp.mcp_server.Database", lambda host, port: None)
 
         class CustomServer(MCPServer):
@@ -521,7 +546,11 @@ class TestMCPRegistration:
 
         registered = server._register_instance_methods()
 
-        assert registered == 4
-        assert set(calls["tool"]) == {"custom_tool", "list_devices"}
+        assert registered == 5
+        assert set(calls["tool"]) == {
+            "custom_tool",
+            "get_data_from_key",
+            "list_devices",
+        }
         assert calls["resource"] == ["custom_resource"]
         assert calls["prompt"] == ["custom_prompt"]
