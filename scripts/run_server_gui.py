@@ -8,11 +8,13 @@ from PyQt6.QtWidgets import (
     QLabel, QComboBox, QPushButton, QCheckBox, QTextEdit, QLineEdit, QGroupBox, QFormLayout
 )
 from PyQt6.QtCore import QProcess, pyqtSignal
-from scripts.run_servers import load_config, DEFAULT_CONFIG_PATH
 
-PROJECT_DIR = Path(__file__).resolve().parents[1]
-if str(PROJECT_DIR) not in sys.path:
-    sys.path.insert(0, str(PROJECT_DIR))
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR.parent) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR.parent))
+
+from scripts.run_servers import load_config, DEFAULT_CONFIG_PATH
+PROJECT_DIR = CURRENT_DIR.parent
 
 class EmittingProcess(QProcess):    
     output_ready = pyqtSignal(str)
@@ -171,7 +173,8 @@ class ServerManagerGUI(QMainWindow):
             'Y' if self.start_db_cb.isChecked() else 'N',
             'Y' if self.register_dev_cb.isChecked() else 'N',
             self.timeout_input.text(),
-            "127.0.0.1" if mode == "real" else None
+            "127.0.0.1" if mode == "real" else None,
+            "9095" if mode == "real" else None
         ]
         answers = [a for a in answers if a is not None]
         
