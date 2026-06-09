@@ -2,7 +2,7 @@
 
 Welcome to the Asyncroscopy documentation site.
 
-![Schematic of the functional project structure](../architecture.png)
+![Schematic of the functional project structure](/docs/images/fullarchitecture.png)
 
 Use this site to navigate contributor guidance, microscope architecture notes, hardware extension docs, MCP server references, and upcoming changes.
 
@@ -17,6 +17,11 @@ Use this site to navigate contributor guidance, microscope architecture notes, h
 - [Add a Detector](Adding_New_Hardware/add_detector.md): detector onboarding checklist and implementation notes.
 - [Data Integration (Tiled)](Tiled_server/data_integration.md): how acquisitions are saved, registered, and served via the DATA device and Tiled.
 - [MCP Server Documentation](MCP/mcp_server.md): how Tango commands are exposed to MCP-compatible agents.
+
+## Operation
+
+- [Starting Servers - CLI](run-servers.md)
+- [Starting Servers - GUI](run-server-gui.md)
 
 ## Roadmap
 
