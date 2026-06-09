@@ -47,8 +47,8 @@ mcp:
   class_name: ThermoMCP
   name: Spectra300_MCP
   transport: streamable-http
-  http_host: 10.46.218.17
-  http_port: 8000
+  http_host: 10.46.217.241
+  http_port: 9092
   data_device_address: asyncroscopy/data/default
   search_packages:
     - asyncroscopy
