@@ -140,6 +140,7 @@ class MCPConfig:
             str(self.http_port),
             "--data-device-address",
             self.data_device_address,
+            "--quiet",
         ]
         if self.blocked_classes is not None:
             command.extend(["--blocked-classes-json", json.dumps(self.blocked_classes)])
@@ -589,11 +590,16 @@ def wait_for_device(device_name: str, timeout: int) -> float:
     raise TimeoutError(f"{device_name} did not become ready after {timeout}s. Last error: {last_error}")
 
 
-def wait_for_tcp_port(host: str, port: int, timeout: int) -> float:
+def wait_for_tcp_port(host: str, port: int, timeout: int, process: ManagedProcess | None = None) -> float:
     connect_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     start = time.monotonic()
     last_error: Exception | None = None
     while time.monotonic() - start < timeout:
+        if process is not None and not process.running:
+            stdout = read_process_output(process.process.stdout)
+            stderr = read_process_output(process.process.stderr)
+            detail = f"stdout: {stdout or '(empty)'}\nstderr: {stderr or '(empty)'}"
+            raise RuntimeError(f"{process.label} exited before {host}:{port} accepted connections.\n{detail}")
         try:
             with socket.create_connection((connect_host, port), timeout=1.0):
                 return time.monotonic() - start
@@ -871,7 +877,7 @@ def main(argv: list[str] | None = None) -> int:
                 end="",
                 flush=True,
             )
-            elapsed = wait_for_tcp_port(config.mcp.http_host, config.mcp.http_port, device_timeout)
+            elapsed = wait_for_tcp_port(config.mcp.http_host, config.mcp.http_port, device_timeout, mcp_process)
             ready_times["mcp"] = elapsed
             print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
         else:

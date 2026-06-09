@@ -116,6 +116,7 @@ def test_mcp_config_builds_server_command():
     assert "--class-name" in command
     assert command[command.index("--class-name") + 1] == "ThermoMCP"
     assert command[command.index("--http-port") + 1] == "8123"
+    assert "--quiet" in command
     assert command[command.index("--blocked-functions-json") + 1] == (
         '{"*": ["Init"], "DATA": ["stop_tiled_server"]}'
     )
