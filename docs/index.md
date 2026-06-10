@@ -33,8 +33,8 @@ Use this site to navigate contributor guidance, microscope architecture notes, h
 
 ## Operation
 
-- [Starting Servers - CLI](run-servers.md)
-- [Starting Servers - GUI](run-server-gui.md)
+- [Starting Servers - CLI](Operation/run-servers.md)
+- [Starting Servers - GUI](Operation/run-server-gui.md)
 
 ## Roadmap
 
