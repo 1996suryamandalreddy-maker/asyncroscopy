@@ -49,7 +49,7 @@ site:
   nav: []
   options:
     logo: null
-    404: 404.md
+  404: 404.md
 
 publish:
   - id: asyncroscopy

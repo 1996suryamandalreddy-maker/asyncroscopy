@@ -1,10 +1,20 @@
 # Asyncroscopy Documentation
+:::::{grid} 2
+:gutter: 0
 
-<div class="d-flex justify-content-between">
-  <img src="images/architecturev1.png" width="33.5%" />
-  <img src="images/architecturev2.png" width="57%" />
-</div>
+::::{grid-item}
+:::{image} ./images/architecturev1.png
+:height: 200px
+:::
+::::
 
+::::{grid-item}
+:::{image} ./images/architecturev2.png
+:height: 200px
+:::
+::::
+
+:::::
 ---
 Welcome to the Asyncroscopy documentation site.
 Use this site to navigate contributor guidance, microscope architecture notes, hardware extension docs, MCP server references, and upcoming changes.
