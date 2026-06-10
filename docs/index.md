@@ -1,9 +1,12 @@
 # Asyncroscopy Documentation
 
+<div class="d-flex justify-content-between">
+  <img src="images/architecturev1.png" width="33.5%" />
+  <img src="images/architecturev2.png" width="57%" />
+</div>
+
+---
 Welcome to the Asyncroscopy documentation site.
-
-![Schematic of the functional project structure](/docs/images/fullarchitecture.png)
-
 Use this site to navigate contributor guidance, microscope architecture notes, hardware extension docs, MCP server references, and upcoming changes.
 
 ## Start Here

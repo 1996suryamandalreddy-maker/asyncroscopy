@@ -1,6 +1,6 @@
 # MCP Server Documentation
 
-The [`MCPServer`](../asyncroscopy/mcp/mcp_server.py#L43) is a bridge between a Tango control system and the Model Context Protocol (MCP). It allows LLM agents to interact directly with hardware by exposing Tango device commands as MCP tools.
+The [`MCPServer`](../../asyncroscopy/mcp/mcp_server.py#L43) is a bridge between a Tango control system and the Model Context Protocol (MCP). It allows LLM agents to interact directly with hardware by exposing Tango device commands as MCP tools.
 
 
 ---

@@ -37,8 +37,8 @@ project:
     - title: Operation
       children:
         - file: Operation/run-servers.md
-        - file: Operation/troubleshooting.md
         - file: Operation/run-server-gui.md
+        - file: Operation/troubleshooting.md
     - title: Tiled Server
       children:
         - file: Tiled_server/data_integration.md
