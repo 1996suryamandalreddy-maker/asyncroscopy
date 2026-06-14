@@ -9,6 +9,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -73,6 +74,7 @@ class ManagedProcess:
     label: str
     command: list[str]
     process: subprocess.Popen[bytes]
+    log_path: Path | None = None
 
     @property
     def pid(self) -> int:
@@ -81,8 +83,6 @@ class ManagedProcess:
     @property
     def running(self) -> bool:
         return self.process.poll() is None
-
-# TODO: --debug flag where all server output streams to this terminal / log files (next commit).
 
 
 @dataclass(frozen=True)
@@ -208,6 +208,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="YAML config to start from. When given, runs headlessly (no prompts). "
         "When omitted, uses the bundled default config and prompts interactively.",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Stream each server's output (stdout+stderr) live to a per-device log "
+        "file under output_tango_devices_logs/<timestamp>/ for troubleshooting.",
+    )
     return parser.parse_args(argv)
 
 
@@ -296,7 +302,41 @@ def make_environment(host: str, port: int, tiled_host: str, tiled_port: int, acq
     }
 
 
-def start_process(key: str, label: str, command: list[str], environment: dict[str, str]) -> ManagedProcess:
+def _start_log_pump(stream, log_path: Path) -> None:
+    """Drain `stream` line-by-line into `log_path` from a daemon thread.
+
+    Used in --debug mode: keeps reading until the process exits (EOF), so it
+    also prevents the pipe buffer from filling on a chatty server.
+    """
+    def pump() -> None:
+        with open(log_path, "w", encoding="utf-8", buffering=1) as handle:
+            for line in iter(stream.readline, b""):
+                handle.write(line.decode(errors="replace"))
+
+    threading.Thread(target=pump, name=f"log-{log_path.stem}", daemon=True).start()
+
+
+def start_process(
+    key: str,
+    label: str,
+    command: list[str],
+    environment: dict[str, str],
+    log_dir: Path | None = None,
+) -> ManagedProcess:
+    if log_dir is not None:
+        # Debug mode: merge stderr into stdout so each server has one readable
+        # log file, and stream it live to <log_dir>/<key>.log.
+        log_path = log_dir / f"{key}.log"
+        process = subprocess.Popen(
+            command,
+            env=environment,
+            cwd=PROJECT_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        _start_log_pump(process.stdout, log_path)
+        return ManagedProcess(key=key, label=label, command=command, process=process, log_path=log_path)
+
     process = subprocess.Popen(
         command,
         env=environment,
@@ -608,11 +648,18 @@ def main(argv: list[str] | None = None) -> int:
     ready_times: dict[str, float] = {}
     tiled_config = None
 
+    log_dir: Path | None = None
+    if args.debug:
+        log_dir = PROJECT_DIR / "output_tango_devices_logs" / time.strftime("%Y-%m-%d_%H-%M-%S")
+        log_dir.mkdir(parents=True, exist_ok=True)
+
     print()
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
     print(f"  {color('CONFIG', Style.bold):<18} {config_path}")
     print(f"  {color('MICROSCOPE', Style.bold):<18} {args.microscope} ({microscope.class_name})")
+    if log_dir is not None:
+        print(f"  {color('DEBUG LOGS', Style.bold):<18} {log_dir}")
     print_inventory(devices)
 
     try:
@@ -629,6 +676,7 @@ def main(argv: list[str] | None = None) -> int:
                 "Tango database",
                 ["uv", "run", "python", "-m", "tango.databaseds.database", "2"],
                 environment,
+                log_dir,
             )
             processes.append(database)
             print("  WAIT  database readiness", end="", flush=True)
@@ -649,7 +697,7 @@ def main(argv: list[str] | None = None) -> int:
 
         print_section(4, 5, "Starting device servers")
         for device in regular_devices:
-            process = start_process(device.key, device.class_name, device.command, environment)
+            process = start_process(device.key, device.class_name, device.command, environment, log_dir)
             processes.append(process)
             status_line("RUN", device.key, f"{device.module_name}  pid={process.pid}")
 
@@ -670,7 +718,7 @@ def main(argv: list[str] | None = None) -> int:
         for device in dependency_devices:
             print()
             status_line("RUN", device.key, f"{device.module_name}  starting after dependencies")
-            process = start_process(device.key, device.class_name, device.command, environment)
+            process = start_process(device.key, device.class_name, device.command, environment, log_dir)
             processes.append(process)
             print(f"  WAIT  {device.device_name:<34}", end="", flush=True)
             elapsed = wait_for_device(device.device_name, device_timeout)
@@ -679,6 +727,8 @@ def main(argv: list[str] | None = None) -> int:
 
         print_summary(host, port, processes, ready_times, tiled_config)
         print()
+        if log_dir is not None:
+            print(color(f"Per-server logs streaming to {log_dir} (one file per device).", Style.dim))
         print(color("Leave this terminal open while you use the servers. Press Ctrl+C to stop them.", Style.dim))
         while True:
             time.sleep(1)
@@ -693,7 +743,14 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         print()
         print(color(f"Startup failed: {exc}", Style.bold + Style.red))
-        print_debug_output(processes)
+        if log_dir is not None:
+            # The pump threads already own the streams in debug mode — point at the
+            # per-server log files rather than draining the pipes a second time.
+            print(color(f"Per-server logs in {log_dir}:", Style.bold + Style.yellow))
+            for process in processes:
+                print(f"  {process.key:<14} pid={process.pid} returncode={process.process.poll()}  {process.log_path}")
+        else:
+            print_debug_output(processes)
         stop_tiled_server()
         stop_all(processes)
         return 1

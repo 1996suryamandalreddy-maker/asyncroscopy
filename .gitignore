@@ -236,6 +236,7 @@ ClAUDE.md
 
 tiled_data/
 outputs/
+output_tango_devices_logs/
 
 .claude/
 
