@@ -15,16 +15,17 @@ from typing import Optional
 
 
 from abc import abstractmethod, ABCMeta
+from Instrument import Instrument
 
 import tango
 from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat, DevVarStringArray
 from tango.server import Device, DeviceMeta, attribute, command, device_property
 
-class CombinedMeta(DeviceMeta, ABCMeta):
-    """Combines Tango DeviceMeta and ABCMeta to allow abstract methods in Devices."""
-    pass
+# class CombinedMeta(DeviceMeta, ABCMeta):
+#     """Combines Tango DeviceMeta and ABCMeta to allow abstract methods in Devices."""
+#     pass
 
-class Microscope(Device, metaclass=CombinedMeta):
+class Microscope(Instrument):
     """
     Top-level TEM microscope device.
     Detector-specific settings (dwell time, resolution) are stored in
@@ -77,9 +78,9 @@ class Microscope(Device, metaclass=CombinedMeta):
             "DB mode: 'asyncroscopy/flucam/default' "
             "No-DB mode: 'tango://127.0.0.1:8888/asyncroscopy/flucam/default#dbase=no'",
     )
-    testing_mode_bool = device_property(dtype=bool, 
-                                        default_value=False,
-                                        doc="When True - used for running tests, passed in conftest.py")
+    # testing_mode_bool = device_property(dtype=bool, 
+    #                                     default_value=False,
+    #                                     doc="When True - used for running tests, passed in conftest.py")
 
     # Add further detector device_property entries here as detectors are added
     # eels_device_address  = device_property(dtype=str, default_value="asyncroscopy/eels/default")
@@ -98,22 +99,34 @@ class Microscope(Device, metaclass=CombinedMeta):
     # ------------------------------------------------------------------
     # Initialisation
     # ------------------------------------------------------------------
-    def init_device(self) -> None:
-        Device.init_device(self)
-        self.set_state(DevState.INIT)
-
-        self._microscope: Optional[object] = None  # TemMicroscopeClient instance
+    def _init_device_attributes(self) -> None:
+        self._microscope: Optional[object] = None  # MicroscopeClient instance
         self._stem_mode: bool = False
 
-        # Dict mapping detector name string → DeviceProxy
-        # Populated in _connect_detector_proxies
+        # Dict mapping detector name string -> DeviceProxy.
+        # Populated in _connect_detector_proxies().
         self._detector_proxies: dict[str, tango.DeviceProxy] = {}
 
-        self._connect()
+    # def init_device(self) -> None:
+    #     Device.init_device(self)
+    #     self.set_state(DevState.INIT)
 
-    @abstractmethod
-    def _connect(self):
-        pass
+    #     self._microscope: Optional[object] = None  # TemMicroscopeClient instance
+    #     self._stem_mode: bool = False
+
+    #     # Dict mapping detector name string → DeviceProxy
+    #     # Populated in _connect_detector_proxies
+    #     self._detector_proxies: dict[str, tango.DeviceProxy] = {}
+
+    #     self._connect()
+
+    # @abstractmethod
+    # def _connect(self):
+    #     pass
+
+    # ------------------------------------------------------------------
+    # Subclass methods
+    # ------------------------------------------------------------------ 
     
     @abstractmethod
     def _connect_hardware(self) -> None:
@@ -130,25 +143,28 @@ class Microscope(Device, metaclass=CombinedMeta):
     def read_stem_mode(self) -> bool:
         # TODO: query self._microscope.optics.mode when AutoScript available
         return self._stem_mode
+    
+    def read_instrument_type(self) -> str:
+        return "STEM"
 
     # ------------------------------------------------------------------
     # Commands
     # ------------------------------------------------------------------
 
-    @command
-    def Connect(self) -> None:
-        """Explicitly (re)connect to microscope hardware. Useful after a fault.
-        Also, sets the timeout fofr Tango device for 2 minutes (for larger things)
-        """
-        self._connect()
+    # @command
+    # def Connect(self) -> None:
+    #     """Explicitly (re)connect to microscope hardware. Useful after a fault.
+    #     Also, sets the timeout fofr Tango device for 2 minutes (for larger things)
+    #     """
+    #     self._connect()
 
-    @command
-    def Disconnect(self) -> None:
-        """Disconnect from microscope hardware gracefully."""
-        # TODO: self._microscope.disconnect() when AutoScript available
-        self._microscope = None
-        self.set_state(DevState.OFF)
-        self.info_stream("Disconnected from microscope hardware")
+    # @command
+    # def Disconnect(self) -> None:
+    #     """Disconnect from microscope hardware gracefully."""
+    #     # TODO: self._microscope.disconnect() when AutoScript available
+    #     self._microscope = None
+    #     self.set_state(DevState.OFF)
+    #     self.info_stream("Disconnected from microscope hardware")
 
     @command(dtype_in=str, dtype_out=str)
     def acquire_spectrum(self, detector_name: str) -> str:
