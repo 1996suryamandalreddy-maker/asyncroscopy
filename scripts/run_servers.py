@@ -106,16 +106,15 @@ class TiledConfig:
 
 @dataclass(frozen=True)
 class MCPConfig:
-    autostart: bool = False
-    class_name: str = "MCPServer"
-    name: str = "AsyncroscopyMCP"
-    transport: str = "streamable-http"
-    http_host: str = "127.0.0.1"
-    http_port: int = 8000
-    blocked_classes: list[str] | None = None
-    blocked_functions: list[str] | dict[str, list[str]] | None = None
-    search_packages: list[str] | None = None
-    data_device_address: str = "asyncroscopy/data/default"
+    autostart: bool
+    name: str
+    transport: str
+    http_host: str
+    http_port: int
+    data_device_address: str
+    search_packages: list[str]
+    blocked_classes: list[str]
+    blocked_functions: dict[str, list[str]]
 
     def command(self, tango_host: str, tango_port: int) -> list[str]:
         command = [
@@ -124,8 +123,6 @@ class MCPConfig:
             "python",
             "-m",
             "asyncroscopy.mcp.mcp_server",
-            "--class-name",
-            self.class_name,
             "--name",
             self.name,
             "--tango-host",
@@ -141,15 +138,13 @@ class MCPConfig:
             "--data-device-address",
             self.data_device_address,
             "--quiet",
+            "--blocked-classes-json",
+            json.dumps(self.blocked_classes),
+            "--blocked-functions-json",
+            json.dumps(self.blocked_functions),
+            "--search-packages-json",
+            json.dumps(self.search_packages),
         ]
-        if self.blocked_classes is not None:
-            command.extend(["--blocked-classes-json", json.dumps(self.blocked_classes)])
-        if self.blocked_functions is not None:
-            command.extend(
-                ["--blocked-functions-json", json.dumps(self.blocked_functions)]
-            )
-        if self.search_packages is not None:
-            command.extend(["--search-packages-json", json.dumps(self.search_packages)])
         return command
 
 
@@ -182,22 +177,6 @@ def _microscope_config(raw: dict) -> MicroscopeConfig:
     )
 
 
-def _mcp_config(raw: dict | None) -> MCPConfig:
-    raw = raw or {}
-    return MCPConfig(
-        autostart=bool(raw.get("autostart", False)),
-        class_name=raw.get("class_name", "MCPServer"),
-        name=raw.get("name", raw.get("class_name", "AsyncroscopyMCP")),
-        transport=raw.get("transport", "streamable-http"),
-        http_host=raw.get("http_host", "127.0.0.1"),
-        http_port=int(raw.get("http_port", 8000)),
-        blocked_classes=raw.get("blocked_classes"),
-        blocked_functions=raw.get("blocked_functions"),
-        search_packages=raw.get("search_packages"),
-        data_device_address=raw.get("data_device_address", "asyncroscopy/data/default"),
-    )
-
-
 def load_config(path: Path) -> Config:
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
@@ -214,6 +193,7 @@ def load_config(path: Path) -> Config:
     digital_twin = raw.get("digital_twin")
     tango_section = raw.get("tango", {})
     tiled = _require(raw, "tiled", "(top level)")
+    mcp = _require(raw, "mcp", "(top level)")
 
     return Config(
         path=path,
@@ -228,7 +208,17 @@ def load_config(path: Path) -> Config:
             acquisition_dir=_require(tiled, "acquisition_dir", "tiled"),
             autostart=bool(tiled.get("autostart", True)),
         ),
-        mcp=_mcp_config(raw.get("mcp")),
+        mcp=MCPConfig(
+            autostart=bool(_require(mcp, "autostart", "mcp")),
+            name=_require(mcp, "name", "mcp"),
+            transport=_require(mcp, "transport", "mcp"),
+            http_host=_require(mcp, "http_host", "mcp"),
+            http_port=int(_require(mcp, "http_port", "mcp")),
+            data_device_address=_require(mcp, "data_device_address", "mcp"),
+            search_packages=list(_require(mcp, "search_packages", "mcp")),
+            blocked_classes=list(_require(mcp, "blocked_classes", "mcp")),
+            blocked_functions={key: list(value) for key, value in _require(mcp, "blocked_functions", "mcp").items()},
+        ),
         device_timeout_seconds=int(raw.get("device_timeout_seconds", 120)),
     )
 
@@ -696,7 +686,7 @@ def print_summary(
     if mcp_config is not None and mcp_config.autostart:
         print()
         print(f"  {color('MCP_HTTP', Style.bold):<18} http://{mcp_config.http_host}:{mcp_config.http_port}/mcp")
-        print(f"  {color('MCP_CLASS', Style.bold):<18} {mcp_config.class_name}")
+        print(f"  {color('MCP_NAME', Style.bold):<18} {mcp_config.name}")
     print()
     print(color("All asyncroscopy servers are ready.", Style.bold + Style.green))
 
@@ -787,7 +777,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {color('CONFIG', Style.bold):<18} {config_path}")
     print(f"  {color('MICROSCOPE', Style.bold):<18} {args.microscope} ({microscope.class_name})")
     if should_start_mcp:
-        print(f"  {color('MCP', Style.bold):<18} {config.mcp.class_name} ({config.mcp.http_host}:{config.mcp.http_port})")
+        print(f"  {color('MCP', Style.bold):<18} {config.mcp.name} ({config.mcp.http_host}:{config.mcp.http_port})")
     print_inventory(devices)
 
     try:
@@ -866,12 +856,12 @@ def main(argv: list[str] | None = None) -> int:
             print_section(5, total_steps, "Starting MCP server")
             mcp_process = start_process(
                 "mcp",
-                config.mcp.class_name,
+                config.mcp.name,
                 config.mcp.command(host, port),
                 environment,
             )
             processes.append(mcp_process)
-            status_line("RUN", "mcp", f"{config.mcp.class_name}  pid={mcp_process.pid}")
+            status_line("RUN", "mcp", f"{config.mcp.name}  pid={mcp_process.pid}")
             print(
                 f"  WAIT  MCP HTTP {config.mcp.http_host}:{config.mcp.http_port:<21}",
                 end="",
