@@ -15,7 +15,7 @@ from typing import Optional
 
 
 from abc import abstractmethod, ABCMeta
-from Instrument import Instrument
+from asyncroscopy.Instrument import Instrument
 
 import tango
 from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat, DevVarStringArray
