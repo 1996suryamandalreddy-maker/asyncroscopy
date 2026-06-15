@@ -1,4 +1,4 @@
-__all__ = ["MCPServer", "ThermoMCP"]
+__all__ = ["MCPServer"]
 
 
 def __getattr__(name):
@@ -6,8 +6,4 @@ def __getattr__(name):
         from .mcp_server import MCPServer
 
         return MCPServer
-    if name == "ThermoMCP":
-        from .ThermoMCP import ThermoMCP
-
-        return ThermoMCP
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

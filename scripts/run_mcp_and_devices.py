@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import tempfile
 import time
 import importlib
 import contextlib
@@ -143,7 +142,7 @@ def get_class_from_name(class_name: str):
         f"asyncroscopy.hardware.{class_name}",
         f"asyncroscopy.detectors.{class_name}",
         f"asyncroscopy.mcp.{class_name}",
-        f"asyncroscopy.mcp.mcp_server"
+        "asyncroscopy.mcp.mcp_server"
     ]
     
     for mod_path in module_paths_to_try:
@@ -219,20 +218,7 @@ def main():
     python_bin = sys.executable
 
     try:
-        mcp_class_name = input("Enter the name of the MCP class to run (e.g., 'ThermoMCP' or 'MCPServer') [MCPServer]: ").strip() or "MCPServer"
-        mcp_cls = get_class_from_name(mcp_class_name)
-
-        class_name = None
-        if hasattr(mcp_cls, "SUPPORTED_HARDWARE") and mcp_cls.SUPPORTED_HARDWARE:
-            class_name = mcp_cls.SUPPORTED_HARDWARE[0]
-            if getattr(mcp_cls, "DIGITAL_TWIN", None):
-                twin_class = mcp_cls.DIGITAL_TWIN
-                use_twin = input(f"A digital twin mapping ({twin_class}) is available. Use digital twin instead of real hardware? [y/N]: ").strip().lower()
-                if use_twin == 'y':
-                    class_name = twin_class
-        
-        if not class_name:
-            class_name = input("Enter the name of the main hardware class to register (e.g., 'ThermoMicroscope'): ").strip()
+        class_name = input("Enter the name of the main hardware class to register (e.g., 'ThermoMicroscope' or 'DigitalTwin'): ").strip()
 
         # Fail early if the hardware class doesn't exist
         get_class_from_name(class_name)
@@ -324,13 +310,20 @@ def main():
             wait_for_device_ready(device_name, timeout=10.0)
             log_stderr(f"[startup] Main {class_name} device is fully accessible")
             
-            # Start MCPServer
-            log_stderr(f"[startup] Initializing {mcp_class_name}...")
-            server = mcp_cls(
-                name=f"{mcp_class_name}_{class_name}",
+            log_stderr("[startup] Initializing MCPServer...")
+            blocked_classes = [value.strip() for value in (input("Enter blocked Tango classes [DataBase,DServer]: ").strip() or "DataBase,DServer").split(",") if value.strip()]
+            blocked_functions = {"*": [value.strip() for value in (input("Enter globally blocked Tango commands [Init]: ").strip() or "Init").split(",") if value.strip()]}
+            search_packages = [value.strip() for value in (input("Enter source search packages [asyncroscopy]: ").strip() or "asyncroscopy").split(",") if value.strip()]
+            data_device_address = input("Enter DATA device address [asyncroscopy/data/default]: ").strip() or "asyncroscopy/data/default"
+
+            server = MCPServer(
+                name=f"MCPServer_{class_name}",
                 tango_host=host,
                 tango_port=port,
-                blocked_classes=["DataBase", "DServer"],
+                blocked_classes=blocked_classes,
+                blocked_functions=blocked_functions,
+                search_packages=search_packages,
+                data_device_address=data_device_address,
                 verbose=False,
             )
 
@@ -339,7 +332,7 @@ def main():
             mcp_port = int(mcp_port_input) if mcp_port_input else 8000
 
             log_stderr(f"[startup] Starting MCP Server at {mcp_host}:{mcp_port}. Exported devices: {server.list_devices()}")
-            server.start_http(host=mcp_host, port=mcp_port)
+            server.start(transport="streamable-http", host=mcp_host, port=mcp_port)
         
     except KeyboardInterrupt:
         log_stderr("\n[shutdown] KeyboardInterrupt received. Shutting down...")

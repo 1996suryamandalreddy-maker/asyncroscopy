@@ -48,7 +48,7 @@ def test_start_process_tracks_process_group(monkeypatch):
 
     monkeypatch.setattr(run_servers.subprocess, "Popen", FakePopen)
 
-    process = run_servers.start_process("mcp", "ThermoMCP", ["uv", "run", "mcp"], {"TANGO_HOST": "localhost:9094"})
+    process = run_servers.start_process("mcp", "Spectra300_MCP", ["uv", "run", "mcp"], {"TANGO_HOST": "localhost:9094"})
 
     assert process.pid == 1234
     assert calls["command"] == ["uv", "run", "mcp"]
@@ -78,17 +78,16 @@ def test_stop_process_terminates_process_group(monkeypatch):
 
     monkeypatch.setattr(run_servers.os, "killpg", lambda pid, sig: signals.append((pid, sig)))
 
-    process = run_servers.ManagedProcess("mcp", "ThermoMCP", ["uv", "run", "mcp"], FakeProcess())
+    process = run_servers.ManagedProcess("mcp", "Spectra300_MCP", ["uv", "run", "mcp"], FakeProcess())
     run_servers.stop_process(process)
 
     assert signals == [(4321, run_servers.signal.SIGTERM)]
 
 
 def test_load_spectra300_mcp_config_enables_mcp():
-    config = run_servers.load_config(run_servers.PROJECT_DIR / "configs" / "Spectra300_MCP.yaml")
+    config = run_servers.load_config(run_servers.PROJECT_DIR / "configs" / "MCP_local.yaml")
 
     assert config.mcp.autostart is True
-    assert config.mcp.class_name == "ThermoMCP"
     assert config.mcp.name == "Spectra300_MCP"
     assert config.tango_host == "localhost"
     assert config.tiled.host == "localhost"
@@ -101,10 +100,11 @@ def test_load_spectra300_mcp_config_enables_mcp():
 def test_mcp_config_builds_server_command():
     config = run_servers.MCPConfig(
         autostart=True,
-        class_name="ThermoMCP",
         name="Spectra300_MCP",
+        transport="streamable-http",
         http_host="127.0.0.1",
         http_port=8123,
+        data_device_address="asyncroscopy/data/default",
         blocked_classes=["DataBase"],
         blocked_functions={"*": ["Init"], "DATA": ["stop_tiled_server"]},
         search_packages=["asyncroscopy"],
@@ -113,10 +113,12 @@ def test_mcp_config_builds_server_command():
     command = config.command("localhost", 9094)
 
     assert command[:5] == ["uv", "run", "python", "-m", "asyncroscopy.mcp.mcp_server"]
-    assert "--class-name" in command
-    assert command[command.index("--class-name") + 1] == "ThermoMCP"
+    assert "--class-name" not in command
+    assert command[command.index("--name") + 1] == "Spectra300_MCP"
     assert command[command.index("--http-port") + 1] == "8123"
     assert "--quiet" in command
+    assert command[command.index("--blocked-classes-json") + 1] == '["DataBase"]'
     assert command[command.index("--blocked-functions-json") + 1] == (
         '{"*": ["Init"], "DATA": ["stop_tiled_server"]}'
     )
+    assert command[command.index("--search-packages-json") + 1] == '["asyncroscopy"]'

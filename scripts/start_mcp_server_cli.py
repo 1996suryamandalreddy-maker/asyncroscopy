@@ -41,11 +41,19 @@ def main() -> None:
     tango_db_port = prompt_port(default=9094)
     os.environ["TANGO_HOST"] = f"{tango_db_host}:{tango_db_port}"
 
-    server = MCPServer(name="MCPServer", tango_host=tango_db_host, tango_port=tango_db_port)
+    server = MCPServer(
+        name="MCPServer",
+        tango_host=tango_db_host,
+        tango_port=tango_db_port,
+        blocked_classes=["DataBase", "DServer"],
+        blocked_functions={"*": ["Init"]},
+        search_packages=["asyncroscopy"],
+        data_device_address="asyncroscopy/data/default",
+    )
     print(f"Connected to Tango DB at {tango_db_host}:{tango_db_port}")
     print("Starting MCP server on 127.0.0.1:8000")
     print("Exported devices:", server.list_devices())
-    server.start_http(host="127.0.0.1", port=8000)
+    server.start(transport="streamable-http", host="127.0.0.1", port=8000)
 
 
 if __name__ == "__main__":

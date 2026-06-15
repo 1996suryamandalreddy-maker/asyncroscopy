@@ -30,6 +30,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from asyncroscopy.mcp.mcp_server import MCPServer
 
 
+def mcp_kwargs(**overrides):
+    config = {
+        "blocked_classes": ["DataBase", "DServer"],
+        "blocked_functions": {"*": ["Init"]},
+        "search_packages": ["asyncroscopy"],
+        "data_device_address": "asyncroscopy/data/default",
+    }
+    config.update(overrides)
+    return config
+
+
 @dataclass
 class ManagedProcess:
     """A subprocess wrapper with a name for logging."""
@@ -259,7 +270,7 @@ class TestMCPServerDBMode:
         host, port = test_infrastructure
 
         # Create MCPServer and discover tools
-        server = MCPServer(name="MCPServerTest", tango_host=host, tango_port=port)
+        server = MCPServer(name="MCPServerTest", tango_host=host, tango_port=port, **mcp_kwargs())
 
         server.setup(print_summary=True)
         tools = server.tools
@@ -301,7 +312,7 @@ class TestMCPServerDBMode:
             name="MCPServerTest",
             tango_host=host,
             tango_port=port,
-            blocked_classes=["DataBase", "DServer"],
+            **mcp_kwargs(),
         )
 
         server.setup(print_summary=False)
@@ -344,7 +355,7 @@ class TestMCPServerDBMode:
             name="MCPServerTest",
             tango_host=host,
             tango_port=port,
-            blocked_classes=["DataBase", "DServer", "DigitalTwin"],
+            **mcp_kwargs(blocked_classes=["DataBase", "DServer", "DigitalTwin"]),
         )
 
         server.setup(print_summary=False)
@@ -428,7 +439,7 @@ class TestMCPSerialization:
 
         monkeypatch.setattr("asyncroscopy.mcp.mcp_server.DeviceProxy", lambda address: FakeDataProxy())
 
-        server = MCPServer("test", "localhost", 1234, verbose=False)
+        server = MCPServer("test", "localhost", 1234, **mcp_kwargs(), verbose=False)
         result = server.get_data_from_key("frame.h5", max_values=4)
 
         assert result["key"] == "frame.h5"
@@ -473,7 +484,7 @@ class TestMCPToolInvocation:
             },
         )
 
-        server = MCPServer("test", "localhost", 1234)
+        server = MCPServer("test", "localhost", 1234, **mcp_kwargs())
         wrapper = server._create_wrapper(mock_func, cmd_info, "MyCmd", "MyClass")
 
         # 1. Positional call
@@ -503,7 +514,7 @@ class TestMCPToolInvocation:
             },
         )
 
-        server = MCPServer("test", "localhost", 1234)
+        server = MCPServer("test", "localhost", 1234, **mcp_kwargs())
         wrapper = server._create_wrapper(mock_func, cmd_info, "VoidCmd", "MyClass")
 
         assert wrapper() == "done"
@@ -528,7 +539,7 @@ class TestMCPRegistration:
             def custom_prompt(self, label: str) -> str:
                 return f"Prompt {label}"
 
-        server = CustomServer("test", "localhost", 1234, verbose=False)
+        server = CustomServer("test", "localhost", 1234, **mcp_kwargs(), verbose=False)
         calls = {"tool": [], "resource": [], "prompt": []}
 
         def record_tool(method):

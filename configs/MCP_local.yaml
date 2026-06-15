@@ -3,8 +3,8 @@
 # Starts Tango, support devices, Tiled, the selected microscope/digital twin,
 # then the FastMCP HTTP server last.
 #
-#   uv run scripts/run_servers.py --yaml configs/Spectra300_MCP.yaml
-#   uv run scripts/run_servers.py --yaml configs/Spectra300_MCP.yaml --microscope dt
+#   uv run scripts/run_servers.py --yaml configs/MCP_local.yaml
+#   uv run scripts/run_servers.py --yaml configs/MCP_local.yaml --microscope dt
 
 microscope:
   class_name: ThermoMicroscope
@@ -41,7 +41,6 @@ device_timeout_seconds: 120
 
 mcp:
   autostart: true
-  class_name: ThermoMCP
   name: Spectra300_MCP
   transport: streamable-http
   http_host: 127.0.0.1
