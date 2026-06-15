@@ -43,7 +43,6 @@ device_timeout_seconds: 120
 
 mcp:
   autostart: false
-  class_name: ThermoMCP
   name: Spectra300_MCP
   transport: streamable-http
   http_host: 127.0.0.1
