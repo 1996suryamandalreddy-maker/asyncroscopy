@@ -18,8 +18,8 @@ from abc import abstractmethod, ABCMeta
 from asyncroscopy.Instrument import Instrument
 
 import tango
-from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat, DevVarStringArray
-from tango.server import Device, DeviceMeta, attribute, command, device_property
+# from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat, DevVarStringArray
+# from tango.server import Device, DeviceMeta, attribute, command, device_property
 
 # class CombinedMeta(DeviceMeta, ABCMeta):
 #     """Combines Tango DeviceMeta and ABCMeta to allow abstract methods in Devices."""
@@ -36,42 +36,42 @@ class Microscope(Instrument):
     # Device properties — configure in Tango DB per deployment
     # ------------------------------------------------------------------
 
-    scan_device_address = device_property(
+    scan_device_address = tango.server.device_property(
         dtype=str,
         doc="Tango device address for the SCAN settings device. "
             "DB mode: 'test/detector/scan' "
             "No-DB mode: 'tango://127.0.0.1:8888/test/nodb/scan#dbase=no'",
     )
     
-    corrector_device_address = device_property(
+    corrector_device_address = tango.server.device_property(
         dtype=str,
         doc="Tango device address for the aberration corrector settings device. "
             "DB mode: 'test/hardware/corrector' "
             "No-DB mode: 'tango://127.0.0.1:8888/test/nodb/corrector#dbase=no'",
     )
 
-    eds_device_address = device_property(
+    eds_device_address = tango.server.device_property(
         dtype=str,
         doc="Tango device address for the EDS settings device. "
             "DB mode: 'asyncroscopy/eds/default' "
             "No-DB mode: 'tango://127.0.0.1:8887/asyncroscopy/haadf/default#dbase=no'",
     )
 
-    stage_device_address = device_property(
+    stage_device_address = tango.server.device_property(
         dtype=str,
         doc="Tango device address for the STAGE settings device. "
             "DB mode: 'asyncroscopy/stage/default' "
             "No-DB mode: 'tango://127.0.0.1:8888/asyncroscopy/stage/default#dbase=no'",
     )
 
-    camera_device_address = device_property(
+    camera_device_address = tango.server.device_property(
         dtype=str,
         doc="Tango device address for the CAMERA settings . "
             "DB mode: 'asyncroscopy/camera/default' "
             "No-DB mode: 'tango://127.0.0.1:8888/asyncroscopy/camera/default#dbase=no'",
     )
 
-    flucam_device_address = device_property(
+    flucam_device_address = tango.server.device_property(
         dtype=str,
         default_value="",
         doc="Tango device address for the FLUCAM settings device. "
@@ -89,10 +89,10 @@ class Microscope(Instrument):
     # Attributes
     # ------------------------------------------------------------------
 
-    stem_mode = attribute(
+    stem_mode = tango.server.attribute(
         label="STEM Mode",
         dtype=bool,
-        access=AttrWriteType.READ,
+        access=tango.AttrWriteType.READ,
         doc="True when the microscope is in STEM mode",
     )
 
@@ -170,38 +170,38 @@ class Microscope(Instrument):
     #     self.set_state(DevState.OFF)
     #     self.info_stream("Disconnected from microscope hardware")
 
-    @command(dtype_in=str, dtype_out=str)
+    @tango.server.command(dtype_in=str, dtype_out=str)
     def acquire_spectrum(self, detector_name: str) -> str:
         """Acquire a single spectrum and return its DATA/Tiled unique id."""
         detector_name = detector_name.lower().strip()
         proxy = self._detector_proxies.get(detector_name)
         return self._acquire_spectrum(detector_name, proxy.exposure_time)
 
-    @command(dtype_in=DevVarStringArray, dtype_out=str)
+    @tango.server.command(dtype_in=tango.DevVarStringArray, dtype_out=str)
     def acquire_scanned_image(self, detector_list: list[str] = ["haadf"]) -> str:
         """Acquire an image with scanning detectors and return a key pointing to that data. You can get the data with the get_image_from_key command"""
         scan = self._detector_proxies.get("scan")
         return self._acquire_scanned_image(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
 
-    @command(dtype_out=str)
+    @tango.server.command(dtype_out=str)
     def acquire_scanned_data_advanced(self) -> str:
         """Trigger an advanced 4D scanned data acquisition with the Ceta camera."""
         scan = self._detector_proxies.get("scan")
         return self._acquire_scanned_data_advanced(scan.imsize, scan.dwell_time, "BM-Ceta", list(scan.scan_region))
 
-    @command(dtype_out=str)
+    @tango.server.command(dtype_out=str)
     def acquire_camera_image(self) -> str:
         """Acquire a camera image using settings from the camera device."""
         camera = self._detector_proxies.get("camera")
         return self._acquire_camera_image(camera.imsize, camera.exposure_time, "BM-Ceta", camera.readout_area)
 
-    @command(dtype_out=str)
+    @tango.server.command(dtype_out=str)
     def acquire_flucam_image(self) -> str:
         """Acquire a Flucam image using settings from the flucam device."""
         flucam = self._detector_proxies.get("flucam")
         return self._acquire_camera_image(flucam.imsize, flucam.exposure_time, "Flucam", flucam.readout_area)
 
-    @command(dtype_in=int, dtype_out=DevEncoded)
+    @tango.server.command(dtype_in=int, dtype_out=tango.DevEncoded)
     def get_image_data_cached(self, index: int) -> tuple[str, bytes]:
         """Retrieve cached image by index."""
         if not hasattr(self, '_cached_images'):
@@ -215,14 +215,14 @@ class Microscope(Instrument):
         meta = {"shape": list(img_data.shape), "dtype": str(img_data.dtype)}
         return json.dumps(meta), img_data.tobytes()
 
-    @command(dtype_in=DevVarFloatArray, dtype_out=None)
+    @tango.server.command(dtype_in=tango.DevVarFloatArray, dtype_out=None)
     def place_beam(self, position) -> None:
         """
         sets resting beam position, [0:1]
         """
         self._place_beam(position)
 
-    @command(dtype_in=DevVarFloatArray, dtype_out=None)
+    @tango.server.command(dtype_in=tango.DevVarFloatArray, dtype_out=None)
     def place_beam_list(self, positions) -> None:
         """
         Place beam at multiple positions sequentially.
@@ -238,66 +238,66 @@ class Microscope(Instrument):
 
             self._place_beam([x, y])
 
-    @command(dtype_in=str)
+    @tango.server.command(dtype_in=str)
     def set_column_valves(self, state: str) -> None:
         """Open or close the column valves"""
         self._set_column_valves(state)
 
-    @command()
+    @tango.server.command()
     def blank_beam(self) -> None:
         """blank beam"""
         self._blank_beam()
 
-    @command()
+    @tango.server.command()
     def unblank_beam(self) -> None:
         """
         unblank beam
         """
         self._unblank_beam()
 
-    @command(dtype_in=DevFloat)
+    @tango.server.command(dtype_in=tango.DevFloat)
     def set_defocus(self, defocus):
         """
         set the defocus in meters
         """
         self._set_defocus(defocus)
 
-    @command(dtype_out=DevFloat)
+    @tango.server.command(dtype_out=tango.DevFloat)
     def get_defocus(self):
         """
         read the defocus in meters
         """
         return self._get_defocus()
 
-    @command(dtype_in=DevFloat)
+    @tango.server.command(dtype_in=tango.DevFloat)
     def set_fov(self, fov):
         """
         set the field of view for the next acquisition
         """
         self._set_fov(fov)
 
-    @command(dtype_out=DevFloat)
+    @tango.server.command(dtype_out=tango.DevFloat)
     def get_fov(self):
         """
         read the field of view for the next acquisition
         """
         return self._get_fov()
     
-    @command(dtype_in=DevFloat)
+    @tango.server.command(dtype_in=tango.DevFloat)
     def set_screen_current(self, current):
         """
         set the screen current in pA
         """
         self._set_screen_current(current)
 
-    @command(dtype_out=DevFloat)
+    @tango.server.command(dtype_out=tango.DevFloat)
     def get_screen_current(self):
         """
         get the screen current in pA
         """
         return self._get_screen_current()
 
-    @command(dtype_out=DevVarFloatArray)
+    @tango.server.command(dtype_out=tango.DevVarFloatArray)
     def get_stage(self):
         """
         Get the current stage position as a list of floats [x, y, z, alpha, beta].
@@ -311,7 +311,7 @@ class Microscope(Instrument):
 
         return position
 
-    @command(dtype_in=DevVarFloatArray)
+    @tango.server.command(dtype_in=tango.DevVarFloatArray)
     def move_stage(self, position):
         """
         Move the the stage
@@ -323,14 +323,14 @@ class Microscope(Instrument):
         """
         self._move_stage(position)
 
-    @command()
+    @tango.server.command()
     def auto_focus(self):
         """
         Run the microscope's autofocus routine.
         """
         self._auto_focus()
 
-    @command(dtype_in=DevVarFloatArray)
+    @tango.server.command(dtype_in=tango.DevVarFloatArray)
     def set_image_shift(self, shift):
         """
         Set the image shift to the specified values [x_shift, y_shift].
