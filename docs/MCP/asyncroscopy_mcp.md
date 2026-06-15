@@ -19,7 +19,7 @@ MCPServer (Asyncroscopy)
     ↓
 Tango DeviceProxy
     ↓
-Hardware (Microscope, Detectors, Stage, etc.)
+Hardware (STEMMicroscope, Detectors, Stage, etc.)
 ```
 
 PyTango decouples software from hardware through networked device objects. Each device exports commands and attributes.
@@ -28,16 +28,16 @@ PyTango decouples software from hardware through networked device objects. Each 
 
 Asyncroscopy defines Tango Device subclasses for microscopy hardware:
 
-### Base: `Microscope` (asyncroscopy/Microscope.py)
+### Base: `STEMMicroscope` (asyncroscopy/STEMMicroscope.py)
 
 Core microscope control:
 - `acquire_scanned_image(["haadf"])` - Acquire STEM image
 - `acquire_spectrum()` - Acquire spectrum
 - Attributes: voltage, magnification, probe_current
 
-### Thermo Fisher Microscope: `ThermoMicroscope` (asyncroscopy/ThermoMicroscope.py)
+### Thermo Fisher STEMMicroscope: `ThermoMicroscope` (asyncroscopy/ThermoMicroscope.py)
 
-Extends Microscope with multi-detector orchestration:
+Extends STEMMicroscope with multi-detector orchestration:
 - Connects detector proxies (HAADF, EELS, EDS)
 - Coordinates acquisition across detectors
 - Manages state synchronization
@@ -108,7 +108,7 @@ server.setup()
 
 6. **Find Source Code**
    ```python
-   cls = self._get_tango_device_class("Microscope")
+   cls = self._get_tango_device_class("STEMMicroscope")
    # Searches asyncroscopy package for class definition
    ```
 
@@ -126,8 +126,8 @@ How an LLM acquires a microscope image through MCP:
 ### Tango Device Definition
 
 ```python
-# asyncroscopy/Microscope.py
-class Microscope(Device):
+# asyncroscopy/STEMMicroscope.py
+class STEMMicroscope(Device):
     @command(dtype_in=DevVarStringArray, dtype_out=str)
     def acquire_scanned_image(self, detector_list: list[str] = ["haadf"]) -> str:
         """Acquire a STEM image and return a key pointing to the HDF5 data."""
@@ -137,7 +137,7 @@ class Microscope(Device):
 
 ### MCP Tool Registration
 
-1. Server queries Tango: `Microscope.acquire_scanned_image` exists
+1. Server queries Tango: `STEMMicroscope.acquire_scanned_image` exists
 2. Extracts parameter name from source: `detector_list`
 3. Maps Tango type to Python: `DevVarStringArray` → `list[str]`
 4. Builds function signature:
@@ -145,7 +145,7 @@ class Microscope(Device):
    def Microscope_acquire_scanned_image(detector_list: list[str]) -> str:
        """Acquire a STEM image.
        
-       Tango Device Class: Microscope
+       Tango Device Class: STEMMicroscope
        Tango Command: acquire_scanned_image
        """
        return dev.acquire_scanned_image(detector_list)
@@ -168,7 +168,7 @@ Agent: "Image acquired and saved."
 ThermoMicroscope orchestrates multiple detector devices:
 
 ```python
-class ThermoMicroscope(Microscope):
+class ThermoMicroscope(STEMMicroscope):
     def __init__(self, cl, name):
         super().__init__(cl, name)
         # Connect to detector device proxies
@@ -354,7 +354,7 @@ server = MCPServer(
     tango_port=9094,
     blocked_functions={
         "*": ["Init", "Status"],  # Skip lifecycle commands
-        "Microscope": ["emergency_shutdown"],  # Class-specific
+        "STEMMicroscope": ["emergency_shutdown"],  # Class-specific
     }
 )
 ```
@@ -396,7 +396,7 @@ for dev_class, commands in server.tools.items():
 ```python
 # Call the wrapped function directly
 import asyncio
-result = server.tools["Microscope"]["acquire_scanned_image"](exposure_ms=10)
+result = server.tools["STEMMicroscope"]["acquire_scanned_image"](exposure_ms=10)
 print(result)
 ```
 

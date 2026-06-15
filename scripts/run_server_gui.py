@@ -71,12 +71,12 @@ class ServerManagerGUI(QMainWindow):
             for key in self.yaml_config.keys():                
                 self.microscope_combo.addItem(key.replace("_", " ").title(), key)        
         else:            
-            self.microscope_combo.addItem("Thermo Microscope", "thermo_microscope")
+            self.microscope_combo.addItem("Thermo STEMMicroscope", "thermo_microscope")
         self.microscope_combo.currentIndexChanged.connect(self.update_mode_combo)
 
         self.mode_combo = QComboBox()        
         self.update_mode_combo()
-        config_layout.addRow("Microscope Type:", self.microscope_combo)        
+        config_layout.addRow("STEMMicroscope Type:", self.microscope_combo)        
         config_layout.addRow("Startup Mode:", self.mode_combo)
 
         self.load_yaml_btn = QPushButton("Load from YAML")        
@@ -146,7 +146,7 @@ class ServerManagerGUI(QMainWindow):
     def update_mode_combo(self):        
         self.mode_combo.clear()        
         if not self.yaml_config:            
-            self.mode_combo.addItem("Real Microscope", "real")            
+            self.mode_combo.addItem("Real STEMMicroscope", "real")            
             self.mode_combo.addItem("Digital Twin", "dt")            
             return
         for item in self.yaml_config.get(self.microscope_combo.currentData(), []):            

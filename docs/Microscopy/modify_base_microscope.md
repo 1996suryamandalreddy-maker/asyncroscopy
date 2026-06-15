@@ -1,6 +1,6 @@
-# Modifying the base `Microscope`
+# Modifying the base `STEMMicroscope`
 
-`Microscope` (asyncroscopy/Microscope.py) is the **vendor-agnostic** Tango
+`STEMMicroscope` (asyncroscopy/STEMMicroscope.py) is the **vendor-agnostic** Tango
 device. It owns the public `@command` API and the abstract `_helper` methods
 each vendor subclass (e.g. `ThermoMicroscope`) must fill in.
 

@@ -2,7 +2,7 @@
 ## Adding a new detector
 
 1. Copy `asyncroscopy/detectors/HAADF.py` to `asyncroscopy/detectors/NEWDET.py` and adjust the attributes for that detector's settings.
-2. Add a `device_property` in Microscope.py:
+2. Add a `device_property` in STEMMicroscope.py:
    ```python
    newdet_device_address = device_property(dtype=str, default_value="asyncroscopy/newdet/default")
    ```
@@ -10,7 +10,7 @@
    ```python
    "newdet": self.newdet_device_address,
    ```
-- note : base class `Microscope` at asyncroscopy/Microscope.py is not the right place for this:
+- note : base class `STEMMicroscope` at asyncroscopy/STEMMicroscope.py is not the right place for this:
 
 4. Add acquisition logic:
 - see step 3 in [modify_base_microscope](../Microscopy/modify_base_microscope.md) 

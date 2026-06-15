@@ -1,5 +1,5 @@
 """
-Microscope Tango device.
+STEMMicroscope Tango device.
 
 Detector settings are read from the corresponding detector DeviceProxy
 so that each detector device is the single source of truth for its own params.
@@ -25,7 +25,7 @@ from tango.server import Device, DeviceMeta, attribute, command, device_property
 #     """Combines Tango DeviceMeta and ABCMeta to allow abstract methods in Devices."""
 #     pass
 
-class Microscope(Instrument):
+class STEMMicroscope(Instrument):
     """
     Top-level TEM microscope device.
     Detector-specific settings (dwell time, resolution) are stored in
@@ -434,4 +434,4 @@ class Microscope(Instrument):
 # ----------------------------------------------------------------------
 
 if __name__ == "__main__":
-    Microscope.run_server()
+    STEMMicroscope.run_server()

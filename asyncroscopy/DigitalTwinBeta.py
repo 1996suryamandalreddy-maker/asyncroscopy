@@ -15,9 +15,9 @@ import tango
 from tango import AttrWriteType, DevState
 from tango.server import Device, attribute
 
-from asyncroscopy.Microscope import Microscope
+from asyncroscopy.STEMMicroscope import STEMMicroscope
 
-class DigitalTwinBeta(Microscope):
+class DigitalTwinBeta(STEMMicroscope):
     """
     Detector-specific settings (dwell time, resolution) are stored in
     dedicated detector devices and read via DeviceProxy at acquisition time.

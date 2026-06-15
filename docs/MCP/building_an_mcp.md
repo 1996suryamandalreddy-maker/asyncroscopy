@@ -80,7 +80,7 @@ server = MCPServer(
     blocked_classes=["DataBase", "DServer", "MyUnwantedClass"],
     blocked_functions={
         "*": ["Init", "Status"],  # Global blocks
-        "Microscope": ["Connect", "Disconnect"],  # Per-class blocks
+        "STEMMicroscope": ["Connect", "Disconnect"],  # Per-class blocks
     },
     search_packages=["mymodule", "asyncroscopy"]
 )
@@ -152,7 +152,7 @@ The server introspects Tango Device source code to improve tool descriptions:
 4. Build rich descriptions for LLM agents
 
 ```python
-class Microscope(Device):
+class STEMMicroscope(Device):
     @command(dtype_in=int, dtype_out=float)
     def acquire_image(self, exposure_ms: int) -> float:
         """Acquire a STEM image with specified exposure."""
@@ -226,7 +226,7 @@ from asyncroscopy.mcp.mcp_server import MCPServer
 
 # Create server
 server = MCPServer(
-    name="Microscope",
+    name="STEMMicroscope",
     tango_host="microscope.lab.local",
     tango_port=9094,
     blocked_functions={"*": ["Init"]},
@@ -244,7 +244,7 @@ class CustomServer(MCPServer):
 
 # Create instance and start
 custom = CustomServer(
-    name="Microscope",
+    name="STEMMicroscope",
     tango_host="localhost",
     tango_port=9094
 )

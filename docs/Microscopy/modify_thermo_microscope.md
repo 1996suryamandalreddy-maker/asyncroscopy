@@ -1,7 +1,7 @@
 # Modifying `ThermoMicroscope`
 
 `ThermoMicroscope` (asyncroscopy/ThermoMicroscope.py) is the AutoScript vendor
-subclass of [`Microscope`](modify_base_microscope.md). It owns the AutoScript
+subclass of [`STEMMicroscope`](modify_base_microscope.md). It owns the AutoScript
 connection and implements the `_helper` methods the base declares abstract.
 
 **Image helpers end via `_persist`; spectrum and STEM-data helpers via

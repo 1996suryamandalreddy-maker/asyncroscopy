@@ -48,7 +48,7 @@ You can restrict which commands or classes are exposed through the following [`_
 - **`blocked_classes`**: List of Tango class names to skip entirely (defaults to `["DataBase", "DServer"]`).
 - **`blocked_functions`**: 
   - A simple list (e.g., `["Init", "Status"]`) applied globally.
-  - Or a dictionary mapping class names to command lists (e.g. `{"Microscope": ["Connect"]}`).
+  - Or a dictionary mapping class names to command lists (e.g. `{"STEMMicroscope": ["Connect"]}`).
   - Use `"*"` as a dictionary key to apply global overrides (e.g. `{"*": ["Init"]}`).
 - **`search_packages`**: List of Python package names to search for Tango Device subclasses when resolving docstrings and parameter names (defaults to `["asyncroscopy"]`).
 

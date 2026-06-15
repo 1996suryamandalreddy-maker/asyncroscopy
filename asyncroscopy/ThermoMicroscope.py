@@ -1,5 +1,5 @@
 """
-Microscope Tango device.
+STEMMicroscope Tango device.
 
 Owns the AutoScript connection and all acquisition commands.
 Detector settings are read from the corresponding detector DeviceProxy
@@ -26,7 +26,7 @@ import tango
 from tango import AttrWriteType, DevState
 from tango.server import attribute, command, device_property
 
-from asyncroscopy.Microscope import Microscope
+from asyncroscopy.STEMMicroscope import STEMMicroscope
 from asyncroscopy.software.DataWriter import DEFAULT_ACQUISITION_DIR, save_acquisition
 
 # AutoScript imports — only available on the microscope PC.
@@ -44,7 +44,7 @@ except ImportError:
     _AUTOSCRIPT_AVAILABLE = False
 
 
-class ThermoMicroscope(Microscope):
+class ThermoMicroscope(STEMMicroscope):
     """
     Manages the AutoScript connection and exposes acquisition commands.
     Detector-specific settings (dwell time, resolution) are stored in

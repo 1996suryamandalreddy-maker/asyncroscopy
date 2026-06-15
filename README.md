@@ -17,7 +17,7 @@ see: [Tutorial notebook](notebooks/1_Client_tutorial.ipynb)
 ```
 .
 ├── src/
-│   ├── Microscope.py              # Main device — owns AutoScript connection and all acquisition commands
+│   ├── STEMMicroscope.py              # Main device — owns AutoScript connection and all acquisition commands
 │   ├── detectors/
 │   │   ├── HAADF.py               # HAADF detector settings device
 │   │   ├── EELS.py                # EELS detector settings device (stub)
@@ -30,7 +30,7 @@ see: [Tutorial notebook](notebooks/1_Client_tutorial.ipynb)
 │       └── advanced_acquisition.py  # Multi-detector acquisition helpers (stub)
 ├── tests/
 │   ├── conftest.py                # Shared pytest fixtures (DeviceTestContext proxies)
-│   ├── test_microscope.py         # Microscope device tests
+│   ├── test_microscope.py         # STEMMicroscope device tests
 │   ├── test_acquisition.py        # Acquisition tests
 │   └── detectors/
 │       └── test_HAADF.py          # HAADF device tests

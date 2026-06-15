@@ -1,6 +1,6 @@
 thermo_microscope: #this is where you would define new machines to load
 #and we also need to define the servers for each piece of equipmen
-  - name: REAL Microscope
+  - name: REAL STEMMicroscope
     value: real
   - name: Digital Twin
     value: dt

@@ -1,8 +1,8 @@
 """
 Shared pytest fixtures for Tango device tests.
 
-Starts BOTH the detector device(s) and the Microscope device in ONE Tango
-test device server using MultiDeviceTestContext, so the Microscope can
+Starts BOTH the detector device(s) and the STEMMicroscope device in ONE Tango
+test device server using MultiDeviceTestContext, so the STEMMicroscope can
 create DeviceProxy connections to detectors by device name.
 
 This avoids:
@@ -42,9 +42,9 @@ def data_save_dir(tmp_path_factory):
 @pytest.fixture(scope="session")
 def tango_ctx(data_save_dir):
     """
-    One Tango device server hosting SCAN + Microscope together.
+    One Tango device server hosting SCAN + STEMMicroscope together.
 
-    Device names here MUST match what you put into Microscope properties.
+    Device names here MUST match what you put into STEMMicroscope properties.
     """
     devices_info = [
         {

@@ -15,13 +15,13 @@ from ase.build import bulk
 from tango import AttrWriteType, DevState
 from tango.server import Device, attribute, device_property
 
-from asyncroscopy.Microscope import Microscope
+from asyncroscopy.STEMMicroscope import STEMMicroscope
 from asyncroscopy.software.DataWriter import save_acquisition
 
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
 
-class DigitalTwin(Microscope):
+class DigitalTwin(STEMMicroscope):
     """
     Persistent ASE-backed sample simulation with stage-coupled viewport rendering.
     """
