@@ -212,7 +212,7 @@ Uses JSON-RPC over stdin/stdout. Connect agents directly to the process.
 For remote access:
 
 ```python
-server.start_http(host="0.0.0.0", port=8000)
+server.start(transport="streamable-http", host="0.0.0.0", port=8000)
 ```
 
 Exposes MCP tools via HTTP. Agents connect via HTTP client.

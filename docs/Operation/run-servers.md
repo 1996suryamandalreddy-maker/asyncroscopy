@@ -61,9 +61,8 @@ The optional `mcp:` block controls the FastMCP server. Set `autostart: true` to
 start it after all Tango devices are ready. The MCP server connects back through
 the Tango database, discovers exported device commands, filters
 `blocked_classes` and `blocked_functions`, and exposes the remaining commands as
-tools. Native MCP helpers can be added by subclassing
-`asyncroscopy.mcp.mcp_server.MCPServer` and decorating methods with `@tool()`,
-`@resource()`, or `@prompt()`.
+tools. Native MCP helpers live directly in `asyncroscopy.mcp.mcp_server.MCPServer`
+as methods decorated with `@tool()`, `@resource()`, or `@prompt()`.
 
 **Two ways to run:**
 
@@ -153,12 +152,16 @@ uv run python -m asyncroscopy.ThermoMicroscope microscope_instance
 
 # MCP over streamable HTTP (after the DB and devices are up)
 uv run python -m asyncroscopy.mcp.mcp_server \
-  --class-name ThermoMCP \
   --name Spectra300_MCP \
   --tango-host localhost \
   --tango-port 9094 \
+  --transport streamable-http \
   --http-host 127.0.0.1 \
-  --http-port 8000
+  --http-port 8000 \
+  --data-device-address asyncroscopy/data/default \
+  --blocked-classes-json '["DataBase", "DServer"]' \
+  --blocked-functions-json '{"*": ["Init", "Kill", "RestartServer"]}' \
+  --search-packages-json '["asyncroscopy"]'
 
 # Client side
 export TANGO_HOST=localhost:9094

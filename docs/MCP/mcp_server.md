@@ -27,7 +27,6 @@ server terminal stays open.
 ```yaml
 mcp:
   autostart: true
-  class_name: ThermoMCP
   name: Spectra300_MCP
   transport: streamable-http
   http_host: 127.0.0.1
@@ -64,24 +63,12 @@ payloads are normalized into JSON-safe results.
 For device commands, add a Tango `@command` to the relevant device class. If the
 device is registered and exported, MCP discovers it automatically.
 
-For MCP-only helpers, subclass `MCPServer` and decorate methods:
+For MCP-only helpers, add methods directly to `MCPServer` and decorate them:
 
 ```python
-from fastmcp.tools import tool
-from asyncroscopy.mcp.mcp_server import MCPServer
-
-
-class MyMCP(MCPServer):
-    @tool()
-    def my_helper(self, value: str) -> str:
-        return value
-```
-
-Then set:
-
-```yaml
-mcp:
-  class_name: my_package.my_module.MyMCP
+@tool()
+def my_helper(self, value: str) -> str:
+    return value
 ```
 
 The base server includes `list_devices` and `get_data_from_key`. The latter reads
@@ -108,10 +95,14 @@ If the Tango stack is already running:
 
 ```bash
 uv run python -m asyncroscopy.mcp.mcp_server \
-  --class-name ThermoMCP \
   --name Spectra300_MCP \
   --tango-host localhost \
   --tango-port 9094 \
+  --transport streamable-http \
   --http-host 127.0.0.1 \
-  --http-port 8000
+  --http-port 8000 \
+  --data-device-address asyncroscopy/data/default \
+  --blocked-classes-json '["DataBase", "DServer"]' \
+  --blocked-functions-json '{"*": ["Init", "Kill", "RestartServer"]}' \
+  --search-packages-json '["asyncroscopy"]'
 ```
