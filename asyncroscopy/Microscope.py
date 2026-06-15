@@ -120,10 +120,6 @@ class Microscope(Instrument):
 
     #     self._connect()
 
-    # @abstractmethod
-    # def _connect(self):
-    #     pass
-
     # ------------------------------------------------------------------
     # Subclass methods
     # ------------------------------------------------------------------ 
@@ -134,6 +130,14 @@ class Microscope(Instrument):
 
     @abstractmethod
     def _connect_detector_proxies(self) -> None:
+        pass
+
+    @abstractmethod
+    def _connect(self):
+        pass
+
+    @abstractmethod
+    def _disconnect(self):
         pass
 
     # ------------------------------------------------------------------
