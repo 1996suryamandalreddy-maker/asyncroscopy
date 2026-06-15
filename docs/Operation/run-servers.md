@@ -112,9 +112,32 @@ The run prints progress as five sections:
 - **Tiled failed to start.** Check the save path is writable and the Tiled port
   is free; the failure message comes from the `data` device.
 
-> Not yet implemented (see TODO in the script): a `--debug` flag to stream every
-> server's output live. Alternate configs as `.yaml` files are now supported —
-> see [Configs](#configs---yaml) above.
+## `--debug`: per-server log files
+
+By default each server's output is captured but only shown as a one-shot snapshot
+*if startup fails*. Pass `--debug` to stream every server's output (stdout and
+stderr merged) **live** to a per-device log file, so you can `tail` whichever
+server is misbehaving while the stack runs:
+
+```bash
+uv run scripts/run_servers.py --debug
+uv run scripts/run_servers.py --yaml configs/Spectra300.yaml --debug   # headless + logs
+```
+
+Each run gets its own timestamped folder, one file per device:
+
+```
+output_tango_devices_logs/2026-06-14_08-30-15/
+  database.log
+  scan.log
+  camera.log
+  ...
+  microscope.log
+```
+
+The folder path is printed at startup (and again on failure). `output_tango_devices_logs/`
+is git-ignored, so logs are never committed. Alternate configs as `.yaml` files
+are supported — see [Configs](#configs---yaml) above.
 
 ## What it does under the hood (manual fallback)
 
