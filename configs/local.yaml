@@ -1,0 +1,34 @@
+microscope:
+  class_name: ThermoMicroscope
+  module_name: asyncroscopy.ThermoMicroscope
+  description: Thermo Fisher Spectra 300 TEM
+  host: 127.0.0.1
+  port: 9095
+digital_twin:
+  class_name: DigitalTwin
+  module_name: asyncroscopy.DigitalTwin
+  description: Software digital twin
+devices:
+  camera:
+    module_name: asyncroscopy.detectors.CAMERA
+  corrector:
+    module_name: asyncroscopy.hardware.CORRECTOR
+  data:
+    module_name: asyncroscopy.software.DATA
+  eds:
+    module_name: asyncroscopy.detectors.EDS
+  flucam:
+    module_name: asyncroscopy.detectors.FLUCAM
+  scan:
+    module_name: asyncroscopy.hardware.SCAN
+  stage:
+    module_name: asyncroscopy.hardware.STAGE
+tango:
+  host: 127.0.0.1
+  port: 9094
+tiled:
+  host: 127.0.0.1
+  port: 9091
+  acquisition_dir: outputs/tiled_acquisitions
+  autostart: true
+device_timeout_seconds: 120
