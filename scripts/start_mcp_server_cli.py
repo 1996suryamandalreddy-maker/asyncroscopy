@@ -47,7 +47,6 @@ def main() -> None:
         tango_port=tango_db_port,
         blocked_classes=["DataBase", "DServer"],
         blocked_functions={"*": ["Init"]},
-        search_packages=["asyncroscopy"],
         data_device_address="asyncroscopy/data/default",
     )
     print(f"Connected to Tango DB at {tango_db_host}:{tango_db_port}")

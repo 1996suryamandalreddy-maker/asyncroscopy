@@ -112,7 +112,6 @@ class MCPConfig:
     http_host: str
     http_port: int
     data_device_address: str
-    search_packages: list[str]
     blocked_classes: list[str]
     blocked_functions: dict[str, list[str]]
 
@@ -142,8 +141,6 @@ class MCPConfig:
             json.dumps(self.blocked_classes),
             "--blocked-functions-json",
             json.dumps(self.blocked_functions),
-            "--search-packages-json",
-            json.dumps(self.search_packages),
         ]
         return command
 
@@ -215,7 +212,6 @@ def load_config(path: Path) -> Config:
             http_host=_require(mcp, "http_host", "mcp"),
             http_port=int(_require(mcp, "http_port", "mcp")),
             data_device_address=_require(mcp, "data_device_address", "mcp"),
-            search_packages=list(_require(mcp, "search_packages", "mcp")),
             blocked_classes=list(_require(mcp, "blocked_classes", "mcp")),
             blocked_functions={key: list(value) for key, value in _require(mcp, "blocked_functions", "mcp").items()},
         ),

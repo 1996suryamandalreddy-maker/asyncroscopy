@@ -107,7 +107,6 @@ def test_mcp_config_builds_server_command():
         data_device_address="asyncroscopy/data/default",
         blocked_classes=["DataBase"],
         blocked_functions={"*": ["Init"], "DATA": ["stop_tiled_server"]},
-        search_packages=["asyncroscopy"],
     )
 
     command = config.command("localhost", 9094)
@@ -121,4 +120,4 @@ def test_mcp_config_builds_server_command():
     assert command[command.index("--blocked-functions-json") + 1] == (
         '{"*": ["Init"], "DATA": ["stop_tiled_server"]}'
     )
-    assert command[command.index("--search-packages-json") + 1] == '["asyncroscopy"]'
+    assert "--search-packages-json" not in command

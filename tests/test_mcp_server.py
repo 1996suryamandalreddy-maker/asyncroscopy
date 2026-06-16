@@ -21,10 +21,6 @@ import asyncio
 import h5py
 import numpy as np
 
-from fastmcp.prompts import prompt
-from fastmcp.resources import resource
-from fastmcp.tools import tool
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from asyncroscopy.mcp.mcp_server import MCPServer
@@ -34,7 +30,6 @@ def mcp_kwargs(**overrides):
     config = {
         "blocked_classes": ["DataBase", "DServer"],
         "blocked_functions": {"*": ["Init"]},
-        "search_packages": ["asyncroscopy"],
         "data_device_address": "asyncroscopy/data/default",
     }
     config.update(overrides)
@@ -490,11 +485,12 @@ class TestMCPToolInvocation:
         # 1. Positional call
         assert wrapper("hello") == "hello"
 
-        # 2. Keyword call with correct name
+        # 2. Keyword call with the generic Tango argument name
         import inspect
 
         sig = inspect.signature(wrapper)
         param_name = list(sig.parameters.keys())[0]
+        assert param_name == "arg"
         assert wrapper(**{param_name: "world"}) == "world"
 
     def test_void_wrapper_supports_no_args(self, monkeypatch) -> None:
@@ -521,47 +517,18 @@ class TestMCPToolInvocation:
 
 
 class TestMCPRegistration:
-    def test_register_instance_methods_for_tools_resources_prompts(
-        self, monkeypatch
-    ) -> None:
+    def test_setup_registers_native_tools(self, monkeypatch) -> None:
         monkeypatch.setattr("asyncroscopy.mcp.mcp_server.Database", lambda host, port: None)
 
-        class CustomServer(MCPServer):
-            @tool()
-            def custom_tool(self, value: str) -> str:
-                return value
-
-            @resource("config://demo")
-            def custom_resource(self) -> str:
-                return "demo"
-
-            @prompt()
-            def custom_prompt(self, label: str) -> str:
-                return f"Prompt {label}"
-
-        server = CustomServer("test", "localhost", 1234, **mcp_kwargs(), verbose=False)
-        calls = {"tool": [], "resource": [], "prompt": []}
+        server = MCPServer("test", "localhost", 1234, **mcp_kwargs(), verbose=False)
+        calls = []
 
         def record_tool(method):
-            calls["tool"].append(method.__name__)
-
-        def record_resource(method):
-            calls["resource"].append(method.__name__)
-
-        def record_prompt(method):
-            calls["prompt"].append(method.__name__)
+            calls.append(method.__name__)
 
         monkeypatch.setattr(server.mcp, "add_tool", record_tool)
-        monkeypatch.setattr(server.mcp, "add_resource", record_resource)
-        monkeypatch.setattr(server.mcp, "add_prompt", record_prompt)
+        monkeypatch.setattr(server, "_find_tools", lambda: {})
 
-        registered = server._register_instance_methods()
+        server.setup(print_summary=False)
 
-        assert registered == 5
-        assert set(calls["tool"]) == {
-            "custom_tool",
-            "get_data_from_key",
-            "list_devices",
-        }
-        assert calls["resource"] == ["custom_resource"]
-        assert calls["prompt"] == ["custom_prompt"]
+        assert set(calls) == {"get_data_from_key", "list_devices"}

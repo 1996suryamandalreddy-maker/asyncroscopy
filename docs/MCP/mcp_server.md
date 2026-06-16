@@ -32,8 +32,6 @@ mcp:
   http_host: 127.0.0.1
   http_port: 8000
   data_device_address: asyncroscopy/data/default
-  search_packages:
-    - asyncroscopy
   blocked_classes:
     - DataBase
     - DServer
@@ -54,9 +52,8 @@ uv run python -m asyncroscopy.mcp.mcp_server ...
 opens each exported device with `DeviceProxy`, queries `command_list_query()`,
 and registers every non-blocked Tango command as a FastMCP tool.
 
-Tool signatures are built from Tango command types and, when available, source
-method signatures in `search_packages`. NumPy values and Tango `DevEncoded`
-payloads are normalized into JSON-safe results.
+Tool signatures are built from Tango command types. NumPy values and Tango
+`DevEncoded` payloads are normalized into JSON-safe results.
 
 ## Adding Commands
 
@@ -103,6 +100,5 @@ uv run python -m asyncroscopy.mcp.mcp_server \
   --http-port 8000 \
   --data-device-address asyncroscopy/data/default \
   --blocked-classes-json '["DataBase", "DServer"]' \
-  --blocked-functions-json '{"*": ["Init", "Kill", "RestartServer"]}' \
-  --search-packages-json '["asyncroscopy"]'
+  --blocked-functions-json '{"*": ["Init", "Kill", "RestartServer"]}'
 ```

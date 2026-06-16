@@ -313,7 +313,6 @@ def main():
             log_stderr("[startup] Initializing MCPServer...")
             blocked_classes = [value.strip() for value in (input("Enter blocked Tango classes [DataBase,DServer]: ").strip() or "DataBase,DServer").split(",") if value.strip()]
             blocked_functions = {"*": [value.strip() for value in (input("Enter globally blocked Tango commands [Init]: ").strip() or "Init").split(",") if value.strip()]}
-            search_packages = [value.strip() for value in (input("Enter source search packages [asyncroscopy]: ").strip() or "asyncroscopy").split(",") if value.strip()]
             data_device_address = input("Enter DATA device address [asyncroscopy/data/default]: ").strip() or "asyncroscopy/data/default"
 
             server = MCPServer(
@@ -322,7 +321,6 @@ def main():
                 tango_port=port,
                 blocked_classes=blocked_classes,
                 blocked_functions=blocked_functions,
-                search_packages=search_packages,
                 data_device_address=data_device_address,
                 verbose=False,
             )
