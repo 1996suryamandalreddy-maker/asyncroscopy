@@ -1,46 +1,59 @@
 # Asyncroscopy MCP Server
 
-The MCP server is a FastMCP HTTP bridge over the live Tango database. It starts
-after the Tango DB, support devices, Tiled, and microscope/digital twin are
-ready.
+The MCP server is a FastMCP HTTP bridge over the live Tango database. It should
+start after the Tango database, support devices, Tiled, and microscope or
+digital twin are ready.
 
-## Start With The Stack
+## Start It
 
-Use the MCP-enabled YAML:
+Start the device stack first:
 
 ```bash
-uv run scripts/run_servers.py --yaml configs/Spectra300_MCP.yaml
-uv run scripts/run_servers.py --yaml configs/Spectra300_MCP.yaml --microscope dt
+uv run startup_scripts/run_servers.py --yaml configs/Spectra300.yaml
+uv run startup_scripts/run_servers.py --yaml configs/Spectra300.yaml --microscope dt
 ```
 
-The MCP endpoint defaults to:
+Then start MCP in another terminal or on the MCP computer:
+
+```bash
+uv run startup_scripts/run_mcp.py --yaml configs/mcp.yaml
+```
+
+The default endpoint is:
 
 ```text
 http://127.0.0.1:8000/mcp
 ```
 
-Local model clients can connect to that endpoint with a FastMCP client while the
-server terminal stays open.
+If MCP runs on another computer, set `tango.host` in `configs/mcp.yaml` to the
+Tango database machine and set `mcp.http_host` to the MCP machine's bind address.
+Use `0.0.0.0` when clients on other machines need to connect.
 
 ## YAML Contract
 
 ```yaml
+tango:
+  host: localhost
+  port: 9094
+
 mcp:
-  autostart: true
   name: Spectra300_MCP
   transport: streamable-http
   http_host: 127.0.0.1
   http_port: 8000
   data_device_address: asyncroscopy/data/default
+  quiet: true
   blocked_classes:
     - DataBase
     - DServer
   blocked_functions:
     "*":
       - Init
+      - Kill
+      - RestartServer
 ```
 
-`run_servers.py` starts this process last:
+`startup_scripts/run_mcp.py` maps this config directly to:
 
 ```bash
 uv run python -m asyncroscopy.mcp.mcp_server ...
@@ -55,21 +68,19 @@ and registers every non-blocked Tango command as a FastMCP tool.
 Tool signatures are built from Tango command types. NumPy values and Tango
 `DevEncoded` payloads are normalized into JSON-safe results.
 
-## Adding Commands
+## Added MCP Tools
 
 For device commands, add a Tango `@command` to the relevant device class. If the
 device is registered and exported, MCP discovers it automatically.
 
-For MCP-only helpers, add methods directly to `MCPServer` and decorate them:
+For MCP-only behavior, add it directly to `MCPServer`. The required native tools
+today are:
 
-```python
-@tool()
-def my_helper(self, value: str) -> str:
-    return value
-```
+- `list_devices`
+- `get_data_from_key`
 
-The base server includes `list_devices` and `get_data_from_key`. The latter reads
-an acquired HDF5 DATA/Tiled key and returns dataset metadata plus a small preview.
+`get_data_from_key` reads an acquired HDF5 DATA/Tiled key and returns dataset
+metadata plus a small preview.
 
 ## Blacklisting
 

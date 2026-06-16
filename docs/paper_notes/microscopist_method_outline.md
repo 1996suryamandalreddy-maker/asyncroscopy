@@ -108,7 +108,7 @@ Paper purpose:
 This combines the original themes 5 and 6.
 
 - MCP provides an agent-facing layer over the Tango control system.
-- Instead of manually writing a static tool list, the MCP server discovers running Tango devices, queries their commands, maps their input/output types, reads source-level parameter names and docstrings, and exposes the results as tools.
+- Instead of manually writing a static tool list, the MCP server discovers running Tango devices, queries their commands, maps their input/output types, and exposes the non-blocked results as tools.
 - The agent-facing interface is therefore tied to the actual running instrument configuration stored in the Tango database.
 - This reduces mismatch between what an agent can request and what the microscope system can currently do.
 - The same typed control surface can be used by notebooks, scripts, and LLM agents.

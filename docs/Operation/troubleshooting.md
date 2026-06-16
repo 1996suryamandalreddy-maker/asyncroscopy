@@ -30,7 +30,7 @@ Delete the stale `.db` files — both the Tiled catalog db and the Tango databas
 db — then start fresh:
 
 ```bash
-uv run scripts/run_servers.py
+uv run startup_scripts/run_servers.py
 ```
 
 A clean run rebuilds both databases.

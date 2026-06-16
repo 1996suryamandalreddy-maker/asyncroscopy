@@ -77,7 +77,7 @@ First-pass notes from a broad read of the `main` branch documentation, represent
 ### 10. Startup and deployment became first-class concerns
 
 - History includes repeated work on Tango database mode, server runners, configuration, stale server cleanup, cross-platform startup, GUI server launchers, and host/port configurability.
-- `run_mcp_and_devices.py` dynamically finds Tango device classes, registers a main device and subdevices, starts servers, waits for readiness, and starts the MCP server.
+- `startup_scripts/run_servers.py` starts the Tango/device stack, while `startup_scripts/run_mcp.py` starts MCP separately from explicit YAML.
 - This suggests the team learned that method development needs reproducible system bring-up, not only individual device APIs.
 - Automation of the microscope includes automation of the software stack itself.
 
@@ -86,8 +86,8 @@ First-pass notes from a broad read of the `main` branch documentation, represent
 - 2025-10 to 2025-11: asynchronous coordination, backend server routing, digital twin servers, CEOS support, smart proxy, dynamic servers.
 - 2025-12: pystemsim integration, aberration optimization, segmentation, dose mapping, physical damage models, atom fabrication workflows, real STEM server compatibility.
 - 2026-02: documentation and hardware extension guides begin to formalize architecture.
-- 2026-03: base `Microscope` abstraction, `ThermoDigitalTwin`, database mode, tests, PyTango workflows, stage/scan/device modules, HAADF/EDS twin, MCP server implementation, command discovery, type mapping, DevEncoded serialization, source-level introspection, transport flexibility, and MCP docs.
-- 2026-04: persistent digital twin sample, tilt/autofocus/screen current/image shift controls, deployment docs, Tango DB startup, `run_mcp_and_devices.py`.
+- 2026-03: base `Microscope` abstraction, `ThermoDigitalTwin`, database mode, tests, PyTango workflows, stage/scan/device modules, HAADF/EDS twin, MCP server implementation, command discovery, type mapping, DevEncoded serialization, transport flexibility, and MCP docs.
+- 2026-04: persistent digital twin sample, tilt/autofocus/screen current/image shift controls, deployment docs, Tango DB startup, and split server/MCP startup scripts.
 - 2026-05: real-time experiments, Tango-Tiled/DATA integration, scan/acquisition refactors, new devices, block diagram, Tiled registration, server initialization simplification, speed improvements.
 
 ## Recurrent Design Motifs

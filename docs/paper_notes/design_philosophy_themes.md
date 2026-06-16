@@ -28,7 +28,7 @@ Paper angle: STEM automation often requires coordinating acquisition, motion, de
 
 ## 5. Design with LLM agents in mind
 
-The MCP server is not a thin manually written command list. It discovers Tango devices, queries commands, maps Tango types to Python types, normalizes binary data, recovers source-level parameter names/docstrings, and exposes tools, resources, and prompts to LLM agents.
+The MCP server is not a thin manually written command list. It discovers Tango devices, queries commands, maps Tango types to Python types, normalizes binary data, applies explicit YAML exclusions, and exposes the remaining commands plus native helper methods as tools for LLM agents.
 
 Paper angle: LLM compatibility is strongest when the instrument runtime is self-describing. MCP plus Tango introspection lets agents operate through the same typed, documented control surface used by notebooks and scripts.
 
