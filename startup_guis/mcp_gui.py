@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import queue
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, ttk
@@ -9,7 +10,11 @@ from tkinter.scrolledtext import ScrolledText
 
 import yaml
 
-from startup_guis.shared import CONFIG_DIR, GENERATED_CONFIG_DIR, ManagedCommand, load_yaml, write_yaml, yaml_text
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+from startup_guis.shared import BODY_FONT, CONFIG_DIR, GENERATED_CONFIG_DIR, SECTION_FONT, TEXT_FONT, TITLE_FONT, ManagedCommand, action_button, append_terminal_text, configure_terminal, load_yaml, write_yaml, yaml_text  # noqa: E402
 
 
 DEFAULT_CONFIG_PATH = CONFIG_DIR / 'mcp.yaml'
@@ -65,41 +70,77 @@ class McpGui(tk.Tk):
         return vars
 
     def build(self) -> None:
-        root = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
+        self.option_add('*Font', BODY_FONT)
+        style = ttk.Style(self)
+        style.configure('TButton', font=BODY_FONT, padding=8)
+        style.configure('TCheckbutton', font=BODY_FONT)
+        style.configure('TCombobox', font=BODY_FONT)
+        style.configure('TEntry', font=BODY_FONT)
+        style.configure('TLabel', font=BODY_FONT)
+        style.configure('Title.TLabel', font=TITLE_FONT)
+        style.configure('Section.TLabelframe.Label', font=SECTION_FONT)
+        style.configure('Preview.TLabel', font=SECTION_FONT)
+        root = ttk.PanedWindow(self, orient=tk.VERTICAL)
         root.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        controls = ttk.Frame(root, padding=8)
-        preview = ttk.Frame(root, padding=8)
-        root.add(controls, weight=1)
-        root.add(preview, weight=1)
+        top = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
+        controls = ttk.Frame(top, padding=8)
+        preview = ttk.Frame(top, padding=8)
+        terminal = ttk.Frame(root, padding=8)
+        root.add(top, weight=1)
+        root.add(terminal, weight=1)
+        top.add(controls, weight=1)
+        top.add(preview, weight=1)
         self.build_controls(controls)
-        ttk.Label(preview, text='Generated YAML').pack(anchor='w')
-        self.yaml_preview = ScrolledText(preview, height=16, wrap=tk.NONE)
+        tk.Label(preview, text='Configuration (.yaml)', font=SECTION_FONT).pack(anchor='w', pady=(0, 6))
+        self.yaml_preview = ScrolledText(preview, height=16, wrap=tk.NONE, font=TEXT_FONT)
         self.yaml_preview.pack(fill=tk.BOTH, expand=True)
-        ttk.Label(preview, text='Terminal output').pack(anchor='w', pady=(10, 0))
-        self.output = ScrolledText(preview, height=12, wrap=tk.WORD)
+        tk.Label(terminal, text='Terminal output', font=SECTION_FONT).pack(anchor='w', pady=(0, 6))
+        self.output = ScrolledText(terminal, height=12, wrap=tk.WORD)
+        configure_terminal(self.output)
         self.output.pack(fill=tk.BOTH, expand=True)
 
     def build_controls(self, parent: ttk.Frame) -> None:
-        ttk.Label(parent, text='MCP startup').grid(row=0, column=0, columnspan=2, sticky='w')
-        rows = [
-            ('Tango host', 'tango_host'), ('Tango port', 'tango_port'), ('Name', 'name'), ('Transport', 'transport'),
-            ('HTTP host', 'http_host'), ('HTTP port', 'http_port'), ('DATA device', 'data_device_address'), ('Blocked classes', 'blocked_classes'),
-        ]
-        for index, (label, key) in enumerate(rows, start=1):
-            widget = ttk.Combobox(parent, textvariable=self.vars[key], values=('streamable-http',), state='readonly') if key == 'transport' else ttk.Entry(parent, textvariable=self.vars[key], width=42)
-            ttk.Label(parent, text=label).grid(row=index, column=0, sticky='w', pady=2)
-            widget.grid(row=index, column=1, sticky='ew', pady=2)
-        ttk.Checkbutton(parent, text='Quiet mode', variable=self.vars['quiet']).grid(row=9, column=0, columnspan=2, sticky='w', pady=4)
-        ttk.Label(parent, text='Blocked functions YAML').grid(row=10, column=0, columnspan=2, sticky='w', pady=(10, 0))
-        self.blocked_functions = ScrolledText(parent, height=8, width=42, wrap=tk.NONE)
+        tk.Label(parent, text='Asyncroscopy MCP Startup', font=TITLE_FONT).pack(anchor='w', pady=(0, 10))
+
+        database = self.section(parent, 'Database')
+        self.add_row(database, 0, 'Tango host', ttk.Entry(database, textvariable=self.vars['tango_host'], width=34))
+        self.add_row(database, 1, 'Tango port', ttk.Entry(database, textvariable=self.vars['tango_port'], width=34))
+
+        mcp_server = self.section(parent, 'MCP server')
+        self.add_row(mcp_server, 0, 'Name', ttk.Entry(mcp_server, textvariable=self.vars['name'], width=34))
+        self.add_row(mcp_server, 1, 'Transport', ttk.Combobox(mcp_server, textvariable=self.vars['transport'], values=('streamable-http',), state='readonly', width=31))
+        self.add_row(mcp_server, 2, 'HTTP host', ttk.Entry(mcp_server, textvariable=self.vars['http_host'], width=34))
+        self.add_row(mcp_server, 3, 'HTTP port', ttk.Entry(mcp_server, textvariable=self.vars['http_port'], width=34))
+        ttk.Checkbutton(mcp_server, text='Quiet mode', variable=self.vars['quiet']).grid(row=4, column=0, columnspan=2, sticky='w', pady=(6, 0))
+
+        data_access = self.section(parent, 'Data access')
+        self.add_row(data_access, 0, 'DATA device', ttk.Entry(data_access, textvariable=self.vars['data_device_address'], width=34))
+
+        access_control = self.section(parent, 'Access control')
+        self.add_row(access_control, 0, 'Blocked classes', ttk.Entry(access_control, textvariable=self.vars['blocked_classes'], width=34))
+        ttk.Label(access_control, text='Blocked functions YAML').grid(row=1, column=0, columnspan=2, sticky='w', pady=(8, 4))
+        self.blocked_functions = ScrolledText(access_control, height=8, width=42, wrap=tk.NONE)
         self.blocked_functions.insert(tk.END, yaml.safe_dump(self.default_config['mcp'].get('blocked_functions', {}), sort_keys=False))
-        self.blocked_functions.grid(row=11, column=0, columnspan=2, sticky='nsew')
+        self.blocked_functions.grid(row=2, column=0, columnspan=2, sticky='nsew')
         self.blocked_functions.bind('<KeyRelease>', lambda _event: self.refresh_yaml())
-        ttk.Button(parent, text='Start', command=self.start).grid(row=12, column=0, sticky='ew', pady=(12, 0))
-        ttk.Button(parent, text='Stop', command=self.command.stop).grid(row=12, column=1, sticky='ew', pady=(12, 0))
-        ttk.Button(parent, text='Save current config', command=self.save_config).grid(row=13, column=0, columnspan=2, sticky='ew', pady=(6, 0))
-        parent.columnconfigure(1, weight=1)
-        parent.rowconfigure(11, weight=1)
+        access_control.rowconfigure(2, weight=1)
+
+        actions = ttk.Frame(parent)
+        actions.pack(fill=tk.X, pady=(12, 0))
+        action_button(actions, 'Start', self.start, '#1f7a35', '#2ea043').pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
+        action_button(actions, 'Stop', self.command.stop, '#b42318', '#dc2626').pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
+        ttk.Button(actions, text='Load config file', command=self.read_config).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
+        ttk.Button(actions, text='Save current config', command=self.save_config).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
+
+    def section(self, parent: ttk.Frame, title: str) -> ttk.LabelFrame:
+        frame = ttk.LabelFrame(parent, text=title, padding=10, style='Section.TLabelframe')
+        frame.pack(fill=tk.X, pady=(0, 10))
+        frame.columnconfigure(1, weight=1)
+        return frame
+
+    def add_row(self, parent: ttk.Frame, row: int, label: str, widget: tk.Widget) -> None:
+        ttk.Label(parent, text=label).grid(row=row, column=0, sticky='w', padx=(0, 12), pady=4)
+        widget.grid(row=row, column=1, sticky='ew', pady=4)
 
     def current_config(self) -> dict:
         values = {key: var.get() for key, var in self.vars.items()}
@@ -109,11 +150,13 @@ class McpGui(tk.Tk):
     def refresh_yaml(self) -> None:
         if not hasattr(self, 'yaml_preview'):
             return
+        self.yaml_preview.configure(state=tk.NORMAL)
         self.yaml_preview.delete('1.0', tk.END)
         try:
             self.yaml_preview.insert(tk.END, yaml_text(self.current_config()))
         except yaml.YAMLError as exc:
             self.yaml_preview.insert(tk.END, f'Invalid blocked_functions YAML: {exc}')
+        self.yaml_preview.configure(state=tk.DISABLED)
 
     def save_config(self) -> None:
         path = filedialog.asksaveasfilename(initialdir=CONFIG_DIR, initialfile='mcp_config.yaml', defaultextension='.yaml', filetypes=[('YAML', '*.yaml'), ('All files', '*.*')])
@@ -121,9 +164,30 @@ class McpGui(tk.Tk):
             write_yaml(Path(path), self.current_config())
             self.enqueue_output(f'Saved {path}\n')
 
+    def read_config(self) -> None:
+        path = filedialog.askopenfilename(initialdir=CONFIG_DIR, filetypes=[('YAML', '*.yaml *.yml'), ('All files', '*.*')])
+        if not path:
+            return
+        config = load_yaml(Path(path))
+        tango = config.get('tango', {})
+        mcp = config.get('mcp', {})
+        self.vars['tango_host'].set(str(tango.get('host', 'localhost')))
+        self.vars['tango_port'].set(str(tango.get('port', 9094)))
+        self.vars['name'].set(mcp.get('name', 'Spectra300_MCP'))
+        self.vars['transport'].set(mcp.get('transport', 'streamable-http'))
+        self.vars['http_host'].set(mcp.get('http_host', '127.0.0.1'))
+        self.vars['http_port'].set(str(mcp.get('http_port', 8000)))
+        self.vars['data_device_address'].set(mcp.get('data_device_address', 'asyncroscopy/data/default'))
+        self.vars['quiet'].set(bool(mcp.get('quiet', True)))
+        self.vars['blocked_classes'].set(', '.join(mcp.get('blocked_classes', [])))
+        self.blocked_functions.delete('1.0', tk.END)
+        self.blocked_functions.insert(tk.END, yaml.safe_dump(mcp.get('blocked_functions', {}), sort_keys=False))
+        self.refresh_yaml()
+        self.enqueue_output(f'Loaded {path}\n')
+
     def start(self) -> None:
         config_path = write_yaml(GENERATED_CONFIG_PATH, self.current_config())
-        self.command.start(['uv', 'run', 'python', 'startup_scripts/run_mcp.py', '--yaml', str(config_path)])
+        self.command.start(['uv', 'run', 'python', '-u', 'startup_scripts/run_mcp.py', '--yaml', str(config_path)])
 
     def enqueue_output(self, text: str) -> None:
         self.output_queue.put(text)
@@ -133,8 +197,7 @@ class McpGui(tk.Tk):
 
     def flush_output(self) -> None:
         while not self.output_queue.empty():
-            self.output.insert(tk.END, self.output_queue.get())
-            self.output.see(tk.END)
+            append_terminal_text(self.output, self.output_queue.get())
         self.after(100, self.flush_output)
 
 

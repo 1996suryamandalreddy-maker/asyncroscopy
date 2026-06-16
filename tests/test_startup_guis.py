@@ -4,15 +4,22 @@ from startup_guis import mcp_gui, server_gui
 def test_server_gui_builds_server_yaml():
     config = server_gui.server_config_from_values(
         {
-            'microscope_class': 'ThermoMicroscope',
-            'microscope_module': 'asyncroscopy.ThermoMicroscope',
-            'microscope_description': 'Real microscope',
+            'microscope': {
+                'class_name': 'ThermoMicroscope',
+                'module_name': 'asyncroscopy.ThermoMicroscope',
+                'description': 'Real microscope',
+            },
             'autoscript_host': '10.0.0.1',
             'autoscript_port': '9095',
-            'digital_twin_class': 'DigitalTwin',
-            'digital_twin_module': 'asyncroscopy.DigitalTwin',
-            'digital_twin_description': 'Twin',
-            'devices': {'data': 'asyncroscopy.software.DATA', 'scan': 'asyncroscopy.hardware.SCAN'},
+            'digital_twin': {
+                'class_name': 'DigitalTwin',
+                'module_name': 'asyncroscopy.DigitalTwin',
+                'description': 'Twin',
+            },
+            'devices': {
+                'data': {'module_name': 'asyncroscopy.software.DATA'},
+                'scan': {'module_name': 'asyncroscopy.hardware.SCAN'},
+            },
             'enabled_devices': {'data': True, 'scan': False},
             'tango_host': 'localhost',
             'tango_port': '9094',
@@ -28,6 +35,7 @@ def test_server_gui_builds_server_yaml():
     assert config['microscope']['port'] == 9095
     assert config['devices'] == {'data': {'module_name': 'asyncroscopy.software.DATA'}}
     assert config['tango'] == {'host': 'localhost', 'port': 9094}
+    assert config['device_timeout_seconds'] == 120
 
 
 def test_mcp_gui_builds_mcp_yaml():
