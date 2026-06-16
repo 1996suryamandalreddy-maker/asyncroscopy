@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import socket
 import subprocess
 import sys
@@ -426,11 +427,7 @@ class TestMCPSerialization:
 
         class FakeDataProxy:
             def get_config(self):
-                return (
-                    '{"save_path": "'
-                    + str(tmp_path)
-                    + '", "tiled_server_serving": null}'
-                )
+                return json.dumps({"save_path": str(tmp_path), "tiled_server_serving": None})
 
         monkeypatch.setattr("asyncroscopy.mcp.mcp_server.DeviceProxy", lambda address: FakeDataProxy())
 
