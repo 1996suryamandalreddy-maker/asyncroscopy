@@ -18,13 +18,13 @@ from startup_guis.shared import BODY_FONT, CONFIG_DIR, GENERATED_CONFIG_DIR, SEC
 DEFAULT_CONFIG_PATH = CONFIG_DIR / 'Spectra300.yaml'
 GENERATED_CONFIG_PATH = GENERATED_CONFIG_DIR / 'server_gui.yaml'
 DEVICE_MODULES = {
-    'camera': 'asyncroscopy.detectors.CAMERA',
-    'corrector': 'asyncroscopy.hardware.CORRECTOR',
-    'data': 'asyncroscopy.software.DATA',
-    'eds': 'asyncroscopy.detectors.EDS',
-    'flucam': 'asyncroscopy.detectors.FLUCAM',
-    'scan': 'asyncroscopy.hardware.SCAN',
-    'stage': 'asyncroscopy.hardware.STAGE',
+    'camera': 'asyncroscopy.instruments.electron_microscope.detectors.camera',
+    'corrector': 'asyncroscopy.instruments.electron_microscope.hardware.corrector',
+    'data': 'asyncroscopy.data.data',
+    'eds': 'asyncroscopy.instruments.electron_microscope.detectors.eds',
+    'flucam': 'asyncroscopy.instruments.electron_microscope.detectors.flucam',
+    'scan': 'asyncroscopy.instruments.electron_microscope.hardware.scan',
+    'stage': 'asyncroscopy.instruments.electron_microscope.hardware.stage',
 }
 
 

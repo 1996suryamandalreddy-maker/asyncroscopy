@@ -17,7 +17,7 @@ see: [Tutorial notebook](notebooks/1_Client_tutorial.ipynb)
 ```
 .
 ├── src/
-│   ├── Microscope.py              # Main device — owns AutoScript connection and all acquisition commands
+│   ├── ElectronMicroscope.py      # Electron microscope base device and acquisition commands
 │   ├── detectors/
 │   │   ├── HAADF.py               # HAADF detector settings device
 │   │   ├── EELS.py                # EELS detector settings device (stub)

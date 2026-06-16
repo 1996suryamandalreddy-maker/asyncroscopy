@@ -6,7 +6,7 @@ Microscope device reads these attributes via DeviceProxy before acquiring from
 AutoScript's "Flucam" camera detector.
 """
 
-from asyncroscopy.detectors.CAMERA import CAMERA
+from asyncroscopy.instruments.electron_microscope.detectors.camera import CAMERA
 
 
 class FLUCAM(CAMERA):

@@ -5,7 +5,7 @@ First-pass notes from a broad read of the `main` branch documentation, represent
 ## Scope Read
 
 - Documentation reviewed: `README.md`, `docs/index.md`, `docs/dev_guide.md`, `docs/asyncroscopy_block_diagram.md`, `docs/digital_twin.md`, `docs/MCP/*`, `docs/Operation/tango_db_mode.md`, `docs/Microscopy/*`, and `docs/Adding_New_Hardware/add_detector.md`.
-- Source architecture sampled: `Microscope.py`, `ThermoMicroscope.py`, `DigitalTwin.py`, `mcp/mcp_server.py`, `software/DATA.py`, device modules under `hardware/` and `detectors/`, legacy `servers/protocols/*`, and `clients/notebook_client.py`.
+- Source architecture sampled: `electron_microscope.py`, `auto_script.py`, `digital_twin.py`, `mcp/mcp_server.py`, `data/data.py`, device modules under `instruments/electron_microscope/hardware/` and `instruments/electron_microscope/detectors/`, legacy `servers/protocols/*`, and `clients/notebook_client.py`.
 - Git history sampled from first commit through `main` tip. The project history clusters into: early asynchronous server architecture, smart proxy/digital twin/vendor backends, scientific workflow notebooks, PyTango migration, MCP integration, persistent digital twin, Tiled/DATA integration, and operational startup tooling.
 
 ## Historical Arc
@@ -47,7 +47,7 @@ First-pass notes from a broad read of the `main` branch documentation, represent
 
 ### 6. Microscope as orchestrator, not owner of all state
 
-- `Microscope.py` and `ThermoMicroscope.py` repeatedly state that detector settings are read from detector `DeviceProxy` objects; detector devices are the single source of truth for their own parameters.
+- `electron_microscope.py` and `auto_script.py` repeatedly state that detector settings are read from detector `DeviceProxy` objects; detector devices are the single source of truth for their own parameters.
 - The top-level microscope owns high-level acquisition commands and vendor connection logic, while support devices own scan, detector, stage, camera, flucam, corrector, and data state.
 - The architecture encourages adding new detector modules rather than growing a monolithic microscope object.
 - Current docs direct contributors to add device properties, register proxy addresses, and implement vendor-specific acquisition logic only where appropriate.
@@ -86,7 +86,7 @@ First-pass notes from a broad read of the `main` branch documentation, represent
 - 2025-10 to 2025-11: asynchronous coordination, backend server routing, digital twin servers, CEOS support, smart proxy, dynamic servers.
 - 2025-12: pystemsim integration, aberration optimization, segmentation, dose mapping, physical damage models, atom fabrication workflows, real STEM server compatibility.
 - 2026-02: documentation and hardware extension guides begin to formalize architecture.
-- 2026-03: base `Microscope` abstraction, `ThermoDigitalTwin`, database mode, tests, PyTango workflows, stage/scan/device modules, HAADF/EDS twin, MCP server implementation, command discovery, type mapping, DevEncoded serialization, transport flexibility, and MCP docs.
+- 2026-03: base electron microscope abstraction, digital twin, database mode, tests, PyTango workflows, stage/scan/device modules, HAADF/EDS twin, MCP server implementation, command discovery, type mapping, DevEncoded serialization, transport flexibility, and MCP docs.
 - 2026-04: persistent digital twin sample, tilt/autofocus/screen current/image shift controls, deployment docs, Tango DB startup, and split server/MCP startup scripts.
 - 2026-05: real-time experiments, Tango-Tiled/DATA integration, scan/acquisition refactors, new devices, block diagram, Tiled registration, server initialization simplification, speed improvements.
 

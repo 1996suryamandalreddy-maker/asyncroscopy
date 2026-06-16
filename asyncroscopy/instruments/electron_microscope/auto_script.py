@@ -26,8 +26,8 @@ import tango
 from tango import AttrWriteType, DevState
 from tango.server import attribute, command, device_property
 
-from asyncroscopy.Microscope import Microscope
-from asyncroscopy.software.DataWriter import DEFAULT_ACQUISITION_DIR, save_acquisition
+from asyncroscopy.instruments.electron_microscope.electron_microscope import ElectronMicroscope
+from asyncroscopy.data.data_writer import DEFAULT_ACQUISITION_DIR, save_acquisition
 
 # AutoScript imports — only available on the microscope PC.
 # Wrapped in try/except so the device can still be imported and tested
@@ -44,7 +44,7 @@ except ImportError:
     _AUTOSCRIPT_AVAILABLE = False
 
 
-class ThermoMicroscope(Microscope):
+class AutoScriptMicroscope(ElectronMicroscope):
     """
     Manages the AutoScript connection and exposes acquisition commands.
     Detector-specific settings (dwell time, resolution) are stored in
@@ -476,4 +476,4 @@ class ThermoMicroscope(Microscope):
 # ----------------------------------------------------------------------
 
 if __name__ == "__main__":
-    ThermoMicroscope.run_server()
+    AutoScriptMicroscope.run_server()

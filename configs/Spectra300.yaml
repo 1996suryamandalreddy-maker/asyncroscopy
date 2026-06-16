@@ -6,28 +6,28 @@
 #   uv run startup_scripts/run_servers.py --yaml configs/Spectra300.yaml --microscope dt
 
 microscope:
-  class_name: ThermoMicroscope
-  module_name: asyncroscopy.ThermoMicroscope
+  class_name: AutoScriptMicroscope
+  module_name: asyncroscopy.instruments.electron_microscope.auto_script
   description: "Thermo Fisher Spectra 300 TEM"
   host: 10.46.217.241        # AutoScript endpoint -> microscope's autoscript_host_ip / _port
   port: 9095
 
 digital_twin:
   class_name: DigitalTwin
-  module_name: asyncroscopy.DigitalTwin
+  module_name: asyncroscopy.instruments.electron_microscope.digital_twin
   description: "Software digital twin"
   # No host/port: the bundled twin needs no AutoScript endpoint.
 
 # Support device servers. class_name defaults to the key upper-cased
 # (camera -> CAMERA); add `class_name:` to a device only to override that.
 devices:
-  camera:    { module_name: asyncroscopy.detectors.CAMERA }
-  corrector: { module_name: asyncroscopy.hardware.CORRECTOR }
-  data:      { module_name: asyncroscopy.software.DATA }
-  eds:       { module_name: asyncroscopy.detectors.EDS }
-  flucam:    { module_name: asyncroscopy.detectors.FLUCAM }
-  scan:      { module_name: asyncroscopy.hardware.SCAN }
-  stage:     { module_name: asyncroscopy.hardware.STAGE }
+  camera:    { module_name: asyncroscopy.instruments.electron_microscope.detectors.camera }
+  corrector: { module_name: asyncroscopy.instruments.electron_microscope.hardware.corrector }
+  data:      { module_name: asyncroscopy.data.data }
+  eds:       { module_name: asyncroscopy.instruments.electron_microscope.detectors.eds }
+  flucam:    { module_name: asyncroscopy.instruments.electron_microscope.detectors.flucam }
+  scan:      { module_name: asyncroscopy.instruments.electron_microscope.hardware.scan }
+  stage:     { module_name: asyncroscopy.instruments.electron_microscope.hardware.stage }
 
 tango:
   host: 10.46.217.241

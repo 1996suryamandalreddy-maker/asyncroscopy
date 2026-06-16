@@ -1,8 +1,8 @@
-# Modifying the base `Microscope`
+# Modifying the base `ElectronMicroscope`
 
-`Microscope` (asyncroscopy/Microscope.py) is the **vendor-agnostic** Tango
+`ElectronMicroscope` (asyncroscopy/ElectronMicroscope.py) is the **vendor-agnostic** Tango
 device. It owns the public `@command` API and the abstract `_helper` methods
-each vendor subclass (e.g. `ThermoMicroscope`) must fill in.
+each vendor subclass (e.g. `AutoScriptMicroscope`) must fill in.
 
 **The pattern:** a public `@command` validates input and reads settings from the
 detector `DeviceProxy` objects, then delegates to a vendor `_helper`. Acquisition
@@ -48,8 +48,8 @@ If you're editing this class, you're usually doing one of these:
 
 5. **Changing the return / transport convention**
    Acquisition commands return a Tiled key string; the actual save happens in
-   the vendor helper via `save_acquisition` (asyncroscopy/software/DataWriter.py)
-   and registration via the DATA device (asyncroscopy/software/DATA.py). See
+   the vendor helper via `save_acquisition` (`asyncroscopy/data/data_writer.py`)
+   and registration via the DATA device (`asyncroscopy/data/data.py`). See
    [data_integration.md](../Tiled_server/data_integration.md). The legacy
    `get_image_data_cached` (returns `DevEncoded`) is the only remaining
    byte-over-Tango path.

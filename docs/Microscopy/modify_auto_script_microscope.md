@@ -1,16 +1,16 @@
-# Modifying `ThermoMicroscope`
+# Modifying `AutoScriptMicroscope`
 
-`ThermoMicroscope` (asyncroscopy/ThermoMicroscope.py) is the AutoScript vendor
-subclass of [`Microscope`](modify_base_microscope.md). It owns the AutoScript
+`AutoScriptMicroscope` (`asyncroscopy/instruments/electron_microscope/auto_script.py`) is the AutoScript vendor
+subclass of [`ElectronMicroscope`](modify_base_microscope.md). It owns the AutoScript
 connection and implements the `_helper` methods the base declares abstract.
 
 **Image helpers end via `_persist`; spectrum and STEM-data helpers via
 `save_acquisition` directly.** `_persist` reads `scan.output_format` and
 dispatches: `.h5` → `save_acquisition` (one HDF5 file, nested per detector),
 `.tiff` → AutoScript `image.save()` (one file per detector). Either path
-registers via the `data` proxy (asyncroscopy/software/DATA.py) and returns the
+registers via the `data` proxy (`asyncroscopy/data/data.py`) and returns the
 **Tiled key (`.h5`) or shared stem (`.tiff`)** the command sends to the client.
-`save_acquisition` lives in asyncroscopy/software/DataWriter.py; `data_server`
+`save_acquisition` lives in `asyncroscopy/data/data_writer.py`; `data_server`
 comes from `self._detector_proxies.get("data")`. See
 [data_integration.md](../Tiled_server/data_integration.md).
 

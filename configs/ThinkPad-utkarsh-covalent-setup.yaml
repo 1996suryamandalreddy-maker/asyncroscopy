@@ -4,26 +4,26 @@
 #   uv run startup_scripts/run_servers.py --yaml configs/ThinkPad-utkarsh-covalent-setup.yaml
 
 microscope:
-  class_name: ThermoMicroscope
-  module_name: asyncroscopy.ThermoMicroscope
+  class_name: AutoScriptMicroscope
+  module_name: asyncroscopy.instruments.electron_microscope.auto_script
   description: "Local Spectra 300 against a localhost AutoScript server"
   host: localhost
   port: 9095
 
 digital_twin:
   class_name: DigitalTwin
-  module_name: asyncroscopy.DigitalTwin
+  module_name: asyncroscopy.instruments.electron_microscope.digital_twin
   description: "Software digital twin"
   # No host/port: the bundled twin needs no AutoScript endpoint.
 
 devices:
-  camera:    { module_name: asyncroscopy.detectors.CAMERA }
-  corrector: { module_name: asyncroscopy.hardware.CORRECTOR }
-  data:      { module_name: asyncroscopy.software.DATA }
-  eds:       { module_name: asyncroscopy.detectors.EDS }
-  flucam:    { module_name: asyncroscopy.detectors.FLUCAM }
-  scan:      { module_name: asyncroscopy.hardware.SCAN }
-  stage:     { module_name: asyncroscopy.hardware.STAGE }
+  camera:    { module_name: asyncroscopy.instruments.electron_microscope.detectors.camera }
+  corrector: { module_name: asyncroscopy.instruments.electron_microscope.hardware.corrector }
+  data:      { module_name: asyncroscopy.data.data }
+  eds:       { module_name: asyncroscopy.instruments.electron_microscope.detectors.eds }
+  flucam:    { module_name: asyncroscopy.instruments.electron_microscope.detectors.flucam }
+  scan:      { module_name: asyncroscopy.instruments.electron_microscope.hardware.scan }
+  stage:     { module_name: asyncroscopy.instruments.electron_microscope.hardware.stage }
 
 tango:
   host: localhost

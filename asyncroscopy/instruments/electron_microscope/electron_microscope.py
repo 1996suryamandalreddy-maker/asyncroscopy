@@ -1,5 +1,5 @@
 """
-Microscope Tango device.
+Electron microscope Tango device.
 
 Detector settings are read from the corresponding detector DeviceProxy
 so that each detector device is the single source of truth for its own params.
@@ -14,19 +14,18 @@ import json
 from typing import Optional
 
 
-from abc import abstractmethod, ABCMeta
+from abc import abstractmethod
 
 import tango
 from tango import AttrWriteType, DevEncoded, DevState, DevVarFloatArray, DevFloat, DevVarStringArray
-from tango.server import Device, DeviceMeta, attribute, command, device_property
+from tango.server import attribute, command, device_property
 
-class CombinedMeta(DeviceMeta, ABCMeta):
-    """Combines Tango DeviceMeta and ABCMeta to allow abstract methods in Devices."""
-    pass
+from asyncroscopy.instruments.instrument import Instrument
 
-class Microscope(Device, metaclass=CombinedMeta):
+
+class ElectronMicroscope(Instrument):
     """
-    Top-level TEM microscope device.
+    Top-level electron microscope device.
     Detector-specific settings (dwell time, resolution) are stored in
     dedicated detector devices and read via DeviceProxy at acquisition time.
     """
@@ -95,13 +94,7 @@ class Microscope(Device, metaclass=CombinedMeta):
         doc="True when the microscope is in STEM mode",
     )
 
-    # ------------------------------------------------------------------
-    # Initialisation
-    # ------------------------------------------------------------------
-    def init_device(self) -> None:
-        Device.init_device(self)
-        self.set_state(DevState.INIT)
-
+    def _init_device_attributes(self) -> None:
         self._microscope: Optional[object] = None  # TemMicroscopeClient instance
         self._stem_mode: bool = False
 
@@ -109,11 +102,16 @@ class Microscope(Device, metaclass=CombinedMeta):
         # Populated in _connect_detector_proxies
         self._detector_proxies: dict[str, tango.DeviceProxy] = {}
 
-        self._connect()
+    def read_instrument_type(self) -> str:
+        return "TEM"
 
     @abstractmethod
     def _connect(self):
         pass
+
+    def _disconnect(self):
+        self._microscope = None
+        self.info_stream("Disconnected from microscope hardware")
     
     @abstractmethod
     def _connect_hardware(self) -> None:
@@ -145,10 +143,8 @@ class Microscope(Device, metaclass=CombinedMeta):
     @command
     def Disconnect(self) -> None:
         """Disconnect from microscope hardware gracefully."""
-        # TODO: self._microscope.disconnect() when AutoScript available
-        self._microscope = None
         self.set_state(DevState.OFF)
-        self.info_stream("Disconnected from microscope hardware")
+        self._disconnect()
 
     @command(dtype_in=str, dtype_out=str)
     def acquire_spectrum(self, detector_name: str) -> str:
@@ -414,4 +410,4 @@ class Microscope(Device, metaclass=CombinedMeta):
 # ----------------------------------------------------------------------
 
 if __name__ == "__main__":
-    Microscope.run_server()
+    ElectronMicroscope.run_server()

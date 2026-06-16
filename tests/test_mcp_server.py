@@ -187,7 +187,7 @@ class TestMCPServerDBMode:
         """Start the DigitalTwin device server."""
         env = self.make_env(tango_host)
         proc = subprocess.Popen(
-            [python_bin, "-m", "asyncroscopy.DigitalTwin", instance],
+            [python_bin, "-m", "asyncroscopy.instruments.electron_microscope.digital_twin", instance],
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

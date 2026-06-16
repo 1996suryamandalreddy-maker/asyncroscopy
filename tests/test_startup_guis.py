@@ -5,20 +5,20 @@ def test_server_gui_builds_server_yaml():
     config = server_gui.server_config_from_values(
         {
             'microscope': {
-                'class_name': 'ThermoMicroscope',
-                'module_name': 'asyncroscopy.ThermoMicroscope',
+                'class_name': 'AutoScriptMicroscope',
+                'module_name': 'asyncroscopy.instruments.electron_microscope.auto_script',
                 'description': 'Real microscope',
             },
             'autoscript_host': '10.0.0.1',
             'autoscript_port': '9095',
             'digital_twin': {
                 'class_name': 'DigitalTwin',
-                'module_name': 'asyncroscopy.DigitalTwin',
+                'module_name': 'asyncroscopy.instruments.electron_microscope.digital_twin',
                 'description': 'Twin',
             },
             'devices': {
-                'data': {'module_name': 'asyncroscopy.software.DATA'},
-                'scan': {'module_name': 'asyncroscopy.hardware.SCAN'},
+                'data': {'module_name': 'asyncroscopy.data.data'},
+                'scan': {'module_name': 'asyncroscopy.instruments.electron_microscope.hardware.scan'},
             },
             'enabled_devices': {'data': True, 'scan': False},
             'tango_host': 'localhost',
@@ -33,7 +33,7 @@ def test_server_gui_builds_server_yaml():
 
     assert config['microscope']['host'] == '10.0.0.1'
     assert config['microscope']['port'] == 9095
-    assert config['devices'] == {'data': {'module_name': 'asyncroscopy.software.DATA'}}
+    assert config['devices'] == {'data': {'module_name': 'asyncroscopy.data.data'}}
     assert config['tango'] == {'host': 'localhost', 'port': 9094}
     assert config['device_timeout_seconds'] == 120
 

@@ -51,7 +51,7 @@ Paper purpose:
 
 Connect directly to the user's flexible microscope setup goal.
 
-- Vendor-specific calls, such as Thermo Fisher AutoScript, are localized inside narrow adapter classes such as `ThermoMicroscope`.
+- Vendor-specific calls, such as Thermo Fisher AutoScript, are localized inside narrow adapter classes such as `AutoScriptMicroscope`.
 - The rest of the system communicates through stable Asyncroscopy/Tango commands.
 - Earlier architecture included separate AutoScript, Gatan, CEOS, simulated AutoScript, and digital twin backends, reinforcing the same principle.
 - A new vendor or instrument configuration should require changing a small adapter layer, not rewriting notebooks, agents, data registration, or analysis workflows.

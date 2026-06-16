@@ -2,8 +2,8 @@
 
 See more at https://github.com/bluesky/tiled.
 
-`ThermoMicroscope` saves real AutoScript acquisitions on the microscope side
-and returns the registered Tiled key through Tango. `asyncroscopy/software/DATA.py`
+`AutoScriptMicroscope` saves real AutoScript acquisitions on the microscope side
+and returns the registered Tiled key through Tango. `asyncroscopy/data/data.py`
 is the Tango data device for registering those files with the Tiled HTTP server.
 
 The default format is one HDF5 file per acquisition event: each correlated

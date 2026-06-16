@@ -42,7 +42,7 @@ the MCP HTTP endpoint, the DATA device address, and the command blocklist.
    `get_data_from_key`.
 
 There is no package search, source introspection requirement, or separate
-Thermo-specific MCP class.
+AutoScript-specific MCP class.
 
 ## Command Names
 
@@ -52,7 +52,7 @@ For example:
 ```text
 SCAN.State
 SCAN.Status
-ThermoMicroscope.acquire_scanned_image
+AutoScriptMicroscope.acquire_scanned_image
 ```
 
 The exact tool set depends on which devices are exported in the Tango database

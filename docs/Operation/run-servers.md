@@ -136,8 +136,8 @@ The runner automates this database-mode flow:
 TANGO_HOST=localhost:9094 uv run python -m tango.databaseds.database 2
 
 export TANGO_HOST=localhost:9094
-uv run python -m asyncroscopy.hardware.SCAN scan_instance
-uv run python -m asyncroscopy.ThermoMicroscope microscope_instance
+uv run python -m asyncroscopy.instruments.electron_microscope.hardware.scan scan_instance
+uv run python -m asyncroscopy.instruments.electron_microscope.auto_script microscope_instance
 ```
 
 Manual device startup requires the devices to already be registered in Tango.

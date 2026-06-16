@@ -10,13 +10,13 @@ Paper angle: automation becomes more robust when the instrument is modeled as a 
 
 ## 2. Keep the top-level microscope as an orchestrator
 
-The `Microscope`/`ThermoMicroscope` layer coordinates acquisitions and vendor communication, but detector and support-device state lives in dedicated Tango devices. Scan dwell time, image size, scan region, detector settings, stage pose, and data paths are not hidden inside the microscope class.
+The `ElectronMicroscope`/`AutoScriptMicroscope` layer coordinates acquisitions and vendor communication, but detector and support-device state lives in dedicated Tango devices. Scan dwell time, image size, scan region, detector settings, stage pose, and data paths are not hidden inside the microscope class.
 
 Paper angle: separation of orchestration from subsystem state improves extensibility, testing, and cross-vendor adaptation.
 
 ## 3. Isolate vendor APIs behind narrow adapters
 
-Thermo AutoScript calls live in `ThermoMicroscope`; earlier history includes separate AS, Gatan, CEOS, simulated AS, and twin servers. The surrounding system talks through stable Asyncroscopy/Tango commands, not directly to each vendor library.
+Thermo AutoScript calls live in `AutoScriptMicroscope`; earlier history includes separate AS, Gatan, CEOS, simulated AS, and twin servers. The surrounding system talks through stable Asyncroscopy/Tango commands, not directly to each vendor library.
 
 Paper angle: flexible microscope setups require vendor-specific code to be localized. The rest of the automation stack should not change when the hardware backend changes.
 
@@ -93,4 +93,4 @@ Asyncroscopy's design philosophy is to make STEM automation a self-describing di
 
 - Design with LLM in mind: MCP server, Tango database discovery, source introspection, tool/resource/prompt registration, type mapping, and JSON-safe data normalization.
 - Design with asynchronous capabilities: early central/back-end server architecture, parallel notebook client calls, distributed Tango devices, independent server processes, and non-monolithic acquisition/data registration.
-- Flexible vendor communication: AutoScript/Thermo code localized to `ThermoMicroscope`, legacy AS/Gatan/CEOS backends, digital twin alternatives, and stable high-level Asyncroscopy/Tango commands above the vendor layer.
+- Flexible vendor communication: AutoScript/Thermo code localized to `AutoScriptMicroscope`, legacy AS/Gatan/CEOS backends, digital twin alternatives, and stable high-level Asyncroscopy/Tango commands above the vendor layer.

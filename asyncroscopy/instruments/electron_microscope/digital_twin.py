@@ -1,5 +1,5 @@
 """
-Digital twin version of ThermoMicroscope for HAADF-EDX.
+Digital twin version of AutoScriptMicroscope for HAADF-EDX.
 
 Useful for testing and development without requiring AutoScript hardware.
 """
@@ -15,13 +15,13 @@ from ase.build import bulk
 from tango import AttrWriteType, DevState
 from tango.server import Device, attribute, device_property
 
-from asyncroscopy.Microscope import Microscope
-from asyncroscopy.software.DataWriter import save_acquisition
+from asyncroscopy.instruments.electron_microscope.electron_microscope import ElectronMicroscope
+from asyncroscopy.data.data_writer import save_acquisition
 
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 
 
-class DigitalTwin(Microscope):
+class DigitalTwin(ElectronMicroscope):
     """
     Persistent ASE-backed sample simulation with stage-coupled viewport rendering.
     """
@@ -206,7 +206,7 @@ class DigitalTwin(Microscope):
         m = np.max(g)
         return g / m if m > 0 else g
     # ------------------------------------------------------------------
-    #  simulation helpers ----> Should be put in asyncroscopy/simulation later
+    # Digital twin rendering helpers.
     # ------------------------------------------------------------------
     def _create_pseudo_potential(
         self,

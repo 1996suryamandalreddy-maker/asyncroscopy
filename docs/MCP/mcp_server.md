@@ -112,7 +112,7 @@ blocked_functions:
   "*":
     - Init
     - DATA.stop_tiled_server
-  ThermoMicroscope:
+  AutoScriptMicroscope:
     - Disconnect
 ```
 
