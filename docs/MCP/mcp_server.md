@@ -19,6 +19,12 @@ Then start MCP in another terminal or on the MCP computer:
 uv run startup_scripts/run_mcp.py --yaml configs/mcp.yaml
 ```
 
+GUI:
+
+```bash
+uv run python startup_guis/mcp_gui.py
+```
+
 The default endpoint is:
 
 ```text
@@ -58,6 +64,19 @@ mcp:
 ```bash
 uv run python -m asyncroscopy.mcp.mcp_server ...
 ```
+
+## MCP GUI
+
+`startup_guis/mcp_gui.py` is a YAML launcher for MCP. It formats the current
+selections into YAML, writes that YAML to `outputs/startup_configs/mcp_gui.yaml`,
+and runs:
+
+```bash
+uv run python startup_scripts/run_mcp.py --yaml outputs/startup_configs/mcp_gui.yaml
+```
+
+The GUI includes a generated YAML preview, terminal output, **Start**, **Stop**,
+and **Save current config**.
 
 ## Discovery
 
