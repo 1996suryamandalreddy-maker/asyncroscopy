@@ -30,7 +30,7 @@ see: [Tutorial notebook](notebooks/1_Client_tutorial.ipynb)
 │       └── advanced_acquisition.py  # Multi-detector acquisition helpers (stub)
 ├── tests/
 │   ├── conftest.py                # Shared pytest fixtures (DeviceTestContext proxies)
-│   ├── test_microscope.py         # Microscope device tests
+│   ├── test_microscope.py         # STEMMicroscope device tests
 │   ├── test_acquisition.py        # Acquisition tests
 │   └── detectors/
 │       └── test_HAADF.py          # HAADF device tests

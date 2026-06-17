@@ -2,7 +2,7 @@
 STAGE Tango device.
 
 This device holds params for the scan.
-It does NOT talk to AutoScript directly — the Microscope device
+It does NOT talk to AutoScript directly — the STEMMicroscope device
 reads these attributes via DeviceProxy before acquiring.
 """
 

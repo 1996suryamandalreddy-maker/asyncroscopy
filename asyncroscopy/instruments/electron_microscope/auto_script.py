@@ -1,5 +1,5 @@
 """
-Microscope Tango device.
+STEMMicroscope Tango device.
 
 Owns the AutoScript connection and all acquisition commands.
 Detector settings are read from the corresponding detector DeviceProxy

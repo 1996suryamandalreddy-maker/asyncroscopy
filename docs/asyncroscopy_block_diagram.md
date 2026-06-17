@@ -26,7 +26,7 @@ CorrectorServer("CORRECTOR<br>settings device server"):::blue
 DataDevice("DATA<br>Tango data device server"):::blue
 
 AutoScript("AutoScript<br>microscope control server"):::pink
-Microscope("Real Thermo Fisher<br>microscope"):::yellow
+STEMMicroscope("Real Thermo Fisher<br>microscope"):::yellow
 PhysicalStage("Physical Stage"):::yellow
 PhysicalDetectors("Physical Detectors"):::yellow
 PhysicalCorrector("Physical Corrector"):::yellow
@@ -60,7 +60,7 @@ end
 
 subgraph PhysicalStack["Real physical microscope"]
 direction TB
-Microscope
+STEMMicroscope
 PhysicalStage
 PhysicalDetectors
 PhysicalCorrector

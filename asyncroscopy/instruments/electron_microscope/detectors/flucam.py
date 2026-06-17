@@ -2,7 +2,7 @@
 Flucam Tango settings device.
 
 This device intentionally mirrors the generic CAMERA settings device. The
-Microscope device reads these attributes via DeviceProxy before acquiring from
+STEMMicroscope device reads these attributes via DeviceProxy before acquiring from
 AutoScript's "Flucam" camera detector.
 """
 

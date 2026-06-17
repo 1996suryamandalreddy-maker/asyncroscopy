@@ -1,7 +1,7 @@
 """
 SCAN hardware settings.
 This device holds scan acquisition settings.
-It does NOT talk to AutoScript directly — the Microscope device
+It does NOT talk to AutoScript directly — the STEMMicroscope device
 reads these attributes via DeviceProxy before acquiring.
 """
 from tango import AttrWriteType, DevState
