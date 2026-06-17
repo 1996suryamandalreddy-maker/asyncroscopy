@@ -83,9 +83,6 @@ class ManagedProcess:
         return self.process.poll() is None
 
 
-# TODO: --debug flag where all server output streams to this terminal / log files (next commit).
-
-
 @dataclass(frozen=True)
 class MicroscopeConfig:
     class_name: str
