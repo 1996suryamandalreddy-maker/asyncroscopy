@@ -11,8 +11,6 @@ digital_twin:
 devices:
   camera:
     module_name: asyncroscopy.instruments.electron_microscope.detectors.camera
-  corrector:
-    module_name: asyncroscopy.instruments.electron_microscope.hardware.corrector
   data:
     module_name: asyncroscopy.data.data
   eds:
