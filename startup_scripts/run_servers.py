@@ -313,7 +313,7 @@ def start_process(
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
     }
-    if os.name == "nt":
+    if os.name == "nt": # checks for windows
         popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     else:
         popen_kwargs["start_new_session"] = True
@@ -352,7 +352,7 @@ def read_process_output(stream) -> str:
 def stop_process(process: ManagedProcess, timeout: float = 5.0) -> None:
     if not process.running and os.name == "nt":
         return
-    if os.name == "nt":
+    if os.name == "nt": # checks for windows
         process.process.terminate()
     else:
         try:
@@ -366,7 +366,7 @@ def stop_process(process: ManagedProcess, timeout: float = 5.0) -> None:
     try:
         process.process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        if os.name == "nt":
+        if os.name == "nt": # checks for windows
             process.process.kill()
         else:
             try:
@@ -384,7 +384,7 @@ def stop_all(processes: Iterable[ManagedProcess]) -> None:
 
 
 def stop_processes_on_port(port: int) -> int:
-    if os.name == "nt":
+    if os.name == "nt": # checks for windows
         try:
             result = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True, text=True)
         except FileNotFoundError:
@@ -436,7 +436,7 @@ def stop_processes_on_port(port: int) -> int:
 
 
 def stop_python_process_matching(pattern: str) -> bool:
-    if os.name == "nt":
+    if os.name == "nt": # checks for windows
         script = (
             "$pattern = $args[0]; "
             "Get-CimInstance Win32_Process | "
