@@ -80,6 +80,26 @@ class JeolMicroscope(ElectronMicroscope):
             except tango.DevFailed as exc:
                 self.error_stream(f'Failed to connect to {name} proxy at {address}: {exc}')
 
+    # ------------------------------------------------------------------
+    # Attributes
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Initialisation
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Attribute read methods
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Commands pertaining to setting children attributes, e.g. stage position, scan parameters, EDS settings, etc. --> iuser accesses it in a jupyter notebook using the device proxy
+    # ------------------------------------------------------------------
+
+
+    # ------------------------------------------------------------------
+    # Internal acquisition helpers
+    # ------------------------------------------------------------------
     def _persist(self, adorned, acquisition_type, detector, data_server, dataset_name='image'):
         """Save acquired images in the format requested by the SCAN device."""
         scan = self._detector_proxies.get('scan')
