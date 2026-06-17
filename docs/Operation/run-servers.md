@@ -40,12 +40,12 @@ also receives the AutoScript host/port.
 ## Configs (`--yaml`)
 
 The script's startup values — which devices to launch, the microscope class, and
-the hosts/ports/paths — live in a YAML file under [configs/](../../configs). Two
-ship today:
+the hosts/ports/paths — live in a YAML file under [configs/](../../configs). 
 
 | File | For |
 |------|-----|
-| [configs/Spectra300.yaml](../../configs/Spectra300.yaml) | The real Spectra 300 (the default config). |
+| [configs/STEMDigitalTwin.yaml](../../configs/STEMDigitalTwin.yaml) | Digital Twin of a Spectra 300 STEM (the default config). |
+| [configs/Spectra300.yaml](../../configs/Spectra300.yaml) | The real Spectra 300. |
 | [configs/ThinkPad-utkarsh-covalent-setup.yaml](../../configs/ThinkPad-utkarsh-covalent-setup.yaml) | A localhost-everywhere setup for local testing. |
 
 Each file has a `microscope:` block (real) and an optional `digital_twin:` block;

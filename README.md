@@ -1,7 +1,9 @@
-# Asyncroscopy:
-- Enabling smart microscopy via asynchronous servers
+# Asyncroscopy: Enabling smart microscopy via asynchronous servers
 
-![Schematic of the functional project structure](architecture.png)
+<div class="d-flex justify-content-between">
+  <img src="docs/images/architecturev1.png" width="33.5%" />
+  <img src="docs/images/architecturev2.png" width="57%" />
+</div>
 
 Note: `main` branch now contains the PyTango-based architecture. The previous Twisted-based implementation is preserved in the `twisted-legacy` branch for reference.
 ---
