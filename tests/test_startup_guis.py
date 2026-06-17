@@ -23,6 +23,7 @@ def test_server_gui_builds_server_yaml():
             'enabled_devices': {'data': True, 'scan': False},
             'tango_host': 'localhost',
             'tango_port': '9094',
+            'reset_database_file': True,
             'tiled_host': 'localhost',
             'tiled_port': '9091',
             'acquisition_dir': 'outputs/tiled_acquisitions',
@@ -34,7 +35,7 @@ def test_server_gui_builds_server_yaml():
     assert config['microscope']['host'] == '10.0.0.1'
     assert config['microscope']['port'] == 9095
     assert config['devices'] == {'data': {'module_name': 'asyncroscopy.data.data'}}
-    assert config['tango'] == {'host': 'localhost', 'port': 9094}
+    assert config['tango'] == {'host': 'localhost', 'port': 9094, 'reset_database_file': True}
     assert config['device_timeout_seconds'] == 120
 
 

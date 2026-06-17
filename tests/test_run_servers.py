@@ -1,3 +1,7 @@
+import os
+import sys
+import time
+
 from startup_scripts import run_mcp, run_servers
 
 
@@ -58,6 +62,29 @@ def test_start_process_tracks_process_group(monkeypatch):
         assert calls["kwargs"]["start_new_session"] is True
 
 
+def test_start_process_drains_child_output():
+    environment = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    command = [
+        sys.executable,
+        "-c",
+        "import sys\nfor index in range(1000): print(f'line-{index}')\nprint('done', file=sys.stderr)",
+    ]
+
+    process = run_servers.start_process("writer", "Writer", command, environment)
+    try:
+        process.process.wait(timeout=5)
+        deadline = time.monotonic() + 2
+        while len(process.stdout_lines) < run_servers.PROCESS_OUTPUT_LINES and time.monotonic() < deadline:
+            time.sleep(0.01)
+    finally:
+        if process.running:
+            run_servers.stop_process(process)
+
+    assert len(process.stdout_lines) == run_servers.PROCESS_OUTPUT_LINES
+    assert process.stdout_lines[-1] == "line-999"
+    assert process.stderr_lines[-1] == "done"
+
+
 def test_stop_process_terminates_process_group(monkeypatch):
     if run_servers.os.name == "nt":
         return
@@ -84,11 +111,27 @@ def test_stop_process_terminates_process_group(monkeypatch):
     assert signals == [(4321, run_servers.signal.SIGTERM)]
 
 
+def test_delete_tango_database_files_removes_known_filenames(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_servers, "PROJECT_DIR", tmp_path)
+    lowercase = tmp_path / "tango_database.db"
+    uppercase = tmp_path / "Tango_database.db"
+    lowercase.write_text("old database", encoding="utf-8")
+    uppercase.write_text("old database", encoding="utf-8")
+
+    deleted = run_servers.delete_tango_database_files()
+
+    assert deleted
+    assert {path.name for path in deleted} <= {"tango_database.db", "Tango_database.db"}
+    assert not lowercase.exists()
+    assert not uppercase.exists()
+
+
 def test_load_spectra300_config_starts_servers_only():
     config = run_servers.load_config(run_servers.PROJECT_DIR / "configs" / "Spectra300.yaml")
 
     assert config.tango_host == "10.46.217.241"
     assert config.tiled.host == "10.46.217.241"
+    assert config.reset_database_file is False
     assert not hasattr(config, "mcp")
 
 

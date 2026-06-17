@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
-import queue
 import sys
-import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, ttk
-from tkinter.scrolledtext import ScrolledText
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QSplitter, QTextEdit, QVBoxLayout, QWidget
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
@@ -35,11 +34,15 @@ def server_config_from_values(values: dict) -> dict:
         microscope['host'] = values['autoscript_host']
     if values['autoscript_port']:
         microscope['port'] = int(values['autoscript_port'])
-    config = {
+    return {
         'microscope': microscope,
         'digital_twin': dict(values['digital_twin']),
         'devices': devices,
-        'tango': {'host': values['tango_host'], 'port': int(values['tango_port'])},
+        'tango': {
+            'host': values['tango_host'],
+            'port': int(values['tango_port']),
+            'reset_database_file': values['reset_database_file'],
+        },
         'tiled': {
             'host': values['tiled_host'],
             'port': int(values['tiled_port']),
@@ -48,140 +51,174 @@ def server_config_from_values(values: dict) -> dict:
         },
         'device_timeout_seconds': int(values['device_timeout_seconds']),
     }
-    return config
 
 
-class ServerGui(tk.Tk):
+class ServerGui(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title('Asyncroscopy Server Startup')
-        self.geometry('1180x760')
-        self.output_queue: queue.Queue[str] = queue.Queue()
+        self.setWindowTitle('Asyncroscopy Server Startup')
+        self.resize(1180, 760)
         self.command = ManagedCommand(self.enqueue_output, self.process_done)
         self.default_config = load_yaml(DEFAULT_CONFIG_PATH)
         self.device_config = self.default_config.get('devices', {})
-        self.vars = self.create_vars()
+        self.inputs: dict[str, QLineEdit | QComboBox | QCheckBox] = {}
+        self.device_checks: dict[str, QCheckBox] = {}
         self.build()
         self.refresh_yaml()
-        self.after(100, self.flush_output)
-
-    def create_vars(self) -> dict[str, tk.Variable]:
-        microscope = self.default_config['microscope']
-        tango = self.default_config['tango']
-        tiled = self.default_config['tiled']
-        vars = {
-            'microscope_mode': tk.StringVar(value='real'),
-            'autoscript_host': tk.StringVar(value=str(microscope.get('host', ''))),
-            'autoscript_port': tk.StringVar(value=str(microscope.get('port', 9095))),
-            'tango_host': tk.StringVar(value=str(tango.get('host', 'localhost'))),
-            'tango_port': tk.StringVar(value=str(tango.get('port', 9094))),
-            'tiled_host': tk.StringVar(value=str(tiled.get('host', 'localhost'))),
-            'tiled_port': tk.StringVar(value=str(tiled.get('port', 9091))),
-            'acquisition_dir': tk.StringVar(value=tiled.get('acquisition_dir', 'outputs/tiled_acquisitions')),
-            'tiled_autostart': tk.BooleanVar(value=bool(tiled.get('autostart', True))),
-            'device_timeout_seconds': tk.StringVar(value=str(self.default_config.get('device_timeout_seconds', 120))),
-        }
-        for key in DEVICE_MODULES:
-            vars[f'device_{key}'] = tk.BooleanVar(value=key in self.device_config)
-        for var in vars.values():
-            var.trace_add('write', lambda *_: self.refresh_yaml())
-        return vars
 
     def build(self) -> None:
-        self.option_add('*Font', BODY_FONT)
-        style = ttk.Style(self)
-        style.configure('TButton', font=BODY_FONT, padding=8)
-        style.configure('TCheckbutton', font=BODY_FONT)
-        style.configure('TCombobox', font=BODY_FONT)
-        style.configure('TEntry', font=BODY_FONT)
-        style.configure('TLabel', font=BODY_FONT)
-        style.configure('Title.TLabel', font=TITLE_FONT)
-        style.configure('Section.TLabelframe.Label', font=SECTION_FONT)
-        style.configure('Preview.TLabel', font=SECTION_FONT)
-        root = ttk.PanedWindow(self, orient=tk.VERTICAL)
-        root.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        top = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
-        controls = ttk.Frame(top, padding=8)
-        preview = ttk.Frame(top, padding=8)
-        terminal = ttk.Frame(root, padding=8)
-        root.add(top, weight=1)
-        root.add(terminal, weight=1)
-        top.add(controls, weight=1)
-        top.add(preview, weight=1)
+        self.setFont(BODY_FONT)
+        root = QSplitter(Qt.Orientation.Vertical)
+        top = QSplitter(Qt.Orientation.Horizontal)
+        controls = QWidget()
+        preview = QWidget()
+        terminal = QWidget()
+        root.addWidget(top)
+        root.addWidget(terminal)
+        top.addWidget(controls)
+        top.addWidget(preview)
+        root.setSizes([520, 240])
+        top.setSizes([520, 640])
+        self.setCentralWidget(root)
+
         self.build_controls(controls)
-        tk.Label(preview, text='Configuration (.yaml)', font=SECTION_FONT).pack(anchor='w', pady=(0, 6))
-        self.yaml_preview = ScrolledText(preview, height=18, wrap=tk.NONE, font=TEXT_FONT)
-        self.yaml_preview.pack(fill=tk.BOTH, expand=True)
-        tk.Label(terminal, text='Terminal output', font=SECTION_FONT).pack(anchor='w', pady=(0, 6))
-        self.output = ScrolledText(terminal, height=12, wrap=tk.WORD)
-        configure_terminal(self.output)
-        self.output.pack(fill=tk.BOTH, expand=True)
+        self.build_preview(preview)
+        self.build_terminal(terminal)
 
-    def build_controls(self, parent: ttk.Frame) -> None:
-        tk.Label(parent, text='Asyncroscopy Server Startup', font=TITLE_FONT).pack(anchor='w', pady=(0, 10))
+    def build_controls(self, parent: QWidget) -> None:
+        layout = QVBoxLayout(parent)
+        title = QLabel('Asyncroscopy Server Startup')
+        title.setFont(TITLE_FONT)
+        layout.addWidget(title)
 
-        database = self.section(parent, 'Database')
-        self.add_row(database, 0, 'Tango host', ttk.Entry(database, textvariable=self.vars['tango_host'], width=34))
-        self.add_row(database, 1, 'Tango port', ttk.Entry(database, textvariable=self.vars['tango_port'], width=34))
+        database = self.section('Database')
+        self.add_row(database, 'Tango host', self.line_input('tango_host', self.default_config['tango'].get('host', 'localhost')))
+        self.add_row(database, 'Tango port', self.line_input('tango_port', self.default_config['tango'].get('port', 9094)))
+        reset_database = self.check_input('reset_database_file', 'Delete tango_database.db before start', bool(self.default_config['tango'].get('reset_database_file', False)))
+        database.layout().addRow('', reset_database)
+        layout.addWidget(database)
 
-        microscope = self.section(parent, 'Microscope')
-        self.add_row(microscope, 0, 'Mode', ttk.Combobox(microscope, textvariable=self.vars['microscope_mode'], values=('real', 'dt'), state='readonly', width=31))
-        self.add_row(microscope, 1, 'AutoScript host', ttk.Entry(microscope, textvariable=self.vars['autoscript_host'], width=34))
-        self.add_row(microscope, 2, 'AutoScript port', ttk.Entry(microscope, textvariable=self.vars['autoscript_port'], width=34))
-        self.add_row(microscope, 3, 'Device timeout', ttk.Entry(microscope, textvariable=self.vars['device_timeout_seconds'], width=34))
+        microscope = self.section('Microscope')
+        mode = QComboBox()
+        mode.addItems(['real', 'dt'])
+        mode.currentTextChanged.connect(self.refresh_yaml)
+        self.inputs['microscope_mode'] = mode
+        self.add_row(microscope, 'Mode', mode)
+        default_microscope = self.default_config['microscope']
+        self.add_row(microscope, 'AutoScript host', self.line_input('autoscript_host', default_microscope.get('host', '')))
+        self.add_row(microscope, 'AutoScript port', self.line_input('autoscript_port', default_microscope.get('port', 9095)))
+        self.add_row(microscope, 'Device timeout', self.line_input('device_timeout_seconds', self.default_config.get('device_timeout_seconds', 120)))
+        layout.addWidget(microscope)
 
-        data_server = self.section(parent, 'Data server')
-        self.add_row(data_server, 0, 'Tiled host', ttk.Entry(data_server, textvariable=self.vars['tiled_host'], width=34))
-        self.add_row(data_server, 1, 'Tiled port', ttk.Entry(data_server, textvariable=self.vars['tiled_port'], width=34))
-        self.add_row(data_server, 2, 'Acquisition dir', ttk.Entry(data_server, textvariable=self.vars['acquisition_dir'], width=34))
-        ttk.Checkbutton(data_server, text='Start Tiled HTTP server', variable=self.vars['tiled_autostart']).grid(row=3, column=0, columnspan=2, sticky='w', pady=(6, 0))
+        tiled = self.default_config['tiled']
+        data_server = self.section('Data server')
+        self.add_row(data_server, 'Tiled host', self.line_input('tiled_host', tiled.get('host', 'localhost')))
+        self.add_row(data_server, 'Tiled port', self.line_input('tiled_port', tiled.get('port', 9091)))
+        self.add_row(data_server, 'Acquisition dir', self.line_input('acquisition_dir', tiled.get('acquisition_dir', 'outputs/tiled_acquisitions')))
+        autostart = self.check_input('tiled_autostart', 'Start Tiled HTTP server', bool(tiled.get('autostart', True)))
+        data_server.layout().addRow('', autostart)
+        layout.addWidget(data_server)
 
-        devices = self.section(parent, 'Devices')
+        devices = QGroupBox('Devices')
+        devices.setFont(SECTION_FONT)
+        device_grid = QGridLayout(devices)
         for index, key in enumerate(DEVICE_MODULES):
-            ttk.Checkbutton(devices, text=key, variable=self.vars[f'device_{key}']).grid(row=index // 2, column=index % 2, sticky='w', padx=(0, 28), pady=3)
+            checkbox = QCheckBox(key)
+            checkbox.setChecked(key in self.device_config)
+            checkbox.stateChanged.connect(self.refresh_yaml)
+            self.device_checks[key] = checkbox
+            device_grid.addWidget(checkbox, index // 2, index % 2)
+        layout.addWidget(devices)
 
-        actions = ttk.Frame(parent)
-        actions.pack(fill=tk.X, pady=(12, 0))
-        action_button(actions, 'Start', self.start, '#1f7a35', '#2ea043').pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
-        action_button(actions, 'Stop', self.command.stop, '#b42318', '#dc2626').pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
-        ttk.Button(actions, text='Load config file', command=self.read_config).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
-        ttk.Button(actions, text='Save current config', command=self.save_config).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
+        actions = QHBoxLayout()
+        start = action_button('Start', '#1f7a35', '#2ea043')
+        stop = action_button('Stop', '#b42318', '#dc2626')
+        load = QPushButton('Load config file')
+        save = QPushButton('Save current config')
+        start.clicked.connect(self.start)
+        stop.clicked.connect(self.command.stop)
+        load.clicked.connect(self.read_config)
+        save.clicked.connect(self.save_config)
+        for button in (start, stop, load, save):
+            button.setFont(BODY_FONT)
+            actions.addWidget(button)
+        layout.addLayout(actions)
+        layout.addStretch()
 
-    def section(self, parent: ttk.Frame, title: str) -> ttk.LabelFrame:
-        frame = ttk.LabelFrame(parent, text=title, padding=10, style='Section.TLabelframe')
-        frame.pack(fill=tk.X, pady=(0, 10))
-        frame.columnconfigure(1, weight=1)
-        return frame
+    def build_preview(self, parent: QWidget) -> None:
+        layout = QVBoxLayout(parent)
+        label = QLabel('Configuration (.yaml)')
+        label.setFont(SECTION_FONT)
+        layout.addWidget(label)
+        self.yaml_preview = QTextEdit()
+        self.yaml_preview.setFont(TEXT_FONT)
+        self.yaml_preview.setReadOnly(True)
+        self.yaml_preview.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        layout.addWidget(self.yaml_preview)
 
-    def add_row(self, parent: ttk.Frame, row: int, label: str, widget: tk.Widget) -> None:
-        ttk.Label(parent, text=label).grid(row=row, column=0, sticky='w', padx=(0, 12), pady=4)
-        widget.grid(row=row, column=1, sticky='ew', pady=4)
+    def build_terminal(self, parent: QWidget) -> None:
+        layout = QVBoxLayout(parent)
+        label = QLabel('Terminal output')
+        label.setFont(SECTION_FONT)
+        layout.addWidget(label)
+        self.output = QTextEdit()
+        configure_terminal(self.output)
+        layout.addWidget(self.output)
+
+    def section(self, title: str) -> QGroupBox:
+        group = QGroupBox(title)
+        group.setFont(SECTION_FONT)
+        group.setLayout(QFormLayout())
+        return group
+
+    def add_row(self, group: QGroupBox, label: str, widget: QWidget) -> None:
+        group.layout().addRow(label, widget)
+
+    def line_input(self, key: str, value) -> QLineEdit:
+        widget = QLineEdit(str(value))
+        widget.textChanged.connect(self.refresh_yaml)
+        self.inputs[key] = widget
+        return widget
+
+    def check_input(self, key: str, label: str, checked: bool) -> QCheckBox:
+        widget = QCheckBox(label)
+        widget.setChecked(checked)
+        widget.stateChanged.connect(self.refresh_yaml)
+        self.inputs[key] = widget
+        return widget
 
     def current_config(self) -> dict:
-        device_keys = {f'device_{key}' for key in DEVICE_MODULES}
-        values = {key: var.get() for key, var in self.vars.items() if key not in device_keys}
-        values['enabled_devices'] = {key: self.vars[f'device_{key}'].get() for key in DEVICE_MODULES}
-        values['devices'] = {key: self.device_config.get(key, {'module_name': DEVICE_MODULES[key]}) for key in DEVICE_MODULES}
-        values['microscope'] = self.default_config['microscope']
-        values['digital_twin'] = self.default_config.get('digital_twin', {})
+        values = {
+            'microscope_mode': self.inputs['microscope_mode'].currentText(),
+            'autoscript_host': self.inputs['autoscript_host'].text(),
+            'autoscript_port': self.inputs['autoscript_port'].text(),
+            'tango_host': self.inputs['tango_host'].text(),
+            'tango_port': self.inputs['tango_port'].text(),
+            'reset_database_file': self.inputs['reset_database_file'].isChecked(),
+            'tiled_host': self.inputs['tiled_host'].text(),
+            'tiled_port': self.inputs['tiled_port'].text(),
+            'acquisition_dir': self.inputs['acquisition_dir'].text(),
+            'tiled_autostart': self.inputs['tiled_autostart'].isChecked(),
+            'device_timeout_seconds': self.inputs['device_timeout_seconds'].text(),
+            'enabled_devices': {key: checkbox.isChecked() for key, checkbox in self.device_checks.items()},
+            'devices': {key: self.device_config.get(key, {'module_name': DEVICE_MODULES[key]}) for key in DEVICE_MODULES},
+            'microscope': self.default_config['microscope'],
+            'digital_twin': self.default_config.get('digital_twin', {}),
+        }
         return server_config_from_values(values)
 
     def refresh_yaml(self) -> None:
-        if not hasattr(self, 'yaml_preview'):
-            return
-        self.yaml_preview.configure(state=tk.NORMAL)
-        self.yaml_preview.delete('1.0', tk.END)
-        self.yaml_preview.insert(tk.END, yaml_text(self.current_config()))
-        self.yaml_preview.configure(state=tk.DISABLED)
+        if hasattr(self, 'yaml_preview'):
+            self.yaml_preview.setPlainText(yaml_text(self.current_config()))
 
     def save_config(self) -> None:
-        path = filedialog.asksaveasfilename(initialdir=CONFIG_DIR, initialfile='server_config.yaml', defaultextension='.yaml', filetypes=[('YAML', '*.yaml'), ('All files', '*.*')])
+        path, _ = QFileDialog.getSaveFileName(self, 'Save config', str(CONFIG_DIR / 'server_config.yaml'), 'YAML (*.yaml *.yml);;All files (*)')
         if path:
             write_yaml(Path(path), self.current_config())
             self.enqueue_output(f'Saved {path}\n')
 
     def read_config(self) -> None:
-        path = filedialog.askopenfilename(initialdir=CONFIG_DIR, filetypes=[('YAML', '*.yaml *.yml'), ('All files', '*.*')])
+        path, _ = QFileDialog.getOpenFileName(self, 'Load config', str(CONFIG_DIR), 'YAML (*.yaml *.yml);;All files (*)')
         if not path:
             return
         config = load_yaml(Path(path))
@@ -190,35 +227,34 @@ class ServerGui(tk.Tk):
         microscope = config.get('microscope', {})
         tango = config.get('tango', {})
         tiled = config.get('tiled', {})
-        self.vars['autoscript_host'].set(str(microscope.get('host', '')))
-        self.vars['autoscript_port'].set(str(microscope.get('port', '')))
-        self.vars['tango_host'].set(str(tango.get('host', 'localhost')))
-        self.vars['tango_port'].set(str(tango.get('port', 9094)))
-        self.vars['tiled_host'].set(str(tiled.get('host', 'localhost')))
-        self.vars['tiled_port'].set(str(tiled.get('port', 9091)))
-        self.vars['acquisition_dir'].set(tiled.get('acquisition_dir', 'outputs/tiled_acquisitions'))
-        self.vars['tiled_autostart'].set(bool(tiled.get('autostart', True)))
-        self.vars['device_timeout_seconds'].set(str(config.get('device_timeout_seconds', 120)))
-        for key in DEVICE_MODULES:
-            self.vars[f'device_{key}'].set(key in self.device_config)
+        self.inputs['autoscript_host'].setText(str(microscope.get('host', '')))
+        self.inputs['autoscript_port'].setText(str(microscope.get('port', '')))
+        self.inputs['tango_host'].setText(str(tango.get('host', 'localhost')))
+        self.inputs['tango_port'].setText(str(tango.get('port', 9094)))
+        self.inputs['reset_database_file'].setChecked(bool(tango.get('reset_database_file', False)))
+        self.inputs['tiled_host'].setText(str(tiled.get('host', 'localhost')))
+        self.inputs['tiled_port'].setText(str(tiled.get('port', 9091)))
+        self.inputs['acquisition_dir'].setText(tiled.get('acquisition_dir', 'outputs/tiled_acquisitions'))
+        self.inputs['tiled_autostart'].setChecked(bool(tiled.get('autostart', True)))
+        self.inputs['device_timeout_seconds'].setText(str(config.get('device_timeout_seconds', 120)))
+        for key, checkbox in self.device_checks.items():
+            checkbox.setChecked(key in self.device_config)
         self.refresh_yaml()
         self.enqueue_output(f'Loaded {path}\n')
 
     def start(self) -> None:
         config_path = write_yaml(GENERATED_CONFIG_PATH, self.current_config())
-        self.command.start(['uv', 'run', 'python', '-u', 'startup_scripts/run_servers.py', '--yaml', str(config_path), '--microscope', self.vars['microscope_mode'].get()])
+        self.command.start(['uv', 'run', 'python', '-u', 'startup_scripts/run_servers.py', '--yaml', str(config_path), '--microscope', self.inputs['microscope_mode'].currentText()])
 
     def enqueue_output(self, text: str) -> None:
-        self.output_queue.put(text)
+        append_terminal_text(self.output, text)
 
     def process_done(self, returncode: int | None) -> None:
         self.enqueue_output(f'\nProcess exited with return code {returncode}.\n')
 
-    def flush_output(self) -> None:
-        while not self.output_queue.empty():
-            append_terminal_text(self.output, self.output_queue.get())
-        self.after(100, self.flush_output)
-
 
 if __name__ == '__main__':
-    ServerGui().mainloop()
+    app = QApplication(sys.argv)
+    window = ServerGui()
+    window.show()
+    sys.exit(app.exec())

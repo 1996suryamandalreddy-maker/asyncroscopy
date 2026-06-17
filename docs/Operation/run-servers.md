@@ -77,13 +77,17 @@ Each server config has:
 - `microscope:` for the real microscope.
 - `digital_twin:` for `--microscope dt`.
 - `devices:` for support device modules.
-- `tango:` for the Tango database host and port.
+- `tango:` for the Tango database host, port, and optional database-file reset.
 - `tiled:` for the DATA-managed Tiled HTTP server.
 - `device_timeout_seconds:` for device readiness waits.
 
 Device `class_name` defaults to the upper-cased key (`scan` becomes `SCAN`).
 `microscope.host` and `microscope.port` become the microscope device's
 `autoscript_host_ip` and `autoscript_host_port` properties.
+
+Set `tango.reset_database_file: true` to delete a stale local
+`tango_database.db` / `Tango_database.db` before starting the Tango database.
+The GUI exposes the same setting as **Delete tango_database.db before start**.
 
 ## MCP
 

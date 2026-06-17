@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
-import queue
 import sys
-import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, ttk
-from tkinter.scrolledtext import ScrolledText
 
 import yaml
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QSplitter, QTextEdit, QVBoxLayout, QWidget
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
@@ -38,150 +36,183 @@ def mcp_config_from_values(values: dict) -> dict:
     }
 
 
-class McpGui(tk.Tk):
+class McpGui(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title('Asyncroscopy MCP Startup')
-        self.geometry('1080x720')
-        self.output_queue: queue.Queue[str] = queue.Queue()
+        self.setWindowTitle('Asyncroscopy MCP Startup')
+        self.resize(1080, 720)
         self.command = ManagedCommand(self.enqueue_output, self.process_done)
         self.default_config = load_yaml(DEFAULT_CONFIG_PATH)
-        self.vars = self.create_vars()
+        self.inputs: dict[str, QLineEdit | QComboBox | QCheckBox] = {}
         self.build()
         self.refresh_yaml()
-        self.after(100, self.flush_output)
-
-    def create_vars(self) -> dict[str, tk.Variable]:
-        tango = self.default_config['tango']
-        mcp = self.default_config['mcp']
-        vars = {
-            'tango_host': tk.StringVar(value=str(tango.get('host', 'localhost'))),
-            'tango_port': tk.StringVar(value=str(tango.get('port', 9094))),
-            'name': tk.StringVar(value=mcp.get('name', 'Spectra300_MCP')),
-            'transport': tk.StringVar(value=mcp.get('transport', 'streamable-http')),
-            'http_host': tk.StringVar(value=mcp.get('http_host', '127.0.0.1')),
-            'http_port': tk.StringVar(value=str(mcp.get('http_port', 8000))),
-            'data_device_address': tk.StringVar(value=mcp.get('data_device_address', 'asyncroscopy/data/default')),
-            'quiet': tk.BooleanVar(value=bool(mcp.get('quiet', True))),
-            'blocked_classes': tk.StringVar(value=', '.join(mcp.get('blocked_classes', []))),
-        }
-        for var in vars.values():
-            var.trace_add('write', lambda *_: self.refresh_yaml())
-        return vars
 
     def build(self) -> None:
-        self.option_add('*Font', BODY_FONT)
-        style = ttk.Style(self)
-        style.configure('TButton', font=BODY_FONT, padding=8)
-        style.configure('TCheckbutton', font=BODY_FONT)
-        style.configure('TCombobox', font=BODY_FONT)
-        style.configure('TEntry', font=BODY_FONT)
-        style.configure('TLabel', font=BODY_FONT)
-        style.configure('Title.TLabel', font=TITLE_FONT)
-        style.configure('Section.TLabelframe.Label', font=SECTION_FONT)
-        style.configure('Preview.TLabel', font=SECTION_FONT)
-        root = ttk.PanedWindow(self, orient=tk.VERTICAL)
-        root.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        top = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
-        controls = ttk.Frame(top, padding=8)
-        preview = ttk.Frame(top, padding=8)
-        terminal = ttk.Frame(root, padding=8)
-        root.add(top, weight=1)
-        root.add(terminal, weight=1)
-        top.add(controls, weight=1)
-        top.add(preview, weight=1)
+        self.setFont(BODY_FONT)
+        root = QSplitter(Qt.Orientation.Vertical)
+        top = QSplitter(Qt.Orientation.Horizontal)
+        controls = QWidget()
+        preview = QWidget()
+        terminal = QWidget()
+        root.addWidget(top)
+        root.addWidget(terminal)
+        top.addWidget(controls)
+        top.addWidget(preview)
+        root.setSizes([500, 220])
+        top.setSizes([500, 580])
+        self.setCentralWidget(root)
+
         self.build_controls(controls)
-        tk.Label(preview, text='Configuration (.yaml)', font=SECTION_FONT).pack(anchor='w', pady=(0, 6))
-        self.yaml_preview = ScrolledText(preview, height=16, wrap=tk.NONE, font=TEXT_FONT)
-        self.yaml_preview.pack(fill=tk.BOTH, expand=True)
-        tk.Label(terminal, text='Terminal output', font=SECTION_FONT).pack(anchor='w', pady=(0, 6))
-        self.output = ScrolledText(terminal, height=12, wrap=tk.WORD)
+        self.build_preview(preview)
+        self.build_terminal(terminal)
+
+    def build_controls(self, parent: QWidget) -> None:
+        layout = QVBoxLayout(parent)
+        title = QLabel('Asyncroscopy MCP Startup')
+        title.setFont(TITLE_FONT)
+        layout.addWidget(title)
+
+        tango = self.default_config['tango']
+        database = self.section('Database')
+        self.add_row(database, 'Tango host', self.line_input('tango_host', tango.get('host', 'localhost')))
+        self.add_row(database, 'Tango port', self.line_input('tango_port', tango.get('port', 9094)))
+        layout.addWidget(database)
+
+        mcp = self.default_config['mcp']
+        mcp_server = self.section('MCP server')
+        self.add_row(mcp_server, 'Name', self.line_input('name', mcp.get('name', 'Spectra300_MCP')))
+        transport = QComboBox()
+        transport.addItems(['streamable-http'])
+        transport.setCurrentText(mcp.get('transport', 'streamable-http'))
+        transport.currentTextChanged.connect(self.refresh_yaml)
+        self.inputs['transport'] = transport
+        self.add_row(mcp_server, 'Transport', transport)
+        self.add_row(mcp_server, 'HTTP host', self.line_input('http_host', mcp.get('http_host', '127.0.0.1')))
+        self.add_row(mcp_server, 'HTTP port', self.line_input('http_port', mcp.get('http_port', 8000)))
+        quiet = self.check_input('quiet', 'Quiet mode', bool(mcp.get('quiet', True)))
+        mcp_server.layout().addRow('', quiet)
+        layout.addWidget(mcp_server)
+
+        data_access = self.section('Data access')
+        self.add_row(data_access, 'DATA device', self.line_input('data_device_address', mcp.get('data_device_address', 'asyncroscopy/data/default')))
+        layout.addWidget(data_access)
+
+        access_control = self.section('Access control')
+        self.add_row(access_control, 'Blocked classes', self.line_input('blocked_classes', ', '.join(mcp.get('blocked_classes', []))))
+        blocked_label = QLabel('Blocked functions YAML')
+        blocked_label.setFont(BODY_FONT)
+        access_control.layout().addRow(blocked_label)
+        self.blocked_functions = QTextEdit()
+        self.blocked_functions.setFont(TEXT_FONT)
+        self.blocked_functions.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.blocked_functions.setPlainText(yaml.safe_dump(mcp.get('blocked_functions', {}), sort_keys=False))
+        self.blocked_functions.textChanged.connect(self.refresh_yaml)
+        access_control.layout().addRow(self.blocked_functions)
+        layout.addWidget(access_control)
+
+        actions = QHBoxLayout()
+        start = action_button('Start', '#1f7a35', '#2ea043')
+        stop = action_button('Stop', '#b42318', '#dc2626')
+        load = QPushButton('Load config file')
+        save = QPushButton('Save current config')
+        start.clicked.connect(self.start)
+        stop.clicked.connect(self.command.stop)
+        load.clicked.connect(self.read_config)
+        save.clicked.connect(self.save_config)
+        for button in (start, stop, load, save):
+            button.setFont(BODY_FONT)
+            actions.addWidget(button)
+        layout.addLayout(actions)
+        layout.addStretch()
+
+    def build_preview(self, parent: QWidget) -> None:
+        layout = QVBoxLayout(parent)
+        label = QLabel('Configuration (.yaml)')
+        label.setFont(SECTION_FONT)
+        layout.addWidget(label)
+        self.yaml_preview = QTextEdit()
+        self.yaml_preview.setFont(TEXT_FONT)
+        self.yaml_preview.setReadOnly(True)
+        self.yaml_preview.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        layout.addWidget(self.yaml_preview)
+
+    def build_terminal(self, parent: QWidget) -> None:
+        layout = QVBoxLayout(parent)
+        label = QLabel('Terminal output')
+        label.setFont(SECTION_FONT)
+        layout.addWidget(label)
+        self.output = QTextEdit()
         configure_terminal(self.output)
-        self.output.pack(fill=tk.BOTH, expand=True)
+        layout.addWidget(self.output)
 
-    def build_controls(self, parent: ttk.Frame) -> None:
-        tk.Label(parent, text='Asyncroscopy MCP Startup', font=TITLE_FONT).pack(anchor='w', pady=(0, 10))
+    def section(self, title: str) -> QGroupBox:
+        group = QGroupBox(title)
+        group.setFont(SECTION_FONT)
+        group.setLayout(QFormLayout())
+        return group
 
-        database = self.section(parent, 'Database')
-        self.add_row(database, 0, 'Tango host', ttk.Entry(database, textvariable=self.vars['tango_host'], width=34))
-        self.add_row(database, 1, 'Tango port', ttk.Entry(database, textvariable=self.vars['tango_port'], width=34))
+    def add_row(self, group: QGroupBox, label: str, widget: QWidget) -> None:
+        group.layout().addRow(label, widget)
 
-        mcp_server = self.section(parent, 'MCP server')
-        self.add_row(mcp_server, 0, 'Name', ttk.Entry(mcp_server, textvariable=self.vars['name'], width=34))
-        self.add_row(mcp_server, 1, 'Transport', ttk.Combobox(mcp_server, textvariable=self.vars['transport'], values=('streamable-http',), state='readonly', width=31))
-        self.add_row(mcp_server, 2, 'HTTP host', ttk.Entry(mcp_server, textvariable=self.vars['http_host'], width=34))
-        self.add_row(mcp_server, 3, 'HTTP port', ttk.Entry(mcp_server, textvariable=self.vars['http_port'], width=34))
-        ttk.Checkbutton(mcp_server, text='Quiet mode', variable=self.vars['quiet']).grid(row=4, column=0, columnspan=2, sticky='w', pady=(6, 0))
+    def line_input(self, key: str, value) -> QLineEdit:
+        widget = QLineEdit(str(value))
+        widget.textChanged.connect(self.refresh_yaml)
+        self.inputs[key] = widget
+        return widget
 
-        data_access = self.section(parent, 'Data access')
-        self.add_row(data_access, 0, 'DATA device', ttk.Entry(data_access, textvariable=self.vars['data_device_address'], width=34))
-
-        access_control = self.section(parent, 'Access control')
-        self.add_row(access_control, 0, 'Blocked classes', ttk.Entry(access_control, textvariable=self.vars['blocked_classes'], width=34))
-        ttk.Label(access_control, text='Blocked functions YAML').grid(row=1, column=0, columnspan=2, sticky='w', pady=(8, 4))
-        self.blocked_functions = ScrolledText(access_control, height=8, width=42, wrap=tk.NONE)
-        self.blocked_functions.insert(tk.END, yaml.safe_dump(self.default_config['mcp'].get('blocked_functions', {}), sort_keys=False))
-        self.blocked_functions.grid(row=2, column=0, columnspan=2, sticky='nsew')
-        self.blocked_functions.bind('<KeyRelease>', lambda _event: self.refresh_yaml())
-        access_control.rowconfigure(2, weight=1)
-
-        actions = ttk.Frame(parent)
-        actions.pack(fill=tk.X, pady=(12, 0))
-        action_button(actions, 'Start', self.start, '#1f7a35', '#2ea043').pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
-        action_button(actions, 'Stop', self.command.stop, '#b42318', '#dc2626').pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
-        ttk.Button(actions, text='Load config file', command=self.read_config).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
-        ttk.Button(actions, text='Save current config', command=self.save_config).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
-
-    def section(self, parent: ttk.Frame, title: str) -> ttk.LabelFrame:
-        frame = ttk.LabelFrame(parent, text=title, padding=10, style='Section.TLabelframe')
-        frame.pack(fill=tk.X, pady=(0, 10))
-        frame.columnconfigure(1, weight=1)
-        return frame
-
-    def add_row(self, parent: ttk.Frame, row: int, label: str, widget: tk.Widget) -> None:
-        ttk.Label(parent, text=label).grid(row=row, column=0, sticky='w', padx=(0, 12), pady=4)
-        widget.grid(row=row, column=1, sticky='ew', pady=4)
+    def check_input(self, key: str, label: str, checked: bool) -> QCheckBox:
+        widget = QCheckBox(label)
+        widget.setChecked(checked)
+        widget.stateChanged.connect(self.refresh_yaml)
+        self.inputs[key] = widget
+        return widget
 
     def current_config(self) -> dict:
-        values = {key: var.get() for key, var in self.vars.items()}
-        values['blocked_functions'] = self.blocked_functions.get('1.0', tk.END) if hasattr(self, 'blocked_functions') else ''
+        values = {
+            'tango_host': self.inputs['tango_host'].text(),
+            'tango_port': self.inputs['tango_port'].text(),
+            'name': self.inputs['name'].text(),
+            'transport': self.inputs['transport'].currentText(),
+            'http_host': self.inputs['http_host'].text(),
+            'http_port': self.inputs['http_port'].text(),
+            'data_device_address': self.inputs['data_device_address'].text(),
+            'quiet': self.inputs['quiet'].isChecked(),
+            'blocked_classes': self.inputs['blocked_classes'].text(),
+            'blocked_functions': self.blocked_functions.toPlainText() if hasattr(self, 'blocked_functions') else '',
+        }
         return mcp_config_from_values(values)
 
     def refresh_yaml(self) -> None:
         if not hasattr(self, 'yaml_preview'):
             return
-        self.yaml_preview.configure(state=tk.NORMAL)
-        self.yaml_preview.delete('1.0', tk.END)
         try:
-            self.yaml_preview.insert(tk.END, yaml_text(self.current_config()))
+            self.yaml_preview.setPlainText(yaml_text(self.current_config()))
         except yaml.YAMLError as exc:
-            self.yaml_preview.insert(tk.END, f'Invalid blocked_functions YAML: {exc}')
-        self.yaml_preview.configure(state=tk.DISABLED)
+            self.yaml_preview.setPlainText(f'Invalid blocked_functions YAML: {exc}')
 
     def save_config(self) -> None:
-        path = filedialog.asksaveasfilename(initialdir=CONFIG_DIR, initialfile='mcp_config.yaml', defaultextension='.yaml', filetypes=[('YAML', '*.yaml'), ('All files', '*.*')])
+        path, _ = QFileDialog.getSaveFileName(self, 'Save config', str(CONFIG_DIR / 'mcp_config.yaml'), 'YAML (*.yaml *.yml);;All files (*)')
         if path:
             write_yaml(Path(path), self.current_config())
             self.enqueue_output(f'Saved {path}\n')
 
     def read_config(self) -> None:
-        path = filedialog.askopenfilename(initialdir=CONFIG_DIR, filetypes=[('YAML', '*.yaml *.yml'), ('All files', '*.*')])
+        path, _ = QFileDialog.getOpenFileName(self, 'Load config', str(CONFIG_DIR), 'YAML (*.yaml *.yml);;All files (*)')
         if not path:
             return
         config = load_yaml(Path(path))
         tango = config.get('tango', {})
         mcp = config.get('mcp', {})
-        self.vars['tango_host'].set(str(tango.get('host', 'localhost')))
-        self.vars['tango_port'].set(str(tango.get('port', 9094)))
-        self.vars['name'].set(mcp.get('name', 'Spectra300_MCP'))
-        self.vars['transport'].set(mcp.get('transport', 'streamable-http'))
-        self.vars['http_host'].set(mcp.get('http_host', '127.0.0.1'))
-        self.vars['http_port'].set(str(mcp.get('http_port', 8000)))
-        self.vars['data_device_address'].set(mcp.get('data_device_address', 'asyncroscopy/data/default'))
-        self.vars['quiet'].set(bool(mcp.get('quiet', True)))
-        self.vars['blocked_classes'].set(', '.join(mcp.get('blocked_classes', [])))
-        self.blocked_functions.delete('1.0', tk.END)
-        self.blocked_functions.insert(tk.END, yaml.safe_dump(mcp.get('blocked_functions', {}), sort_keys=False))
+        self.inputs['tango_host'].setText(str(tango.get('host', 'localhost')))
+        self.inputs['tango_port'].setText(str(tango.get('port', 9094)))
+        self.inputs['name'].setText(mcp.get('name', 'Spectra300_MCP'))
+        self.inputs['transport'].setCurrentText(mcp.get('transport', 'streamable-http'))
+        self.inputs['http_host'].setText(mcp.get('http_host', '127.0.0.1'))
+        self.inputs['http_port'].setText(str(mcp.get('http_port', 8000)))
+        self.inputs['data_device_address'].setText(mcp.get('data_device_address', 'asyncroscopy/data/default'))
+        self.inputs['quiet'].setChecked(bool(mcp.get('quiet', True)))
+        self.inputs['blocked_classes'].setText(', '.join(mcp.get('blocked_classes', [])))
+        self.blocked_functions.setPlainText(yaml.safe_dump(mcp.get('blocked_functions', {}), sort_keys=False))
         self.refresh_yaml()
         self.enqueue_output(f'Loaded {path}\n')
 
@@ -190,16 +221,14 @@ class McpGui(tk.Tk):
         self.command.start(['uv', 'run', 'python', '-u', 'startup_scripts/run_mcp.py', '--yaml', str(config_path)])
 
     def enqueue_output(self, text: str) -> None:
-        self.output_queue.put(text)
+        append_terminal_text(self.output, text)
 
     def process_done(self, returncode: int | None) -> None:
         self.enqueue_output(f'\nProcess exited with return code {returncode}.\n')
 
-    def flush_output(self) -> None:
-        while not self.output_queue.empty():
-            append_terminal_text(self.output, self.output_queue.get())
-        self.after(100, self.flush_output)
-
 
 if __name__ == '__main__':
-    McpGui().mainloop()
+    app = QApplication(sys.argv)
+    window = McpGui()
+    window.show()
+    sys.exit(app.exec())

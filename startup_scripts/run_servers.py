@@ -9,8 +9,11 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, field
+from io import BufferedReader
 from pathlib import Path
 from typing import Iterable
 from urllib.parse import urlsplit
@@ -21,6 +24,8 @@ import yaml
 
 DATABASE_TIMEOUT_SECONDS = 120
 TILED_COMMAND_TIMEOUT_MILLIS = 120_000
+PROCESS_OUTPUT_LINES = 200
+TANGO_DATABASE_FILES = ("tango_database.db", "Tango_database.db")
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
@@ -30,6 +35,10 @@ if str(PROJECT_DIR) not in sys.path:
 # Default config used in interactive mode (no --yaml). Passing --yaml <file>
 # selects a different config AND runs headlessly (no prompts).
 DEFAULT_CONFIG_PATH = PROJECT_DIR / 'configs' / 'Spectra300.yaml'
+
+
+def process_output_buffer() -> deque[str]:
+    return deque(maxlen=PROCESS_OUTPUT_LINES)
 
 
 class Style:
@@ -73,6 +82,8 @@ class ManagedProcess:
     label: str
     command: list[str]
     process: subprocess.Popen[bytes]
+    stdout_lines: deque[str] = field(default_factory=process_output_buffer)
+    stderr_lines: deque[str] = field(default_factory=process_output_buffer)
 
     @property
     def pid(self) -> int:
@@ -108,6 +119,7 @@ class Config:
     support_devices: list[DeviceConfig]
     tango_host: str
     tango_port: int
+    reset_database_file: bool
     tiled: TiledConfig
     device_timeout_seconds: int
 
@@ -152,6 +164,7 @@ def load_config(path: Path) -> Config:
         support_devices=support_devices,
         tango_host=_require(tango_section, "host", "tango"),
         tango_port=int(_require(tango_section, "port", "tango")),
+        reset_database_file=bool(tango_section.get("reset_database_file", False)),
         tiled=TiledConfig(
             host=_require(tiled, "host", "tiled"),
             port=int(_require(tiled, "port", "tiled")),
@@ -322,31 +335,26 @@ def start_process(
         command,
         **popen_kwargs,
     )
-    for stream in (process.stdout, process.stderr):
-        if stream is not None:
-            try:
-                os.set_blocking(stream.fileno(), False)
-            except (AttributeError, OSError):
-                pass
-    return ManagedProcess(key=key, label=label, command=command, process=process)
+    managed = ManagedProcess(key=key, label=label, command=command, process=process)
+    drain_process_output(process.stdout, managed.stdout_lines)
+    drain_process_output(process.stderr, managed.stderr_lines)
+    return managed
 
 
-def read_process_output(stream) -> str:
+def drain_process_output(stream: BufferedReader | None, output: deque[str]) -> None:
     if stream is None:
-        return ""
+        return
 
-    chunks: list[bytes] = []
-    while True:
-        try:
-            chunk = stream.read(4096)
-        except BlockingIOError:
-            break
-        except Exception:
-            break
-        if not chunk:
-            break
-        chunks.append(chunk)
-    return b"".join(chunks).decode(errors="replace").strip()
+    def drain() -> None:
+        for line in iter(stream.readline, b""):
+            output.append(line.decode(errors="replace").rstrip())
+        stream.close()
+
+    threading.Thread(target=drain, daemon=True).start()
+
+
+def buffered_output(lines: deque[str]) -> str:
+    return "\n".join(line for line in lines if line)
 
 
 def stop_process(process: ManagedProcess, timeout: float = 5.0) -> None:
@@ -484,6 +492,21 @@ def clear_old_processes(
     time.sleep(2)
 
 
+def delete_tango_database_files() -> list[Path]:
+    deleted = []
+    for filename in TANGO_DATABASE_FILES:
+        path = PROJECT_DIR / filename
+        if not path.exists():
+            continue
+        path.unlink()
+        deleted.append(path)
+    if deleted:
+        status_line("OK", "Tango database file", ", ".join(path.name for path in deleted))
+    else:
+        status_line("SKIP", "Tango database file", "no local .db file found")
+    return deleted
+
+
 def wait_for_database(host: str, port: int, timeout: int) -> float:
     start = time.monotonic()
     last_error: Exception | None = None
@@ -552,8 +575,8 @@ def print_debug_output(processes: Iterable[ManagedProcess]) -> None:
     print(color("Debug output", Style.bold + Style.yellow))
     print(color("-" * 78, Style.dim))
     for process in processes:
-        stdout = read_process_output(process.process.stdout)
-        stderr = read_process_output(process.process.stderr)
+        stdout = buffered_output(process.stdout_lines)
+        stderr = buffered_output(process.stderr_lines)
         print(
             f"{color(process.label, Style.bold)}  pid={process.pid}  running={process.running}  returncode={process.process.poll()}"
         )
@@ -634,6 +657,7 @@ def main(argv: list[str] | None = None) -> int:
         acquisition_dir = config.tiled.acquisition_dir
         should_start_tiled = config.tiled.autostart
         clear_first = start_database = should_register_devices = True
+        reset_database_file = config.reset_database_file
         device_timeout = config.device_timeout_seconds
         if micro_config.host is not None and micro_config.port is not None:
             microscope_properties["autoscript_host_ip"] = [str(micro_config.host)]
@@ -652,6 +676,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         should_start_tiled = prompt_bool("Start Tiled HTTP server", config.tiled.autostart)
         clear_first = prompt_bool("Clear old processes first", True)
+        reset_database_file = prompt_bool("Delete Tango database file before start", config.reset_database_file)
         start_database = prompt_bool("Start Tango database", True)
         should_register_devices = prompt_bool("Register devices", True)
         device_timeout = prompt_int("Device startup timeout seconds", config.device_timeout_seconds)
@@ -681,6 +706,10 @@ def main(argv: list[str] | None = None) -> int:
             clear_old_processes(port, devices, config, tiled_port if should_start_tiled else None)
         else:
             status_line("SKIP", "old process cleanup")
+        if reset_database_file and start_database:
+            delete_tango_database_files()
+        elif reset_database_file:
+            status_line("SKIP", "Tango database file", "database startup is disabled")
 
         print_section(2, total_steps, "Starting Tango database")
         if start_database:
