@@ -1,6 +1,6 @@
 # Modifying the base `ElectronMicroscope`
 
-`ElectronMicroscope` (asyncroscopy/ElectronMicroscope.py) is the **vendor-agnostic** Tango
+`ElectronMicroscope` (`asyncroscopy/instruments/electron_microscope/electron_microscope.py`) is the **vendor-agnostic** Tango
 device. It owns the public `@command` API and the abstract `_helper` methods
 each vendor subclass (e.g. `AutoScriptMicroscope`) must fill in.
 

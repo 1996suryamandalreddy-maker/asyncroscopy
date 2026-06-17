@@ -9,7 +9,7 @@ Use this site to navigate contributor guidance, microscope architecture notes, h
 ## Start Here
 
 - [Contributing Guide](dev_guide.md): project engineering principles and pull request expectations.
-- [Base Microscope Extension Notes](Microscopy/modify_base_microscope.md): where to add or change core microscope behavior.
+- [Base Electron Microscope Extension Notes](Microscopy/modify_base_electron_microscope.md): where to add or change core microscope behavior.
 - [Thermo Microscope Extension Notes](Microscopy/modify_auto_script_microscope.md): detector integration and orchestration guidance.
 
 ## Hardware and Integrations

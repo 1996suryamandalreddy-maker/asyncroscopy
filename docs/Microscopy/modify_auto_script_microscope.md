@@ -1,7 +1,7 @@
 # Modifying `AutoScriptMicroscope`
 
 `AutoScriptMicroscope` (`asyncroscopy/instruments/electron_microscope/auto_script.py`) is the AutoScript vendor
-subclass of [`ElectronMicroscope`](modify_base_microscope.md). It owns the AutoScript
+subclass of [`ElectronMicroscope`](modify_base_electron_microscope.md). It owns the AutoScript
 connection and implements the `_helper` methods the base declares abstract.
 
 **Image helpers end via `_persist`; spectrum and STEM-data helpers via

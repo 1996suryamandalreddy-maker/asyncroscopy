@@ -10,10 +10,10 @@
    ```python
    "newdet": self.newdet_device_address,
    ```
-- note : base class `ElectronMicroscope` at asyncroscopy/ElectronMicroscope.py is not the right place for this:
+- note : base class `ElectronMicroscope` at `asyncroscopy/instruments/electron_microscope/electron_microscope.py` is not the right place for this:
 
 4. Add acquisition logic:
-- see step 3 in [modify_base_microscope](../Microscopy/modify_base_microscope.md) 
+- see step 3 in [modify_base_electron_microscope](../Microscopy/modify_base_electron_microscope.md) 
 - see step 5 in [modify_auto_script_microscope](../Microscopy/modify_auto_script_microscope.md)
 
 5. Add `tests/detectors/test_NEWDET.py` following `test_HAADF.py` as a template.
