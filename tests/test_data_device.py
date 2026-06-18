@@ -153,6 +153,32 @@ class TestDataDevice:
         assert result == "frame.h5"
         assert registrations == [str(saved)]
 
+    def test_register_save_path_registers_configured_directory(
+        self,
+        data_proxy: tango.DeviceProxy,
+        monkeypatch,
+        tmp_path,
+    ) -> None:
+        registrations = []
+        data_proxy.host = "127.0.0.1"
+        data_proxy.port = 9091
+        data_proxy.save_path = str(tmp_path)
+
+        def fake_from_uri(*args, **kwargs):
+            return object()
+
+        async def fake_register(client, path, **kwargs):
+            registrations.append(path)
+
+        monkeypatch.setattr("asyncroscopy.data.data.from_uri", fake_from_uri)
+        monkeypatch.setattr("asyncroscopy.data.data.register", fake_register)
+
+        result = json.loads(data_proxy.register_save_path())
+
+        assert result["registered_path"] == str(tmp_path)
+        assert result["tiled_server_status"] == "running; registered save path"
+        assert registrations == [str(tmp_path)]
+
     def test_register_path_returns_windows_tiled_key(
         self,
         data_proxy: tango.DeviceProxy,

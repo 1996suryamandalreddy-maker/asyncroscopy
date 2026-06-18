@@ -25,6 +25,7 @@ import yaml
 
 DATABASE_TIMEOUT_SECONDS = 120
 TILED_COMMAND_TIMEOUT_MILLIS = 120_000
+TILED_STARTUP_REGISTRATION_TIMEOUT_MILLIS = 3_600_000
 PROCESS_OUTPUT_LINES = 200
 TANGO_DATABASE_FILES = ("tango_database.db", "Tango_database.db")
 
@@ -116,6 +117,7 @@ class TiledConfig:
     port: int
     acquisition_dir: str
     autostart: bool = True
+    register_on_startup: bool = False
 
 
 @dataclass(frozen=True)
@@ -199,6 +201,7 @@ def load_config(path: Path) -> Config:
             port=int(_require(tiled, "port", "tiled")),
             acquisition_dir=_require(tiled, "acquisition_dir", "tiled"),
             autostart=bool(tiled.get("autostart", True)),
+            register_on_startup=bool(tiled.get("register_on_startup", False)),
         ),
         device_timeout_seconds=int(raw.get("device_timeout_seconds", 120)),
     )
@@ -605,6 +608,12 @@ def get_data_proxy() -> tango.DeviceProxy:
     return data
 
 
+def register_tiled_save_path() -> dict:
+    data = get_data_proxy()
+    data.set_timeout_millis(TILED_STARTUP_REGISTRATION_TIMEOUT_MILLIS)
+    return json.loads(data.register_save_path())
+
+
 def stop_tiled_server() -> None:
     try:
         get_data_proxy().stop_tiled_server()
@@ -698,6 +707,7 @@ def main(argv: list[str] | None = None) -> int:
         tiled_host, tiled_port = config.tiled.host, config.tiled.port
         acquisition_dir = config.tiled.acquisition_dir
         should_start_tiled = config.tiled.autostart
+        should_register_tiled = config.tiled.register_on_startup
         clear_first = start_database = should_register_devices = True
         reset_database_file = config.reset_database_file
         device_timeout = config.device_timeout_seconds
@@ -714,6 +724,10 @@ def main(argv: list[str] | None = None) -> int:
             os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR", config.tiled.acquisition_dir),
         )
         should_start_tiled = prompt_bool("Start Tiled HTTP server", config.tiled.autostart)
+        should_register_tiled = prompt_bool(
+            "Register acquisition directory with Tiled on startup (can be slow)",
+            config.tiled.register_on_startup,
+        )
         clear_first = prompt_bool("Clear old processes first", True)
         reset_database_file = prompt_bool("Delete Tango database file before start", config.reset_database_file)
         start_database = prompt_bool("Start Tango database", True)
@@ -811,8 +825,17 @@ def main(argv: list[str] | None = None) -> int:
                     f"Tiled HTTP server failed to start: {tiled_config['tiled_server_status']}"
                 )
             status_line("OK", "Tiled HTTP server", f"{tiled_config['uri']} serving {tiled_config['tiled_server_serving']}")
+            if should_register_tiled:
+                status_line("WAIT", "Tiled startup registration", "registering acquisition directory; this can take a while")
+                tiled_registration = register_tiled_save_path()
+                tiled_config.update(tiled_registration)
+                status_line("OK", "Tiled startup registration", tiled_registration["registered_path"])
+            else:
+                status_line("SKIP", "Tiled startup registration", "register_on_startup=false; files register manually")
         else:
             status_line("SKIP", "Tiled HTTP server")
+            if should_register_tiled:
+                status_line("SKIP", "Tiled startup registration", "Tiled HTTP server autostart is disabled")
 
         for device in dependency_devices:
             print()

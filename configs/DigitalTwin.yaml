@@ -27,5 +27,6 @@ tiled:
   port: 9091
   acquisition_dir: outputs/tiled_acquisitions
   autostart: true
+  register_on_startup: false
 
 device_timeout_seconds: 120

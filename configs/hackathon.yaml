@@ -8,10 +8,6 @@ devices:
     module_name: asyncroscopy.instruments.electron_microscope.detectors.camera
   data:
     module_name: asyncroscopy.data.data
-  eds:
-    module_name: asyncroscopy.instruments.electron_microscope.detectors.eds
-  flucam:
-    module_name: asyncroscopy.instruments.electron_microscope.detectors.flucam
   scan:
     module_name: asyncroscopy.instruments.electron_microscope.hardware.scan
   stage:
@@ -25,4 +21,5 @@ tiled:
   port: 9091
   acquisition_dir: /Users/austin/Desktop/18167694/hackathon_data
   autostart: true
+  register_on_startup: false
 device_timeout_seconds: 120

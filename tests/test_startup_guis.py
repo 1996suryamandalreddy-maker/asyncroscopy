@@ -25,6 +25,7 @@ def test_server_gui_builds_server_yaml():
             'tiled_port': '9091',
             'acquisition_dir': 'outputs/tiled_acquisitions',
             'tiled_autostart': True,
+            'tiled_register_on_startup': False,
             'device_timeout_seconds': '120',
         }
     )
@@ -35,6 +36,7 @@ def test_server_gui_builds_server_yaml():
     assert config['instrument']['timeout_seconds'] == 120
     assert config['devices'] == {'data': {'module_name': 'asyncroscopy.data.data'}}
     assert config['tango'] == {'host': 'localhost', 'port': 9094, 'reset_database_file': True}
+    assert config['tiled']['register_on_startup'] is False
     assert config['device_timeout_seconds'] == 120
 
 
@@ -61,6 +63,7 @@ def test_server_gui_omits_hardware_host_port_for_digital_twin_file():
             'tiled_port': '9091',
             'acquisition_dir': 'outputs/tiled_acquisitions',
             'tiled_autostart': True,
+            'tiled_register_on_startup': False,
             'device_timeout_seconds': '120',
         }
     )

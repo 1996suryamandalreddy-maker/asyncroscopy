@@ -35,6 +35,7 @@ DEFAULT_TILED_URI = "http://10.46.217.241:9091"
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
 ONE_NODE_PER_FILE_WALKER = "tiled.client.register:one_node_per_item"
 REGISTER_TIMEOUT_SECONDS = 120
+REGISTER_SAVE_PATH_TIMEOUT_SECONDS = 3600
 REGISTER_POLL_SECONDS = 0.25
 
 
@@ -204,6 +205,35 @@ class DATA(Device):
             raise RuntimeError(message) from exc
         self._tiled_server_status = "running; registered path"
         return key
+
+    @command(dtype_out=str)
+    def register_save_path(self) -> str:
+        """Register the configured save directory with Tiled once."""
+        save_path = str(Path(self._save_path).expanduser())
+
+        async def register_directory_with_tiled_client() -> None:
+            client = from_uri(self._uri(), api_key=self._api_key)
+            await register(client, save_path, walkers=[ONE_NODE_PER_FILE_WALKER], key_from_filename=identity)
+
+        try:
+            asyncio.run(asyncio.wait_for(register_directory_with_tiled_client(), REGISTER_SAVE_PATH_TIMEOUT_SECONDS))
+        except Exception as exc:
+            message = (
+                f"Save path registration failed: {exc}\n\n"
+                f"Data save path:\n    {save_path}\n\n"
+                f"Tiled server serving:\n    {self._tiled_serve_path or '(external server; path not managed by DATA)'}"
+            )
+            self._tiled_server_status = message
+            raise RuntimeError(message) from exc
+
+        result = {
+            "registered_path": save_path,
+            "tiled_server": self._tiled_server,
+            "tiled_server_status": "running; registered save path",
+            "tiled_server_serving": self._tiled_serve_path,
+        }
+        self._tiled_server_status = result["tiled_server_status"]
+        return json.dumps(result)
 
     def _uri(self) -> str:
         return f"http://{self._host}:{self._port}"

@@ -113,6 +113,7 @@ def server_config_from_values(values: dict) -> dict:
             'port': int(values['tiled_port']),
             'acquisition_dir': values['acquisition_dir'],
             'autostart': values['tiled_autostart'],
+            'register_on_startup': values['tiled_register_on_startup'],
         },
         'device_timeout_seconds': int(values['device_timeout_seconds']),
     }
@@ -179,6 +180,12 @@ class ServerGui(QMainWindow):
         self.add_row(data_server, 'Acquisition dir', self.path_input('acquisition_dir', tiled.get('acquisition_dir', 'outputs/tiled_acquisitions'), directory=True))
         autostart = self.check_input('tiled_autostart', 'Start Tiled HTTP server', bool(tiled.get('autostart', True)))
         data_server.layout().addRow('', autostart)
+        register_on_startup = self.check_input(
+            'tiled_register_on_startup',
+            'Register acquisition directory on startup (slow for large folders)',
+            bool(tiled.get('register_on_startup', False)),
+        )
+        data_server.layout().addRow('', register_on_startup)
         layout.addWidget(data_server)
 
         devices = QGroupBox('Devices')
@@ -300,6 +307,7 @@ class ServerGui(QMainWindow):
             'tiled_port': self.input_text('tiled_port'),
             'acquisition_dir': self.input_text('acquisition_dir'),
             'tiled_autostart': self.inputs['tiled_autostart'].isChecked(),
+            'tiled_register_on_startup': self.inputs['tiled_register_on_startup'].isChecked(),
             'device_timeout_seconds': self.input_text('device_timeout_seconds'),
             'enabled_devices': {key: checkbox.isChecked() for key, checkbox in self.device_checks.items()},
             'devices': {key: self.device_config.get(key, {'module_name': DEVICE_MODULES[key]}) for key in DEVICE_MODULES},
@@ -338,6 +346,7 @@ class ServerGui(QMainWindow):
         self.set_input_text('tiled_port', tiled.get('port', 9091))
         self.set_input_text('acquisition_dir', tiled.get('acquisition_dir', 'outputs/tiled_acquisitions'))
         self.inputs['tiled_autostart'].setChecked(bool(tiled.get('autostart', True)))
+        self.inputs['tiled_register_on_startup'].setChecked(bool(tiled.get('register_on_startup', False)))
         self.set_input_text('device_timeout_seconds', config.get('device_timeout_seconds', 120))
         for key, checkbox in self.device_checks.items():
             checkbox.setChecked(key in self.device_config)
