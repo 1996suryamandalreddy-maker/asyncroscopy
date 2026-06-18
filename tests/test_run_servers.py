@@ -158,8 +158,21 @@ def test_load_spectra300_config_starts_servers_only():
 
     assert config.tango_host == "10.46.217.241"
     assert config.tiled.host == "10.46.217.241"
+    assert config.instrument.class_name == "AutoScriptMicroscope"
+    assert config.instrument.module_name == "asyncroscopy.instruments.electron_microscope.auto_script"
     assert config.reset_database_file is False
     assert not hasattr(config, "mcp")
+
+
+def test_build_devices_adds_selected_instrument():
+    config = run_servers.load_config(run_servers.PROJECT_DIR / "configs" / "STEMDigitalTwin.yaml")
+
+    devices = run_servers.build_devices(config)
+
+    assert devices[-1].key == "instrument"
+    assert devices[-1].class_name == "DigitalTwin"
+    assert devices[-1].module_name == "asyncroscopy.instruments.electron_microscope.digital_twin"
+    assert devices[-1].device_name == "asyncroscopy/instrument/default"
 
 
 def test_load_mcp_config():

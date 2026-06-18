@@ -4,18 +4,15 @@ from startup_guis import mcp_gui, server_gui
 def test_server_gui_builds_server_yaml():
     config = server_gui.server_config_from_values(
         {
-            'microscope': {
+            'instrument': {
                 'class_name': 'AutoScriptMicroscope',
-                'module_name': 'asyncroscopy.instruments.electron_microscope.auto_script',
+                'file': 'asyncroscopy/instruments/electron_microscope/auto_script.py',
                 'description': 'Real microscope',
             },
-            'autoscript_host': '10.0.0.1',
-            'autoscript_port': '9095',
-            'digital_twin': {
-                'class_name': 'DigitalTwin',
-                'module_name': 'asyncroscopy.instruments.electron_microscope.digital_twin',
-                'description': 'Twin',
-            },
+            'instrument_file': 'asyncroscopy/instruments/electron_microscope/auto_script.py',
+            'hardware_host': '10.0.0.1',
+            'hardware_port': '9095',
+            'hardware_timeout_seconds': '120',
             'devices': {
                 'data': {'module_name': 'asyncroscopy.data.data'},
                 'scan': {'module_name': 'asyncroscopy.instruments.electron_microscope.hardware.scan'},
@@ -32,11 +29,48 @@ def test_server_gui_builds_server_yaml():
         }
     )
 
-    assert config['microscope']['host'] == '10.0.0.1'
-    assert config['microscope']['port'] == 9095
+    assert config['instrument']['file'] == 'asyncroscopy/instruments/electron_microscope/auto_script.py'
+    assert config['instrument']['hardware_host'] == '10.0.0.1'
+    assert config['instrument']['hardware_port'] == 9095
+    assert config['instrument']['timeout_seconds'] == 120
     assert config['devices'] == {'data': {'module_name': 'asyncroscopy.data.data'}}
     assert config['tango'] == {'host': 'localhost', 'port': 9094, 'reset_database_file': True}
     assert config['device_timeout_seconds'] == 120
+
+
+def test_server_gui_reads_and_writes_line_and_combo_inputs():
+    class FakeLineEdit:
+        def __init__(self):
+            self.value = ''
+
+        def text(self):
+            return self.value
+
+        def setText(self, value):
+            self.value = value
+
+    class FakeComboBox:
+        def __init__(self):
+            self.value = ''
+
+        def currentText(self):
+            return self.value
+
+        def setCurrentText(self, value):
+            self.value = value
+
+    class FakeGui:
+        input_text = server_gui.ServerGui.input_text
+        set_input_text = server_gui.ServerGui.set_input_text
+
+    gui = FakeGui()
+    gui.inputs = {'line': FakeLineEdit(), 'combo': FakeComboBox()}
+
+    gui.set_input_text('line', 'localhost')
+    gui.set_input_text('combo', server_gui.PROJECT_DIR / 'outputs' / 'tiled_acquisitions')
+
+    assert gui.input_text('line') == 'localhost'
+    assert gui.input_text('combo') == 'outputs/tiled_acquisitions'
 
 
 def test_mcp_gui_builds_mcp_yaml():
