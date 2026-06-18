@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import signal
@@ -96,12 +97,17 @@ class ManagedProcess:
 
 
 @dataclass(frozen=True)
-class MicroscopeConfig:
+class InstrumentConfig:
     class_name: str
-    module_name: str
+    file: Path
     description: str = ""
-    host: str | None = None
-    port: int | None = None
+    hardware_host: str | None = None
+    hardware_port: int | None = None
+    timeout_seconds: int | None = None
+
+    @property
+    def module_name(self) -> str:
+        return python_file_to_module(self.file)
 
 
 @dataclass(frozen=True)
@@ -115,8 +121,7 @@ class TiledConfig:
 @dataclass(frozen=True)
 class Config:
     path: Path
-    microscope: MicroscopeConfig
-    digital_twin: MicroscopeConfig | None
+    instrument: InstrumentConfig
     support_devices: list[DeviceConfig]
     tango_host: str
     tango_port: int
@@ -131,13 +136,38 @@ def _require(mapping, key: str, where: str):
     return mapping[key]
 
 
-def _microscope_config(raw: dict) -> MicroscopeConfig:
-    return MicroscopeConfig(
-        class_name=_require(raw, "class_name", "microscope"),
-        module_name=_require(raw, "module_name", "microscope"),
+def python_file_to_module(path: Path) -> str:
+    file_path = path.expanduser()
+    if not file_path.is_absolute():
+        file_path = PROJECT_DIR / file_path
+    relative_path = file_path.resolve().relative_to(PROJECT_DIR)
+    return ".".join(relative_path.with_suffix("").parts)
+
+
+def _instrument_file(raw_path: str) -> Path:
+    path = Path(raw_path).expanduser()
+    if path.is_absolute():
+        return path
+    return PROJECT_DIR / path
+
+
+def _class_name_from_file(path: Path) -> str:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            return node.name
+    raise ValueError(f"Instrument file {path} does not define a class")
+
+
+def _instrument_config(raw: dict) -> InstrumentConfig:
+    instrument_file = _instrument_file(_require(raw, "file", "instrument"))
+    return InstrumentConfig(
+        class_name=raw.get("class_name") or _class_name_from_file(instrument_file),
+        file=instrument_file,
         description=raw.get("description", ""),
-        host=raw.get("host"),
-        port=raw.get("port"),
+        hardware_host=raw.get("hardware_host"),
+        hardware_port=int(raw["hardware_port"]) if raw.get("hardware_port") else None,
+        timeout_seconds=int(raw["timeout_seconds"]) if raw.get("timeout_seconds") else None,
     )
 
 
@@ -154,14 +184,12 @@ def load_config(path: Path) -> Config:
         )
         for key, spec in _require(raw, "devices", "(top level)").items()
     ]
-    digital_twin = raw.get("digital_twin")
     tango_section = raw.get("tango", {})
     tiled = _require(raw, "tiled", "(top level)")
 
     return Config(
         path=path,
-        microscope=_microscope_config(_require(raw, "microscope", "(top level)")),
-        digital_twin=_microscope_config(digital_twin) if digital_twin else None,
+        instrument=_instrument_config(_require(raw, "instrument", "(top level)")),
         support_devices=support_devices,
         tango_host=_require(tango_section, "host", "tango"),
         tango_port=int(_require(tango_section, "port", "tango")),
@@ -176,24 +204,13 @@ def load_config(path: Path) -> Config:
     )
 
 
-def selected_microscope_config(config: Config, mode: str) -> MicroscopeConfig:
-    if mode == "dt":
-        if config.digital_twin is None:
-            raise ValueError(
-                f"{config.path} has no 'digital_twin' block (needed for --microscope dt)"
-            )
-        return config.digital_twin
-    return config.microscope
-
-
-def build_devices(config: Config, mode: str) -> list[DeviceConfig]:
-    micro = selected_microscope_config(config, mode)
+def build_devices(config: Config) -> list[DeviceConfig]:
     return [
         *config.support_devices,
         DeviceConfig(
-            key="microscope",
-            class_name=micro.class_name,
-            module_name=micro.module_name,
+            key="instrument",
+            class_name=config.instrument.class_name,
+            module_name=config.instrument.module_name,
             start_after_dependencies=True,
         ),
     ]
@@ -206,14 +223,19 @@ def device_address_properties(config: Config) -> dict[str, list[str]]:
     }
 
 
+def instrument_properties(config: Config) -> dict[str, list[str]]:
+    properties = device_address_properties(config)
+    if config.instrument.hardware_host is not None:
+        properties['hardware_host'] = [str(config.instrument.hardware_host)]
+    if config.instrument.hardware_port is not None:
+        properties['hardware_port'] = [str(config.instrument.hardware_port)]
+    if config.instrument.timeout_seconds is not None:
+        properties['hardware_timeout_seconds'] = [str(config.instrument.timeout_seconds)]
+    return properties
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--microscope",
-        choices=["real", "dt"],
-        default="real",
-        help="Which block to start: 'real' microscope or 'dt' digital twin. Defaults to real.",
-    )
     parser.add_argument(
         "--yaml",
         type=Path,
@@ -231,15 +253,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def all_microscope_cleanup_patterns(config: Config) -> set[str]:
-    classes = {config.microscope.class_name}
-    if config.digital_twin is not None:
-        classes.add(config.digital_twin.class_name)
-    return {f"{class_name} microscope_instance" for class_name in classes}
+def instrument_cleanup_patterns(config: Config) -> set[str]:
+    return {f"{config.instrument.class_name} instrument_instance"}
 
 
-def selected_microscope(devices: list[DeviceConfig]) -> DeviceConfig:
-    return next(device for device in devices if device.key == "microscope")
+def selected_instrument(devices: list[DeviceConfig]) -> DeviceConfig:
+    return next(device for device in devices if device.key == "instrument")
 
 
 def color(text: str, code: str) -> str:
@@ -508,7 +527,7 @@ def clear_old_processes(
 
     stopped_servers = 0
     cleanup_patterns = {f"{device.class_name} {device.instance_name}" for device in devices}
-    cleanup_patterns.update(all_microscope_cleanup_patterns(config))
+    cleanup_patterns.update(instrument_cleanup_patterns(config))
     for pattern in sorted(cleanup_patterns):
         if stop_python_process_matching(pattern):
             stopped_servers += 1
@@ -562,9 +581,7 @@ def wait_for_device(device_name: str, timeout: int) -> float:
     raise TimeoutError(f"{device_name} did not become ready after {timeout}s. Last error: {last_error}")
 
 
-def register_devices(
-    devices: list[DeviceConfig], microscope_properties: dict[str, list[str]]
-) -> None:
+def register_devices(devices: list[DeviceConfig], instrument_properties: dict[str, list[str]]) -> None:
     database = tango.Database()
     status_line("OK", "database", f"{database.get_db_host()}:{database.get_db_port()}")
 
@@ -576,9 +593,9 @@ def register_devices(
         database.add_device(device_info)
         status_line("OK", device.device_name)
 
-    microscope = selected_microscope(devices)
-    for property_name, property_value in microscope_properties.items():
-        database.put_device_property(microscope.device_name, {property_name: property_value})
+    instrument = selected_instrument(devices)
+    for property_name, property_value in instrument_properties.items():
+        database.put_device_property(instrument.device_name, {property_name: property_value})
         status_line("OK", f"property: {property_name} = {property_value[0]}")
 
 
@@ -665,15 +682,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     headless = args.yaml is not None
-    devices = build_devices(config, args.microscope)
-    microscope = selected_microscope(devices)
-    micro_config = selected_microscope_config(config, args.microscope)
+    devices = build_devices(config)
+    instrument = selected_instrument(devices)
+    instrument_config = config.instrument
     regular_devices = [device for device in devices if not device.start_after_dependencies]
     dependency_devices = [device for device in devices if device.start_after_dependencies]
 
     print_banner("ASYNCROSCOPY SERVER STARTUP")
 
-    microscope_properties = device_address_properties(config)
+    registered_instrument_properties = instrument_properties(config)
     if headless:
         print(f"Headless start from {config_path}")
         print()
@@ -684,9 +701,6 @@ def main(argv: list[str] | None = None) -> int:
         clear_first = start_database = should_register_devices = True
         reset_database_file = config.reset_database_file
         device_timeout = config.device_timeout_seconds
-        if micro_config.host is not None and micro_config.port is not None:
-            microscope_properties["autoscript_host_ip"] = [str(micro_config.host)]
-            microscope_properties["autoscript_host_port"] = [str(micro_config.port)]
     else:
         print("Press Enter at any prompt to use the value shown in brackets.")
         print()
@@ -705,11 +719,18 @@ def main(argv: list[str] | None = None) -> int:
         start_database = prompt_bool("Start Tango database", True)
         should_register_devices = prompt_bool("Register devices", True)
         device_timeout = prompt_int("Device startup timeout seconds", config.device_timeout_seconds)
-        if micro_config.host is not None and micro_config.port is not None:
-            autoscript_host = prompt_str("AutoScript host IP", str(micro_config.host))
-            autoscript_port = prompt_int("AutoScript host port", int(micro_config.port))
-            microscope_properties["autoscript_host_ip"] = [autoscript_host]
-            microscope_properties["autoscript_host_port"] = [str(autoscript_port)]
+        if instrument_config.hardware_host is not None:
+            registered_instrument_properties['hardware_host'] = [
+                prompt_str("Hardware host", str(instrument_config.hardware_host))
+            ]
+        if instrument_config.hardware_port is not None:
+            registered_instrument_properties['hardware_port'] = [
+                str(prompt_int("Hardware port", int(instrument_config.hardware_port)))
+            ]
+        if instrument_config.timeout_seconds is not None:
+            registered_instrument_properties['hardware_timeout_seconds'] = [
+                str(prompt_int("Hardware timeout seconds", int(instrument_config.timeout_seconds)))
+            ]
 
     total_steps = 5
 
@@ -727,7 +748,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
     print(f"  {color('CONFIG', Style.bold):<18} {config_path}")
-    print(f"  {color('MICROSCOPE', Style.bold):<18} {args.microscope} ({microscope.class_name})")
+    print(f"  {color('INSTRUMENT', Style.bold):<18} {instrument.class_name}")
     if log_dir is not None:
         print(f"  {color('DEBUG LOGS', Style.bold):<18} {log_dir}")
     print_inventory(devices)
@@ -767,7 +788,7 @@ def main(argv: list[str] | None = None) -> int:
 
         print_section(3, total_steps, "Registering devices")
         if should_register_devices:
-            register_devices(devices, microscope_properties)
+            register_devices(devices, registered_instrument_properties)
         else:
             status_line("SKIP", "device registration")
 
