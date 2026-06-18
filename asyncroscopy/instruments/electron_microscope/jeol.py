@@ -24,15 +24,20 @@ class JeolMicroscope(ElectronMicroscope):
     dedicated detector devices and read via DeviceProxy at acquisition time.
     """
 
-    pyjem_host_ip = device_property(
+    hardware_host = device_property(
         dtype=str,
         default_value='10.46.217.241',
         doc='Hostname or IP of the JEOL microscope control server.',
     )
-    pyjem_host_port = device_property(
+    hardware_port = device_property(
         dtype=int,
         default_value=9095,
         doc='Port of the JEOL microscope control server.',
+    )
+    hardware_timeout_seconds = device_property(
+        dtype=int,
+        default_value=120,
+        doc='Hardware connection timeout in seconds.',
     )
     acquisition_save_directory = device_property(
         dtype=str,

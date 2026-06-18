@@ -54,15 +54,20 @@ class AutoScriptMicroscope(ElectronMicroscope):
     # ------------------------------------------------------------------
     # Device properties — configure in Tango DB per deployment
     # ------------------------------------------------------------------
-    autoscript_host_ip = device_property(
+    hardware_host = device_property(
         dtype=str,
         default_value="10.46.217.241",
         doc="Hostname or IP of the AutoScript microscope server",
     )
-    autoscript_host_port = device_property(
+    hardware_port = device_property(
         dtype=int,
         default_value=9095,
-        doc="Hostname or IP of the AutoScript microscope server",
+        doc="Port of the AutoScript microscope server",
+    )
+    hardware_timeout_seconds = device_property(
+        dtype=int,
+        default_value=120,
+        doc="Hardware connection timeout in seconds.",
     )
     acquisition_save_directory = device_property(
         dtype=str,
@@ -156,8 +161,8 @@ class AutoScriptMicroscope(ElectronMicroscope):
             return
         try:
             self._microscope = TemMicroscopeClient()
-            self._microscope.connect(self.autoscript_host_ip, self.autoscript_host_port)
-            self.info_stream(f"Connected to AutoScript at {self.autoscript_host_ip}:{self.autoscript_host_port}")
+            self._microscope.connect(self.hardware_host, self.hardware_port)
+            self.info_stream(f"Connected to AutoScript at {self.hardware_host}:{self.hardware_port}")
             self.is_autoscript = True
         except Exception as e:
             self.error_stream(f"AutoScript connection failed: {e}")
