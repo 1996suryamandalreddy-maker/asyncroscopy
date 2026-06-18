@@ -221,6 +221,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="YAML config to start from. When given, runs headlessly (no prompts). "
         "When omitted, uses the bundled default config and prompts interactively.",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Stream each server's output (stdout+stderr) live to a per-device log "
+        "file under output_tango_devices_logs/<timestamp>/ for troubleshooting.",
+    )
     return parser.parse_args(argv)
 
 
@@ -693,11 +699,18 @@ def main(argv: list[str] | None = None) -> int:
     ready_times: dict[str, float] = {}
     tiled_config = None
 
+    log_dir: Path | None = None
+    if args.debug:
+        log_dir = PROJECT_DIR / "output_tango_devices_logs" / time.strftime("%Y-%m-%d_%H-%M-%S")
+        log_dir.mkdir(parents=True, exist_ok=True)
+
     print()
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
     print(f"  {color('CONFIG', Style.bold):<18} {config_path}")
     print(f"  {color('MICROSCOPE', Style.bold):<18} {args.microscope} ({microscope.class_name})")
+    if log_dir is not None:
+        print(f"  {color('DEBUG LOGS', Style.bold):<18} {log_dir}")
     print_inventory(devices)
 
     try:
@@ -718,6 +731,7 @@ def main(argv: list[str] | None = None) -> int:
                 "Tango database",
                 ["uv", "run", "python", "-m", "tango.databaseds.database", "2"],
                 environment,
+                log_dir,
             )
             processes.append(database)
             print("  WAIT  database readiness", end="", flush=True)
@@ -740,7 +754,7 @@ def main(argv: list[str] | None = None) -> int:
 
         print_section(4, total_steps, "Starting device servers")
         for device in regular_devices:
-            process = start_process(device.key, device.class_name, device.command, environment)
+            process = start_process(device.key, device.class_name, device.command, environment, log_dir)
             processes.append(process)
             status_line("RUN", device.key, f"{device.module_name}  pid={process.pid}")
 
@@ -763,7 +777,7 @@ def main(argv: list[str] | None = None) -> int:
         for device in dependency_devices:
             print()
             status_line("RUN", device.key, f"{device.module_name}  starting after dependencies")
-            process = start_process(device.key, device.class_name, device.command, environment)
+            process = start_process(device.key, device.class_name, device.command, environment, log_dir)
             processes.append(process)
             print(f"  WAIT  {device.device_name:<34}", end="", flush=True)
             elapsed = wait_for_device(device.device_name, device_timeout)
@@ -799,7 +813,14 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         print()
         print(color(f"Startup failed: {exc}", Style.bold + Style.red))
-        print_debug_output(processes)
+        if log_dir is not None:
+            # The pump threads already own the streams in debug mode — point at the
+            # per-server log files rather than draining the pipes a second time.
+            print(color(f"Per-server logs in {log_dir}:", Style.bold + Style.yellow))
+            for process in processes:
+                print(f"  {process.key:<14} pid={process.pid} returncode={process.process.poll()}  {process.log_path}")
+        else:
+            print_debug_output(processes)
         stop_tiled_server()
         stop_all(processes)
         return 1
