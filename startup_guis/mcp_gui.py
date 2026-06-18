@@ -5,13 +5,34 @@ import sys
 from pathlib import Path
 
 import yaml
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QSplitter, QTextEdit, QVBoxLayout, QWidget
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
+# Import Qt through qt_compat so this GUI can use PyQt6 normally and PyQt5 on
+# legacy Windows 10 systems that cannot load Qt6.
+from startup_guis.qt_compat import (  # noqa: E402
+    HORIZONTAL,
+    NO_WRAP,
+    VERTICAL,
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QPushButton,
+    QSplitter,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+    app_exec,
+)
 from startup_guis.shared import BODY_FONT, CONFIG_DIR, GENERATED_CONFIG_DIR, SECTION_FONT, TEXT_FONT, TITLE_FONT, ManagedCommand, action_button, append_terminal_text, configure_terminal, load_yaml, write_yaml, yaml_text  # noqa: E402
 
 
@@ -49,8 +70,8 @@ class McpGui(QMainWindow):
 
     def build(self) -> None:
         self.setFont(BODY_FONT)
-        root = QSplitter(Qt.Orientation.Vertical)
-        top = QSplitter(Qt.Orientation.Horizontal)
+        root = QSplitter(VERTICAL)
+        top = QSplitter(HORIZONTAL)
         controls = QWidget()
         preview = QWidget()
         terminal = QWidget()
@@ -104,7 +125,7 @@ class McpGui(QMainWindow):
         access_control.layout().addRow(blocked_label)
         self.blocked_functions = QTextEdit()
         self.blocked_functions.setFont(TEXT_FONT)
-        self.blocked_functions.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.blocked_functions.setLineWrapMode(NO_WRAP)
         self.blocked_functions.setPlainText(yaml.safe_dump(mcp.get('blocked_functions', {}), sort_keys=False))
         self.blocked_functions.textChanged.connect(self.refresh_yaml)
         access_control.layout().addRow(self.blocked_functions)
@@ -133,7 +154,7 @@ class McpGui(QMainWindow):
         self.yaml_preview = QTextEdit()
         self.yaml_preview.setFont(TEXT_FONT)
         self.yaml_preview.setReadOnly(True)
-        self.yaml_preview.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.yaml_preview.setLineWrapMode(NO_WRAP)
         layout.addWidget(self.yaml_preview)
 
     def build_terminal(self, parent: QWidget) -> None:
@@ -231,4 +252,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = McpGui()
     window.show()
-    sys.exit(app.exec())
+    sys.exit(app_exec(app))

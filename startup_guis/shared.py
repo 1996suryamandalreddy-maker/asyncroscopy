@@ -9,19 +9,29 @@ from pathlib import Path
 from typing import Callable
 
 import yaml
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
-from PyQt6.QtWidgets import QPushButton, QTextEdit
+
+from startup_guis.qt_compat import (
+    FONT_BOLD,
+    MOVE_END,
+    POINTING_HAND_CURSOR,
+    QColor,
+    QFont,
+    QObject,
+    QPushButton,
+    QTextCharFormat,
+    QTextEdit,
+    pyqtSignal,
+)
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 CONFIG_DIR = PROJECT_DIR / 'configs'
 GENERATED_CONFIG_DIR = PROJECT_DIR / 'outputs' / 'startup_configs'
 BODY_FONT = QFont('Arial', 15)
-TITLE_FONT = QFont('Arial', 24, QFont.Weight.Bold)
-SECTION_FONT = QFont('Arial', 18, QFont.Weight.Bold)
+TITLE_FONT = QFont('Arial', 24, FONT_BOLD)
+SECTION_FONT = QFont('Arial', 18, FONT_BOLD)
 TEXT_FONT = QFont('Menlo', 16)
-ACTION_FONT = QFont('Arial', 18, QFont.Weight.Bold)
+ACTION_FONT = QFont('Arial', 18, FONT_BOLD)
 
 OutputCallback = Callable[[str], None]
 DoneCallback = Callable[[int | None], None]
@@ -45,7 +55,7 @@ def write_yaml(path: Path, config: dict) -> Path:
 def action_button(text: str, color: str, active_color: str) -> QPushButton:
     button = QPushButton(text)
     button.setFont(ACTION_FONT)
-    button.setCursor(Qt.CursorShape.PointingHandCursor)
+    button.setCursor(POINTING_HAND_CURSOR)
     button.setStyleSheet(
         'QPushButton {'
         f'background: {color}; color: white; border: 2px solid #222; padding: 12px 18px;'
@@ -74,7 +84,7 @@ def append_terminal_text(widget: QTextEdit, text: str) -> None:
         'plain': _format('#c9d1d9'),
     }
     cursor = widget.textCursor()
-    cursor.movePosition(QTextCursor.MoveOperation.End)
+    cursor.movePosition(MOVE_END)
     for line in text.splitlines(keepends=True):
         clean = ANSI_PATTERN.sub('', line)
         cursor.insertText(clean, formats[_line_tag(clean)])
