@@ -85,6 +85,33 @@ def test_start_process_drains_child_output():
     assert process.stderr_lines[-1] == "done"
 
 
+def test_start_process_can_write_child_output_to_debug_log(tmp_path):
+    environment = {**os.environ, 'PYTHONUNBUFFERED': '1'}
+    command = [
+        sys.executable,
+        '-c',
+        "import sys\nprint('out-line')\nprint('err-line', file=sys.stderr)",
+    ]
+
+    process = run_servers.start_process('writer', 'Writer', command, environment, tmp_path)
+    assert process.log_path == tmp_path / 'writer.log'
+
+    try:
+        process.process.wait(timeout=5)
+        deadline = time.monotonic() + 2
+        while not process.log_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        while 'err-line' not in process.log_path.read_text(encoding='utf-8') and time.monotonic() < deadline:
+            time.sleep(0.01)
+    finally:
+        if process.running:
+            run_servers.stop_process(process)
+
+    log_text = process.log_path.read_text(encoding='utf-8')
+    assert '[stdout] out-line' in log_text
+    assert '[stderr] err-line' in log_text
+
+
 def test_stop_process_terminates_process_group(monkeypatch):
     if run_servers.os.name == "nt":
         return

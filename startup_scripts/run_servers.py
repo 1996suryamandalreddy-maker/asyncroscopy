@@ -82,6 +82,7 @@ class ManagedProcess:
     label: str
     command: list[str]
     process: subprocess.Popen[bytes]
+    log_path: Path | None = None
     stdout_lines: deque[str] = field(default_factory=process_output_buffer)
     stderr_lines: deque[str] = field(default_factory=process_output_buffer)
 
@@ -324,7 +325,11 @@ def make_environment(
 
 
 def start_process(
-    key: str, label: str, command: list[str], environment: dict[str, str]
+    key: str,
+    label: str,
+    command: list[str],
+    environment: dict[str, str],
+    log_dir: Path | None = None,
 ) -> ManagedProcess:
     popen_kwargs = {
         "env": environment,
@@ -341,19 +346,33 @@ def start_process(
         command,
         **popen_kwargs,
     )
-    managed = ManagedProcess(key=key, label=label, command=command, process=process)
-    drain_process_output(process.stdout, managed.stdout_lines)
-    drain_process_output(process.stderr, managed.stderr_lines)
+    log_path = log_dir / f'{key}.log' if log_dir is not None else None
+    managed = ManagedProcess(key=key, label=label, command=command, process=process, log_path=log_path)
+    drain_process_output(process.stdout, managed.stdout_lines, log_path, 'stdout')
+    drain_process_output(process.stderr, managed.stderr_lines, log_path, 'stderr')
     return managed
 
 
-def drain_process_output(stream: BufferedReader | None, output: deque[str]) -> None:
+def drain_process_output(
+    stream: BufferedReader | None,
+    output: deque[str],
+    log_path: Path | None = None,
+    stream_name: str = '',
+) -> None:
     if stream is None:
         return
 
     def drain() -> None:
+        log_file = log_path.open('a', encoding='utf-8') if log_path is not None else None
         for line in iter(stream.readline, b""):
-            output.append(line.decode(errors="replace").rstrip())
+            text = line.decode(errors='replace').rstrip()
+            output.append(text)
+            if log_file is not None:
+                prefix = f'[{stream_name}] ' if stream_name else ''
+                log_file.write(f'{prefix}{text}\n')
+                log_file.flush()
+        if log_file is not None:
+            log_file.close()
         stream.close()
 
     threading.Thread(target=drain, daemon=True).start()
