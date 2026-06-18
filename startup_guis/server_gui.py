@@ -79,14 +79,24 @@ def class_name_from_file(path_text: str, fallback: str = 'Instrument') -> str:
     return fallback
 
 
+def uses_hardware_connection(path_text: str) -> bool:
+    return 'digital_twin' not in Path(path_text).stem
+
+
 def server_config_from_values(values: dict) -> dict:
     devices = {key: spec for key, spec in values['devices'].items() if values['enabled_devices'][key]}
     instrument = dict(values['instrument'])
-    instrument['file'] = project_path_text(values['instrument_file'])
-    instrument['class_name'] = instrument.get('class_name') or class_name_from_file(instrument['file'])
-    if values['hardware_host']:
+    selected_file = project_path_text(values['instrument_file'])
+    previous_file = project_path_text(instrument.get('file', selected_file))
+    instrument['file'] = selected_file
+    if selected_file != previous_file or not instrument.get('class_name'):
+        instrument['class_name'] = class_name_from_file(selected_file)
+    instrument.pop('hardware_host', None)
+    instrument.pop('hardware_port', None)
+    uses_hardware = uses_hardware_connection(selected_file)
+    if uses_hardware and values['hardware_host']:
         instrument['hardware_host'] = values['hardware_host']
-    if values['hardware_port']:
+    if uses_hardware and values['hardware_port']:
         instrument['hardware_port'] = int(values['hardware_port'])
     if values['hardware_timeout_seconds']:
         instrument['timeout_seconds'] = int(values['hardware_timeout_seconds'])

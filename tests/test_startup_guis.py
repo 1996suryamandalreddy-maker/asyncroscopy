@@ -38,6 +38,38 @@ def test_server_gui_builds_server_yaml():
     assert config['device_timeout_seconds'] == 120
 
 
+def test_server_gui_omits_hardware_host_port_for_digital_twin_file():
+    config = server_gui.server_config_from_values(
+        {
+            'instrument': {
+                'class_name': 'AutoScriptMicroscope',
+                'file': 'asyncroscopy/instruments/electron_microscope/auto_script.py',
+                'description': 'Real microscope',
+                'hardware_host': '10.0.0.1',
+                'hardware_port': 9095,
+            },
+            'instrument_file': 'asyncroscopy/instruments/electron_microscope/digital_twin.py',
+            'hardware_host': '10.0.0.1',
+            'hardware_port': '9095',
+            'hardware_timeout_seconds': '120',
+            'devices': {'data': {'module_name': 'asyncroscopy.data.data'}},
+            'enabled_devices': {'data': True},
+            'tango_host': 'localhost',
+            'tango_port': '9094',
+            'reset_database_file': True,
+            'tiled_host': 'localhost',
+            'tiled_port': '9091',
+            'acquisition_dir': 'outputs/tiled_acquisitions',
+            'tiled_autostart': True,
+            'device_timeout_seconds': '120',
+        }
+    )
+
+    assert config['instrument']['class_name'] == 'DigitalTwin'
+    assert 'hardware_host' not in config['instrument']
+    assert 'hardware_port' not in config['instrument']
+
+
 def test_server_gui_reads_and_writes_line_and_combo_inputs():
     class FakeLineEdit:
         def __init__(self):
