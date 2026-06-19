@@ -72,7 +72,7 @@ class TestDataDevice:
         data_proxy.port = 9091
         data_proxy.save_path = str(tmp_path)
         monkeypatch.setattr(DATA, "_tiled_alive", fake_alive)
-        monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
+        monkeypatch.setattr(DATA, "_tiled_command", lambda self: ["python", "-m", "tiled"])
         monkeypatch.setattr("asyncroscopy.data.data.subprocess.Popen", fake_popen)
         monkeypatch.setattr(
             "asyncroscopy.data.data.subprocess.run",
@@ -85,8 +85,10 @@ class TestDataDevice:
         returned = json.loads(data_proxy.start_tiled_server())
 
         assert returned["tiled_server"] == "yes"
-        key_value = popen_calls[0]["command"][8]
+        command_prefix = ["python", "-m"]
+        key_value = popen_calls[0]["command"][10]
         expected_command = [
+            *command_prefix,
             "tiled",
             "serve",
             "catalog",
@@ -105,11 +107,11 @@ class TestDataDevice:
         assert len(popen_calls) == 1
         actual_command = popen_calls[0]["command"]
 
-        assert actual_command[:3] == expected_command[:3]
-        assert Path(actual_command[3]) == Path(expected_command[3])
-        assert actual_command[4] == expected_command[4]
+        assert actual_command[:5] == expected_command[:5]
         assert Path(actual_command[5]) == Path(expected_command[5])
-        assert actual_command[6:] == expected_command[6:]
+        assert actual_command[6] == expected_command[6]
+        assert Path(actual_command[7]) == Path(expected_command[7])
+        assert actual_command[8:] == expected_command[8:]
 
         assert popen_calls[0]["kwargs"] == {
             "stdout": subprocess.DEVNULL,
@@ -118,13 +120,14 @@ class TestDataDevice:
         }
 
         assert len(run_commands) == 1
-        assert run_commands[0][:4] == [
+        assert run_commands[0][:6] == [
+            *command_prefix,
             "tiled",
             "catalog",
             "init",
             "--if-not-exists",
         ]
-        assert Path(run_commands[0][4]) == Path(tmp_path / ".asyncroscopy_tiled_catalog.db")
+        assert Path(run_commands[0][6]) == Path(tmp_path / ".asyncroscopy_tiled_catalog.db")
         data_proxy.stop_tiled_server()
 
     def test_catalog_database_uri_uses_sqlite_uri_for_windows_drive_path(self) -> None:
@@ -164,7 +167,7 @@ class TestDataDevice:
                 pass
 
         monkeypatch.setattr(DATA, "_tiled_alive", fake_alive)
-        monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
+        monkeypatch.setattr(DATA, "_tiled_command", lambda self: ["python", "-m", "tiled"])
         monkeypatch.setattr("asyncroscopy.data.data.subprocess.Popen", lambda command, **kwargs: popen_calls.append(command) or FakeProcess())
         monkeypatch.setattr(
             "asyncroscopy.data.data.subprocess.run",
@@ -183,8 +186,8 @@ class TestDataDevice:
 
         expected_catalog = "sqlite:///C:/Users/ahoust17/Desktop/18167694/.asyncroscopy_tiled_catalog.db"
         assert returned["tiled_server"] == "yes"
-        assert run_commands[0][4] == expected_catalog
-        assert popen_calls[0][3] == expected_catalog
+        assert run_commands[0][6] == expected_catalog
+        assert popen_calls[0][5] == expected_catalog
         data_proxy.stop_tiled_server()
 
     def test_register_path_registers_single_file(
@@ -338,7 +341,7 @@ class TestDataDevice:
 
         run_commands = []
         monkeypatch.setattr(DATA, "_tiled_alive", fake_alive)
-        monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
+        monkeypatch.setattr(DATA, "_tiled_command", lambda self: ["python", "-m", "tiled"])
         monkeypatch.setattr("asyncroscopy.data.data.subprocess.Popen", fake_popen)
         monkeypatch.setattr(
             "asyncroscopy.data.data.subprocess.run",
@@ -358,7 +361,7 @@ class TestDataDevice:
 
 
         assert processes[0].terminated is True
-        assert [Path(call["command"][5]) for call in popen_calls] == [Path(first_path), Path(second_path)]
+        assert [Path(call["command"][7]) for call in popen_calls] == [Path(first_path), Path(second_path)]
         assert Path(config["tiled_server_serving"]) == Path(second_path)
         assert config["tiled_server_status"] == "running; serving path; files register manually"
 

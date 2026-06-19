@@ -138,7 +138,7 @@ class DATA(Device):
 
         try:
             _ensure_directory(self._save_path)
-            command = [self._tiled_executable(), "catalog", "init", "--if-not-exists", catalog_database]
+            command = [*self._tiled_command(), "catalog", "init", "--if-not-exists", catalog_database]
             subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         except subprocess.CalledProcessError as exc:
             self._tiled_server = "no"
@@ -151,7 +151,7 @@ class DATA(Device):
             return self.get_config()
 
         command = [
-            self._tiled_executable(), "serve", "catalog", catalog_database,
+            *self._tiled_command(), "serve", "catalog", catalog_database,
             "--read", self._save_path, "--public", "--api-key", self._api_key,
             "--host", self._host, "--port", str(self._port),
         ]
@@ -283,14 +283,13 @@ class DATA(Device):
         return host or "10.46.217.241", int(port or 9091)
 
     @staticmethod
-    def _tiled_executable() -> str:
-        candidate = Path(sys.executable).with_name("tiled")
-        return str(candidate) if candidate.exists() else "tiled"
+    def _tiled_command() -> list[str]:
+        return [sys.executable, "-m", "tiled"]
 
 
 def _is_windows_drive_path(path: str | Path | PureWindowsPath) -> bool:
-    text = str(path)
-    return isinstance(path, PureWindowsPath) or (len(text) >= 3 and text[1] == ":" and text[0].isalpha() and text[2] in {"\\", "/"})
+    windows_path = PureWindowsPath(path)
+    return bool(windows_path.drive)
 
 
 def _catalog_database_uri(path: str | Path | PureWindowsPath) -> str:
