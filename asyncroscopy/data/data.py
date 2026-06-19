@@ -132,21 +132,26 @@ class DATA(Device):
             self._tiled_server_status = "running; files register manually"
             return self.get_config()
 
-        catalog = str(Path(self._save_path).expanduser() / ".asyncroscopy_tiled_catalog.db")
-        if _is_windows_drive_path(catalog):
-            catalog = catalog.replace("\\", "/")
+        save_path = PureWindowsPath(self._save_path) if _is_windows_drive_path(self._save_path) else Path(self._save_path).expanduser()
+        catalog = save_path / ".asyncroscopy_tiled_catalog.db"
+        catalog_database = _catalog_database_uri(catalog)
 
         try:
             _ensure_directory(self._save_path)
-            command = [self._tiled_executable(), "catalog", "init", "--if-not-exists", catalog]
+            command = [self._tiled_executable(), "catalog", "init", "--if-not-exists", catalog_database]
             subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        except subprocess.CalledProcessError as exc:
+            self._tiled_server = "no"
+            output = (exc.stdout or "").strip()
+            self._tiled_server_status = f"{exc}; output: {output}" if output else str(exc)
+            return self.get_config()
         except Exception as exc:
             self._tiled_server = "no"
             self._tiled_server_status = str(exc)
             return self.get_config()
 
         command = [
-            self._tiled_executable(), "serve", "catalog", catalog,
+            self._tiled_executable(), "serve", "catalog", catalog_database,
             "--read", self._save_path, "--public", "--api-key", self._api_key,
             "--host", self._host, "--port", str(self._port),
         ]
@@ -286,6 +291,12 @@ class DATA(Device):
 def _is_windows_drive_path(path: str | Path | PureWindowsPath) -> bool:
     text = str(path)
     return isinstance(path, PureWindowsPath) or (len(text) >= 3 and text[1] == ":" and text[0].isalpha() and text[2] in {"\\", "/"})
+
+
+def _catalog_database_uri(path: str | Path | PureWindowsPath) -> str:
+    if _is_windows_drive_path(path):
+        return f"sqlite:///{PureWindowsPath(path).as_posix()}"
+    return str(Path(path).expanduser())
 
 
 def _ensure_directory(path: str | Path) -> None:

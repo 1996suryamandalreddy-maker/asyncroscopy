@@ -13,8 +13,6 @@ if str(PROJECT_DIR) not in sys.path:
 # legacy Windows 10 systems that cannot load Qt6.
 from startup_guis.qt_compat import (  # noqa: E402
     HORIZONTAL,
-    NO_WRAP,
-    VERTICAL,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -33,7 +31,7 @@ from startup_guis.qt_compat import (  # noqa: E402
     QWidget,
     app_exec,
 )
-from startup_guis.shared import BODY_FONT, CONFIG_DIR, GENERATED_CONFIG_DIR, SECTION_FONT, TEXT_FONT, TITLE_FONT, ManagedCommand, action_button, append_terminal_text, configure_terminal, load_yaml, write_yaml, yaml_text  # noqa: E402
+from startup_guis.shared import BODY_FONT, CONFIG_DIR, GENERATED_CONFIG_DIR, SECTION_FONT, TITLE_FONT, ManagedCommand, action_button, append_terminal_text, configure_terminal, load_yaml, write_yaml  # noqa: E402
 
 
 DEFAULT_CONFIG_PATH = CONFIG_DIR / 'Spectra300.yaml'
@@ -130,25 +128,18 @@ class ServerGui(QMainWindow):
         self.inputs: dict[str, QLineEdit | QComboBox | QCheckBox] = {}
         self.device_checks: dict[str, QCheckBox] = {}
         self.build()
-        self.refresh_yaml()
 
     def build(self) -> None:
         self.setFont(BODY_FONT)
-        root = QSplitter(VERTICAL)
-        top = QSplitter(HORIZONTAL)
+        root = QSplitter(HORIZONTAL)
         controls = QWidget()
-        preview = QWidget()
         terminal = QWidget()
-        root.addWidget(top)
+        root.addWidget(controls)
         root.addWidget(terminal)
-        top.addWidget(controls)
-        top.addWidget(preview)
-        root.setSizes([520, 240])
-        top.setSizes([520, 640])
+        root.setSizes([520, 640])
         self.setCentralWidget(root)
 
         self.build_controls(controls)
-        self.build_preview(preview)
         self.build_terminal(terminal)
 
     def build_controls(self, parent: QWidget) -> None:
@@ -213,17 +204,6 @@ class ServerGui(QMainWindow):
             actions.addWidget(button)
         layout.addLayout(actions)
         layout.addStretch()
-
-    def build_preview(self, parent: QWidget) -> None:
-        layout = QVBoxLayout(parent)
-        label = QLabel('Configuration (.yaml)')
-        label.setFont(SECTION_FONT)
-        layout.addWidget(label)
-        self.yaml_preview = QTextEdit()
-        self.yaml_preview.setFont(TEXT_FONT)
-        self.yaml_preview.setReadOnly(True)
-        self.yaml_preview.setLineWrapMode(NO_WRAP)
-        layout.addWidget(self.yaml_preview)
 
     def build_terminal(self, parent: QWidget) -> None:
         layout = QVBoxLayout(parent)
@@ -316,8 +296,7 @@ class ServerGui(QMainWindow):
         return server_config_from_values(values)
 
     def refresh_yaml(self) -> None:
-        if hasattr(self, 'yaml_preview'):
-            self.yaml_preview.setPlainText(yaml_text(self.current_config()))
+        pass
 
     def save_config(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, 'Save config', str(CONFIG_DIR / 'server_config.yaml'), 'YAML (*.yaml *.yml);;All files (*)')

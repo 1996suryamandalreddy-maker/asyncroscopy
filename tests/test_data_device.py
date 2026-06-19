@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import tango
 
-from asyncroscopy.data.data import DATA
+from asyncroscopy.data.data import DATA, _catalog_database_uri
 
 
 class TestDataDevice:
@@ -125,6 +125,66 @@ class TestDataDevice:
             "--if-not-exists",
         ]
         assert Path(run_commands[0][4]) == Path(tmp_path / ".asyncroscopy_tiled_catalog.db")
+        data_proxy.stop_tiled_server()
+
+    def test_catalog_database_uri_uses_sqlite_uri_for_windows_drive_path(self) -> None:
+        assert (
+            _catalog_database_uri("C:/Users/ahoust17/Desktop/18167694/.asyncroscopy_tiled_catalog.db")
+            == "sqlite:///C:/Users/ahoust17/Desktop/18167694/.asyncroscopy_tiled_catalog.db"
+        )
+        assert (
+            _catalog_database_uri("C:\\Users\\ahoust17\\Desktop\\18167694\\.asyncroscopy_tiled_catalog.db")
+            == "sqlite:///C:/Users/ahoust17/Desktop/18167694/.asyncroscopy_tiled_catalog.db"
+        )
+
+    def test_start_tiled_server_uses_sqlite_uri_for_windows_catalog(
+        self,
+        data_proxy: tango.DeviceProxy,
+        monkeypatch,
+    ) -> None:
+        calls = []
+        popen_calls = []
+        run_commands = []
+
+        def fake_alive(self):
+            calls.append(None)
+            return len(calls) > 1
+
+        class FakeProcess:
+            def poll(self):
+                return None
+
+            def terminate(self):
+                pass
+
+            def wait(self, timeout):
+                return 0
+
+            def kill(self):
+                pass
+
+        monkeypatch.setattr(DATA, "_tiled_alive", fake_alive)
+        monkeypatch.setattr(DATA, "_tiled_executable", lambda self: "tiled")
+        monkeypatch.setattr("asyncroscopy.data.data.subprocess.Popen", lambda command, **kwargs: popen_calls.append(command) or FakeProcess())
+        monkeypatch.setattr(
+            "asyncroscopy.data.data.subprocess.run",
+            lambda command, **_: (
+                run_commands.append(command)
+                or type("Result", (), {"returncode": 0, "stdout": ""})()
+            ),
+        )
+
+        data_proxy.host = "127.0.0.1"
+        data_proxy.port = 9091
+        data_proxy.save_path = "C:/Users/ahoust17/Desktop/18167694"
+        calls.clear()
+
+        returned = json.loads(data_proxy.start_tiled_server())
+
+        expected_catalog = "sqlite:///C:/Users/ahoust17/Desktop/18167694/.asyncroscopy_tiled_catalog.db"
+        assert returned["tiled_server"] == "yes"
+        assert run_commands[0][4] == expected_catalog
+        assert popen_calls[0][3] == expected_catalog
         data_proxy.stop_tiled_server()
 
     def test_register_path_registers_single_file(
