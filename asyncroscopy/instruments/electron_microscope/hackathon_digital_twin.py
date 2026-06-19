@@ -1,44 +1,45 @@
-"""Hackathon digital twin backed by a 4D camera dataset."""
+"""Hackathon digital twin backed by pre-split 4D-STEM camera frames."""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
-import h5py
 import numpy as np
 import tango
 from tango.server import device_property
 
-from asyncroscopy.data.data_writer import acquisition_filename, save_acquisition_hdf5
 from asyncroscopy.instruments.electron_microscope.digital_twin import DigitalTwin
 
-DEFAULT_CAMERA_SOURCE_PATH = '/Users/austin/Downloads/18167694/hackathon_data/hackathon_camera_source.h5'
+DEFAULT_HACKATHON_DATA_DIR = '/Users/austin/Desktop/18167694/hackathon_data'
+DEFAULT_CAMERA_FRAME_PREFIX = 'camera_image'
+DEFAULT_CAMERA_GRID_SHAPE = (512, 512)
+DEFAULT_OVERVIEW_FILENAME = 'overview_haadf.h5'
 
 
 class HackathonDigitalTwin(DigitalTwin):
-    """Digital twin that returns camera frames from a precomputed 4D-STEM HDF5 source."""
+    """Digital twin that returns deterministic Tiled keys for precomputed 4D-STEM frames."""
 
-    camera_source_path = device_property(
+    hackathon_data_directory = device_property(
         dtype=str,
-        default_value=DEFAULT_CAMERA_SOURCE_PATH,
-        doc='HDF5 file containing a 4D camera stack indexed as beam_x, beam_y, camera_y, camera_x.',
+        default_value=DEFAULT_HACKATHON_DATA_DIR,
+        doc='Directory containing the hackathon HDF5 source and derived acquisition files.',
     )
-    camera_source_dataset = device_property(
+    camera_frame_prefix = device_property(
         dtype=str,
-        default_value='source/camera_stack',
-        doc='Dataset path inside camera_source_path used by acquire_camera_image.',
+        default_value=DEFAULT_CAMERA_FRAME_PREFIX,
+        doc='Prefix for deterministic 2D camera acquisition files registered with Tiled.',
+    )
+    overview_filename = device_property(
+        dtype=str,
+        default_value=DEFAULT_OVERVIEW_FILENAME,
+        doc='HDF5 overview image filename registered for acquire_scanned_image.',
     )
 
     def _connect_detector_proxies(self) -> None:
         addresses: dict[str, str] = {
-            'eds': self.eds_device_address,
             'camera': self.camera_device_address,
-            'flucam': self.flucam_device_address,
-            'stage': self.stage_device_address,
             'scan': self.scan_device_address,
-            'corrector': self.corrector_device_address,
-            'data': self.data_device_address,
         }
         for name, address in addresses.items():
             if not address:
@@ -52,56 +53,40 @@ class HackathonDigitalTwin(DigitalTwin):
             except tango.DevFailed as exc:
                 self.error_stream(f'Failed to connect to {name} proxy at {address}: {exc}')
 
-    def _camera_source_frame(self) -> tuple[np.ndarray, dict]:
-        source_path = str(self.camera_source_path).strip() or os.environ.get('ASYNCROSCOPY_HACKATHON_CAMERA_SOURCE_PATH', '').strip()
-        if not source_path:
-            tango.Except.throw_exception(
-                'NoCameraSource',
-                'Set camera_source_path to an HDF5 file with a 4D camera stack before calling acquire_camera_image().',
-                '_acquire_camera_image()',
-            )
+    def _hackathon_data_dir(self) -> Path:
+        configured = str(self.hackathon_data_directory).strip()
+        env_path = os.environ.get('ASYNCROSCOPY_HACKATHON_DATA_DIR', '').strip()
+        path = Path(env_path or configured or DEFAULT_HACKATHON_DATA_DIR).expanduser()
+        path.mkdir(parents=True, exist_ok=True)
+        return path
 
-        path = Path(source_path).expanduser()
-        if not path.exists():
-            raise FileNotFoundError(f'camera_source_path does not exist: {path}')
-
-        dataset_path = str(self.camera_source_dataset).strip() or 'source/camera_stack'
+    def _beam_index(self) -> tuple[int, int]:
         beam_x, beam_y = self.read_beam_pos()
-        with h5py.File(path, 'r') as h5:
-            if dataset_path not in h5:
-                raise KeyError(f'{dataset_path!r} not found in {path}')
-            source = h5[dataset_path]
-            if source.ndim != 4:
-                raise ValueError(f'{dataset_path!r} must be 4D, got shape {source.shape}')
+        grid_x, grid_y = DEFAULT_CAMERA_GRID_SHAPE
+        ix = int(np.clip(round(float(beam_x) * (grid_x - 1)), 0, grid_x - 1))
+        iy = int(np.clip(round(float(beam_y) * (grid_y - 1)), 0, grid_y - 1))
+        return ix, iy
 
-            ix = int(np.clip(round(float(beam_x) * (source.shape[0] - 1)), 0, source.shape[0] - 1))
-            iy = int(np.clip(round(float(beam_y) * (source.shape[1] - 1)), 0, source.shape[1] - 1))
-            frame = np.asarray(source[ix, iy, :, :])
-            metadata = {
-                'beam_position_fractional': [float(beam_x), float(beam_y)],
-                'beam_index': [ix, iy],
-                'source_file': str(path),
-                'source_dataset': dataset_path,
-                'source_shape': list(source.shape),
-                'source_slice': f'[{ix}, {iy}, :, :]',
-            }
-        return frame, metadata
+    def _camera_frame_key(self, beam_index: tuple[int, int]) -> str:
+        prefix = str(self.camera_frame_prefix).strip() or DEFAULT_CAMERA_FRAME_PREFIX
+        ix, iy = beam_index
+        return f'{prefix}_x{ix:03d}_y{iy:03d}.h5'
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
-        frame, metadata = self._camera_source_frame()
-        data_server = self._detector_proxies.get('data')
-        path = acquisition_filename(self, 'camera_image', str(detector), data_server)
-        metadata.update(
-            {
-                'acquisition_type': 'camera_image',
-                'detector': str(detector),
-                'requested_imsize': int(imsize),
-                'exposure_time': float(exposure_time),
-                'readout_area': str(readout_area),
-            }
-        )
-        save_acquisition_hdf5(path, [{'name': 'image', 'source': frame, 'attrs': metadata}])
-        return data_server.register_path(str(path)) if data_server is not None else str(path)
+        return self._camera_frame_key(self._beam_index())
+
+    def _overview_path(self) -> Path:
+        filename = str(self.overview_filename).strip() or DEFAULT_OVERVIEW_FILENAME
+        return self._hackathon_data_dir() / filename
+
+    def _acquire_scanned_image(
+        self,
+        imsize: int,
+        dwell_time: float,
+        detector_list: list[str] = ['haadf'],
+        scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+    ) -> str:
+        return self._overview_path().name
 
 
 if __name__ == '__main__':
