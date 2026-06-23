@@ -39,6 +39,7 @@ dependencies = [
     "pyqt5>=5.15.11,<5.16",
     "pyqt5-qt5==5.15.2; sys_platform == 'win32'",
     "pyqt6>=6.8,<6.13",
+    "ipympl>=0.10.0",
 ]
 
 [project.optional-dependencies]
