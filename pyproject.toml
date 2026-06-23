@@ -41,6 +41,14 @@ dependencies = [
     "pyqt6>=6.8,<6.13",
 ]
 
+[project.optional-dependencies]
+# Install the abTEM diffraction twin stack with:
+#     uv sync --extra diffraction
+diffraction = [
+    "abtem>=1.0.0",
+    "ase>=3.27.0",
+]
+
 [tool.setuptools]
 package-dir = { "" = "." }
 
