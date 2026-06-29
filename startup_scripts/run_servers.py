@@ -324,7 +324,7 @@ def make_environment(
 
 
 def start_process(
-    key: str, label: str, command: list[str], environment: dict[str, str]
+    key: str, label: str, command: list[str], environment: dict[str, str], log_dir: Path | None = None
 ) -> ManagedProcess:
     popen_kwargs = {
         "env": environment,
@@ -342,19 +342,30 @@ def start_process(
         **popen_kwargs,
     )
     managed = ManagedProcess(key=key, label=label, command=command, process=process)
-    drain_process_output(process.stdout, managed.stdout_lines)
-    drain_process_output(process.stderr, managed.stderr_lines)
+    out_log = log_dir / f"{key}_stdout.log" if log_dir else None
+    err_log = log_dir / f"{key}_stderr.log" if log_dir else None
+    drain_process_output(process.stdout, managed.stdout_lines, out_log)
+    drain_process_output(process.stderr, managed.stderr_lines, err_log)
     return managed
 
 
-def drain_process_output(stream: BufferedReader | None, output: deque[str]) -> None:
+def drain_process_output(stream: BufferedReader | None, output: deque[str], log_file: Path | None = None) -> None:
     if stream is None:
         return
 
     def drain() -> None:
-        for line in iter(stream.readline, b""):
-            output.append(line.decode(errors="replace").rstrip())
-        stream.close()
+        f = log_file.open("a", encoding="utf-8") if log_file else None
+        try:
+            for line in iter(stream.readline, b""):
+                decoded = line.decode(errors="replace").rstrip()
+                output.append(decoded)
+                if f:
+                    f.write(decoded + "\n")
+                    f.flush()
+        finally:
+            if f:
+                f.close()
+            stream.close()
 
     threading.Thread(target=drain, daemon=True).start()
 
