@@ -8,6 +8,7 @@ and adapts it to the instrument-centered package layout.
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 import tango
 from tango import DevState
 from tango.server import device_property
@@ -134,6 +135,17 @@ class JeolMicroscope(ElectronMicroscope):
                 data_server.register_path(str(path))
         return stem
 
+    @staticmethod
+    def _decode_rawdata(raw: bytes, width: int, height: int) -> np.ndarray:
+        """
+        Decode a PyJEM ``snapshot_rawdata()`` byte buffer into a 2D image.
+
+        PyJEM returns raw little-endian int16 bytes; the shape comes from the
+        detector's imaging area. Reshape order follows the PyJEM docs
+        (``(width, height)``) and is unverified for non-square scans.
+        """
+        return np.frombuffer(raw, dtype=np.dtype('<i2')).reshape((width, height))
+
     def _acquire_scanned_image(
         self,
         imsize: int,
@@ -173,8 +185,11 @@ class JeolMicroscope(ElectronMicroscope):
                     X=int(left * extent),
                     Y=int(top * extent),
                 )
-            det.set_exposuretime_value(dwell_time * 1e6)     # API takes microseconds
-            images.append(ReplicaAdornedImageJeol(det.snapshot_rawdata(), det.get_detectorsetting()))
+            det.set_exposuretime_value(dwell_time * 1e6)     # PyJEM API takes microseconds while AutoScript takes seconds -- Lets keep default to seconds
+            settings = det.get_detectorsetting()
+            area = settings['AreaModeImagingArea'] if scan_region != full_frame else settings['ImagingArea']
+            pixels = self._decode_rawdata(det.snapshot_rawdata(), area['Width'], area['Height'])
+            images.append(ReplicaAdornedImageJeol(pixels, settings))
 
         data_server = self._detector_proxies.get('data')
         return self._persist(images, 'stem_image', detector_list, data_server)

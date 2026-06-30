@@ -43,7 +43,9 @@ def test_save_acquisition_hdf5_writes_data_and_xml_leaf_attrs(tmp_path):
 
 def test_replica_adorned_image_jeol_writes_dict_metadata_as_attrs(tmp_path):
     data_server = FakeDataServer(tmp_path)
-    # mimic PyJEM: raw pixels + a get_detectorsetting()-style dict with a nested dict
+    # ReplicaAdornedImageJeol holds an already-decoded array (the byte->array
+    # decode lives in JeolMicroscope._decode_rawdata) plus a
+    # get_detectorsetting()-style dict; here we check the dict lands as attrs.
     metadata = {
         "ExposureTimeValue": 1000.0,
         "GainIndex": 5,
