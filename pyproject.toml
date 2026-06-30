@@ -39,6 +39,15 @@ dependencies = [
     "pyqt5>=5.15.11,<5.16; sys_platform != 'darwin' or platform_machine != 'arm64'",
     "pyqt5-qt5==5.15.2; sys_platform == 'win32'",
     "pyqt6>=6.8,<6.13",
+    "ipympl>=0.10.0",
+]
+
+[project.optional-dependencies]
+# Install the abTEM diffraction twin stack with:
+#     uv sync --extra diffraction
+diffraction = [
+    "abtem>=1.0.0",
+    "ase>=3.27.0",
 ]
 
 [tool.setuptools]
