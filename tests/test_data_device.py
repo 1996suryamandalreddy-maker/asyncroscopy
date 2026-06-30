@@ -107,8 +107,10 @@ class TestDataDevice:
         assert len(popen_calls) == 1
         actual_command = popen_calls[0]["command"]
 
+        expected_catalog = _catalog_database_uri(tmp_path / ".asyncroscopy_tiled_catalog.db")
+
         assert actual_command[:5] == expected_command[:5]
-        assert Path(actual_command[5]) == Path(expected_command[5])
+        assert actual_command[5] == expected_catalog
         assert actual_command[6] == expected_command[6]
         assert Path(actual_command[7]) == Path(expected_command[7])
         assert actual_command[8:] == expected_command[8:]
@@ -127,7 +129,7 @@ class TestDataDevice:
             "init",
             "--if-not-exists",
         ]
-        assert Path(run_commands[0][6]) == Path(tmp_path / ".asyncroscopy_tiled_catalog.db")
+        assert run_commands[0][6] == expected_catalog
         data_proxy.stop_tiled_server()
 
     def test_catalog_database_uri_uses_sqlite_uri_for_windows_drive_path(self) -> None:

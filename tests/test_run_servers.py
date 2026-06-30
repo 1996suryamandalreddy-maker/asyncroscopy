@@ -117,7 +117,10 @@ def test_start_process_can_write_child_output_to_debug_log(tmp_path):
         deadline = time.monotonic() + 2
         while not process.log_path.exists() and time.monotonic() < deadline:
             time.sleep(0.01)
-        while 'err-line' not in process.log_path.read_text(encoding='utf-8') and time.monotonic() < deadline:
+        while time.monotonic() < deadline:
+            log_text = process.log_path.read_text(encoding='utf-8')
+            if '[stdout] out-line' in log_text and '[stderr] err-line' in log_text:
+                break
             time.sleep(0.01)
     finally:
         if process.running:
