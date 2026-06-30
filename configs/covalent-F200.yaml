@@ -1,0 +1,52 @@
+# asyncroscopy server config — JEOL JEM-F200 (Covalent).
+# Read by startup_scripts/run_servers.py. Mirrors Spectra300.yaml but swaps the
+# microscope for the PyJEM-backed JeolMicroscope.
+#
+#   uv run startup_scripts/run_servers.py --yaml configs/covalent-F200.yaml            # real, headless
+#   uv run startup_scripts/run_servers.py --yaml configs/covalent-F200.yaml --microscope dt
+#
+# The notebook (notebooks/02_Image_Acquisition.ipynb) needs no edits beyond
+# pointing TANGO_HOST at this stack: the microscope is still served as
+# 'asyncroscopy/microscope/default', now backed by JeolMicroscope.
+#
+# KNOWN GAPS (see jeol.py._connect_hardware + run_servers.py host mapping):
+#   * host/port below are NOT yet consumed by JeolMicroscope — _connect_hardware
+#     is a stub and PyJEM's `detector` REST module defaults to localhost. So this
+#     only reaches the scope when these servers run ON the F200 PC.
+#   * run_servers.py currently writes config host/port to `autoscript_host_ip`,
+#     which JeolMicroscope ignores. Generalizing that is a follow-up commit.
+
+microscope:
+  class_name: JeolMicroscope
+  module_name: asyncroscopy.instruments.electron_microscope.jeol
+  description: "JEOL JEM-F200 (S)TEM via PyJEM"
+  # host/port intentionally omitted until _connect_hardware consumes them;
+  # PyJEM connects to localhost when run on the F200 PC.
+
+digital_twin:
+  class_name: DigitalTwin
+  module_name: asyncroscopy.instruments.electron_microscope.digital_twin
+  description: "Software digital twin"
+  # No host/port: the bundled twin needs no hardware endpoint.
+
+# Support device servers. class_name defaults to the key upper-cased
+# (camera -> CAMERA); add `class_name:` to a device only to override that.
+devices:
+  camera:    { module_name: asyncroscopy.instruments.electron_microscope.detectors.camera }
+  data:      { module_name: asyncroscopy.data.data }
+  eds:       { module_name: asyncroscopy.instruments.electron_microscope.detectors.eds }
+  scan:      { module_name: asyncroscopy.instruments.electron_microscope.hardware.scan }
+  stage:     { module_name: asyncroscopy.instruments.electron_microscope.hardware.stage }
+
+tango:
+  host: 127.0.0.1          # set to the F200 PC's IP if reaching it from another machine
+  port: 9094
+  reset_database_file: false
+
+tiled:
+  host: 127.0.0.1          # set to the F200 PC's IP for remote notebook access
+  port: 9091
+  acquisition_dir: outputs/tiled_acquisitions
+  autostart: true
+
+device_timeout_seconds: 120

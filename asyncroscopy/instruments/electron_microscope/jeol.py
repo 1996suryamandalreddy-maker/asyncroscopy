@@ -12,8 +12,16 @@ import tango
 from tango import DevState
 from tango.server import device_property
 
-from asyncroscopy.data.data_writer import DEFAULT_ACQUISITION_DIR, save_acquisition
+from asyncroscopy.data.data_writer import DEFAULT_ACQUISITION_DIR, ReplicaAdornedImageJeol, save_acquisition
 from asyncroscopy.instruments.electron_microscope.electron_microscope import ElectronMicroscope
+
+# PyJEM imports -> this block will be removed after testing this on remote pc
+try:
+    from PyJEM import detector
+
+    _PYJEM_AVAILABLE = True
+except ImportError:
+    _PYJEM_AVAILABLE = False
 
 
 class JeolMicroscope(ElectronMicroscope):
@@ -133,12 +141,43 @@ class JeolMicroscope(ElectronMicroscope):
         detector_list: list[str] = ['haadf'],
         scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
     ) -> str:
-        """Acquire a scanned image through the JEOL API."""
-        tango.Except.throw_exception(
-            'UnsupportedCommand',
-            'JEOL scanned image acquisition is not implemented yet.',
-            '_acquire_scanned_image()',
-        )
+        """
+        Acquire a STEM scan over the requested detectors via the PyJEM
+        ``detector`` module and return the saved acquisition's DATA/Tiled key.
+
+        PyJEM acquisition is synchronous, so each detector is scanned in turn.
+        ``dwell_time`` is given in seconds; the PyJEM API takes microseconds.
+        """
+        if not _PYJEM_AVAILABLE:
+            tango.Except.throw_exception(
+                'UnsupportedCommand',
+                'PyJEM is not installed; cannot acquire on JEOL hardware.',
+                '_acquire_scanned_image()',
+            )
+
+        detector_list = [d.upper() for d in detector_list]
+        full_frame = [0.0, 0.0, 1.0, 1.0]
+        images = []
+        for name in detector_list:
+            det = detector.Detector(name)
+            if scan_region == full_frame:
+                det.set_scanmode(0)                          # full-frame Scan
+                det.set_imaging_area(imsize, imsize)
+            else:
+                extent = det.get_detectorsetting()['ImagingArea']['Width']
+                left, top, right, bottom = scan_region
+                det.set_scanmode(3)                          # Area (sub-region)
+                det.set_areamode_imagingarea(
+                    Width=int((right - left) * extent),
+                    Height=int((bottom - top) * extent),
+                    X=int(left * extent),
+                    Y=int(top * extent),
+                )
+            det.set_exposuretime_value(dwell_time * 1e6)     # API takes microseconds
+            images.append(ReplicaAdornedImageJeol(det.snapshot_rawdata(), det.get_detectorsetting()))
+
+        data_server = self._detector_proxies.get('data')
+        return self._persist(images, 'stem_image', detector_list, data_server)
 
     def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> str:
         tango.Except.throw_exception('UnsupportedCommand', 'JEOL spectrum acquisition is not implemented yet.', '_acquire_spectrum()')

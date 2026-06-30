@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -11,6 +12,21 @@ import h5py
 import numpy as np
 
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
+
+
+@dataclass
+class ReplicaAdornedImageJeol:
+    """
+    Minimal stand-in for an AutoScript adorned image, built from PyJEM output.
+
+    PyJEM returns raw pixels and instrument settings separately, so we bundle
+    them here to give the save path the same ``.data`` + ``.metadata`` shape it
+    already expects from AutoScript. ``metadata`` is the ``get_detectorsetting()``
+    dict; nested values are json-encoded when written to HDF5 attrs.
+    """
+
+    data: np.ndarray
+    metadata: dict
 
 
 def acquisition_filename(
@@ -86,3 +102,6 @@ def save_acquisition_hdf5(path: str | Path, datasets: list[dict], file_attrs: di
                         if key in dset.attrs:
                             key = f"{key}_{len(dset.attrs)}"
                         dset.attrs[key] = elem.text.strip()
+            elif isinstance(metadata, dict):
+                for key, value in metadata.items():
+                    dset.attrs[key] = value if isinstance(value, (str, int, float, bool, np.number)) else json.dumps(value)

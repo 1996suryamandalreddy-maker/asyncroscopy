@@ -1,9 +1,10 @@
+import json
 import types
 
 import h5py
 import numpy as np
 
-from asyncroscopy.data.data_writer import save_acquisition, save_acquisition_hdf5
+from asyncroscopy.data.data_writer import ReplicaAdornedImageJeol, save_acquisition, save_acquisition_hdf5
 
 
 class FakeDataServer:
@@ -38,6 +39,30 @@ def test_save_acquisition_hdf5_writes_data_and_xml_leaf_attrs(tmp_path):
         assert h5["images/HAADF"][()].tolist() == [[1, 2], [3, 4]]
         assert h5["images/HAADF"].attrs["acquisition_type"] == "stem_image"
         assert h5["images/HAADF"].attrs["detector"] == "HAADF"
+
+
+def test_replica_adorned_image_jeol_writes_dict_metadata_as_attrs(tmp_path):
+    data_server = FakeDataServer(tmp_path)
+    # mimic PyJEM: raw pixels + a get_detectorsetting()-style dict with a nested dict
+    metadata = {
+        "ExposureTimeValue": 1000.0,
+        "GainIndex": 5,
+        "ImagingArea": {"X": 0, "Y": 0, "Width": 512, "Height": 512},
+    }
+    image = ReplicaAdornedImageJeol(np.arange(4, dtype=np.uint16).reshape(2, 2), metadata)
+
+    path = save_acquisition(object(), data_server, "stem_image", ["HAADF"], [image])
+
+    with h5py.File(path, "r") as h5:
+        dset = h5["image/HAADF"]
+        assert dset[()].tolist() == [[0, 1], [2, 3]]
+        assert dset.attrs["ExposureTimeValue"] == 1000.0
+        assert dset.attrs["GainIndex"] == 5
+        # nested dict values are json-encoded, like other non-scalar attrs
+        assert json.loads(dset.attrs["ImagingArea"]) == metadata["ImagingArea"]
+        # the standard attrs are still written alongside the detector metadata
+        assert dset.attrs["acquisition_type"] == "stem_image"
+        assert dset.attrs["detector"] == "HAADF"
 
 
 def test_save_acquisition_writes_scanned_images_as_ordered_image_detector_datasets(tmp_path):
