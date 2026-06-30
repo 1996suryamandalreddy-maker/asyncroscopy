@@ -33,17 +33,22 @@ class JeolMicroscope(ElectronMicroscope):
     dedicated detector devices and read via DeviceProxy at acquisition time.
     """
 
-    pyjem_host_ip = device_property(
+    hardware_host = device_property(
         dtype=str,
         default_value='localhost',
         doc='Hostname or IP of the JEOL microscope control server. PyJEM REST '
         'clients default to localhost (the scope PC); set this to point at the '
         'scope from another machine.',
     )
-    pyjem_host_port = device_property(
+    hardware_port = device_property(
         dtype=int,
         default_value=9095,
         doc='Port of the JEOL microscope control server.',
+    )
+    hardware_timeout_seconds = device_property(
+        dtype=int,
+        default_value=120,
+        doc='Hardware connection timeout in seconds.',
     )
     acquisition_save_directory = device_property(
         dtype=str,
@@ -75,14 +80,14 @@ class JeolMicroscope(ElectronMicroscope):
         ``self._microscope`` to mirror the AutoScript device's connected handle.
 
         ``set_port`` is intentionally NOT called -- the detector REST service
-        has its own default port, distinct from ``pyjem_host_port`` (which is
+        has its own default port, distinct from ``hardware_port`` (which is
         AutoScript's port and unused here).
         """
         if not _PYJEM_AVAILABLE or self.testing_mode_bool:
             self.warn_stream('PyJEM not available; running JEOL device in testing mode.')
             return
         try:
-            detector.set_ip(self.pyjem_host_ip)
+            detector.set_ip(self.hardware_host)
             # Health-check: get_attached_detector() is a REST round-trip to
             # TEMCenter, so it raises if the server is unreachable. (The real
             # PyJEM 1.3.0.3564 detector module has no check_connection() -- this
@@ -91,7 +96,7 @@ class JeolMicroscope(ElectronMicroscope):
             attached = detector.get_attached_detector()
             self._microscope = detector
             self.info_stream(
-                f'Connected to JEOL/PyJEM detector server at {self.pyjem_host_ip}; '
+                f'Connected to JEOL/PyJEM detector server at {self.hardware_host}; '
                 f'attached detectors: {attached}'
             )
         except Exception as exc:
