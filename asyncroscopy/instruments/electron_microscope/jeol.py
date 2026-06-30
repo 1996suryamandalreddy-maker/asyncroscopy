@@ -35,8 +35,10 @@ class JeolMicroscope(ElectronMicroscope):
 
     pyjem_host_ip = device_property(
         dtype=str,
-        default_value='10.46.217.241',
-        doc='Hostname or IP of the JEOL microscope control server.',
+        default_value='localhost',
+        doc='Hostname or IP of the JEOL microscope control server. PyJEM REST '
+        'clients default to localhost (the scope PC); set this to point at the '
+        'scope from another machine.',
     )
     pyjem_host_port = device_property(
         dtype=int,
@@ -65,8 +67,37 @@ class JeolMicroscope(ElectronMicroscope):
         self.set_state(DevState.ON)
 
     def _connect_hardware(self) -> None:
-        self._microscope = None
-        self.warn_stream('JEOL/PyJEM hardware connection is not implemented yet.')
+        """Point the PyJEM ``detector`` REST client at the JEOL control server.
+
+        Unlike AutoScript (a client object you ``.connect()``), PyJEM's
+        ``detector`` module *is* the REST handle: configuring its target IP is
+        what makes acquisition talk to the scope. We store the module as
+        ``self._microscope`` to mirror the AutoScript device's connected handle.
+
+        ``set_port`` is intentionally NOT called -- the detector REST service
+        has its own default port, distinct from ``pyjem_host_port`` (which is
+        AutoScript's port and unused here).
+        """
+        if not _PYJEM_AVAILABLE or self.testing_mode_bool:
+            self.warn_stream('PyJEM not available; running JEOL device in testing mode.')
+            return
+        try:
+            detector.set_ip(self.pyjem_host_ip)
+            # Health-check: get_attached_detector() is a REST round-trip to
+            # TEMCenter, so it raises if the server is unreachable. (The real
+            # PyJEM 1.3.0.3564 detector module has no check_connection() -- this
+            # is verified against the installed surface, not the docs.) An empty
+            # list is a reachable-but-unconfigured scope, not a failed connection.
+            attached = detector.get_attached_detector()
+            self._microscope = detector
+            self.info_stream(
+                f'Connected to JEOL/PyJEM detector server at {self.pyjem_host_ip}; '
+                f'attached detectors: {attached}'
+            )
+        except Exception as exc:
+            self.error_stream(f'JEOL/PyJEM connection failed: {exc}')
+            self.set_state(DevState.FAULT)
+            self._microscope = None
 
     def _connect_detector_proxies(self) -> None:
         addresses: dict[str, str] = {
