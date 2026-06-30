@@ -35,10 +35,20 @@ def acquisition_filename(
     return directory / f"{acquisition_type}_{detector}_{stamp}.{extension.lower().lstrip('.')}"
 
 
-def save_acquisition(device, data_server, acquisition_type: str, detectors, data, dataset_name: str = "image") -> str:
+def save_acquisition(
+    device,
+    data_server,
+    acquisition_type: str,
+    detectors,
+    data,
+    dataset_name: str = "image",
+    dataset_attrs: dict | list[dict] | None = None,
+    file_attrs: dict | None = None,
+) -> str:
     """Save one acquisition to one HDF5 file and return its DATA/Tiled key."""
     detector_list = list(detectors) if isinstance(detectors, (list, tuple)) else [detectors]
     data_list = list(data) if isinstance(data, (list, tuple)) else [data]
+    attrs_list = dataset_attrs if isinstance(dataset_attrs, list) else [dataset_attrs] * len(data_list)
     has_labeled_datasets = len(detector_list) > 1 or len(data_list) > 1
     detector_label = "_".join([str(detector) for detector in detector_list])
     path = acquisition_filename(device, acquisition_type, detector_label, data_server)
@@ -50,9 +60,11 @@ def save_acquisition(device, data_server, acquisition_type: str, detectors, data
             name = f"image/{detector}"
         else:
             name = f"{dataset_name}/{detector}" if has_labeled_datasets else dataset_name
-        datasets.append({"name": name, "source": source, "attrs": {"acquisition_type": acquisition_type, "detector": detector}})
+        attrs = {"acquisition_type": acquisition_type, "detector": detector}
+        attrs.update(attrs_list[index] or {})
+        datasets.append({"name": name, "source": source, "attrs": attrs})
 
-    save_acquisition_hdf5(path, datasets)
+    save_acquisition_hdf5(path, datasets, file_attrs=file_attrs)
     return data_server.register_path(str(path)) if data_server is not None else str(path)
 
 
