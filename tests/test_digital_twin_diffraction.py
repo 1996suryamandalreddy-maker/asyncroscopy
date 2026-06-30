@@ -2,6 +2,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import pytest
 
 from ase import Atoms
 
@@ -141,6 +142,8 @@ def test_particle_camera_acquisition_saves_local_lattice_metadata(monkeypatch, t
 
 
 def test_off_particle_camera_acquisition_saves_vacuum_diffraction(tmp_path: Path):
+    pytest.importorskip('abtem', exc_type=ImportError)
+
     twin = twin_for_path(tmp_path)
     twin._particle_id_map = np.zeros((64, 64), dtype=np.int16)
     twin._rattle_map = np.zeros((64, 64), dtype=np.float32)

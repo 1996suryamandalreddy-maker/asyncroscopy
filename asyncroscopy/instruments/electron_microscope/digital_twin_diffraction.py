@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import tango
-import abtem
 from ase import Atoms
 from ase.build import bulk
 from tango.server import device_property
@@ -292,6 +291,14 @@ class DigitalTwinDiffraction(DigitalTwin):
         return self._simulate_diffraction_from_atoms(atoms, imsize)
 
     def _simulate_diffraction_from_atoms(self, atoms, imsize: int) -> np.ndarray:
+        try:
+            import abtem
+        except ImportError as exc:
+            raise RuntimeError(
+                "abTEM is required for diffraction simulation. "
+                "Install it with `uv sync --extra diffraction`."
+            ) from exc
+
         potential = abtem.Potential(atoms, sampling=0.08, slice_thickness=1.0)
         probe = abtem.Probe(energy=200e3, semiangle_cutoff=float(self.convergence_angle_mrad))
         probe.grid.match(potential)
