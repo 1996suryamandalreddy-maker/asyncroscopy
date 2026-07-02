@@ -4,7 +4,9 @@ import types
 import h5py
 import numpy as np
 
-from asyncroscopy.data.data_writer import ReplicaAdornedImageJeol, save_acquisition, save_acquisition_hdf5
+import tifffile
+
+from asyncroscopy.data.data_writer import save_acquisition, save_acquisition_hdf5
 
 
 class FakeDataServer:
@@ -41,19 +43,19 @@ def test_save_acquisition_hdf5_writes_data_and_xml_leaf_attrs(tmp_path):
         assert h5["images/HAADF"].attrs["detector"] == "HAADF"
 
 
-def test_replica_adorned_image_jeol_writes_dict_metadata_as_attrs(tmp_path):
+def test_dict_dataset_attrs_are_written_as_attrs(tmp_path):
     data_server = FakeDataServer(tmp_path)
-    # ReplicaAdornedImageJeol holds an already-decoded array (the byte->array
-    # decode lives in JeolMicroscope._decode_rawdata) plus a
-    # get_detectorsetting()-style dict; here we check the dict lands as attrs.
+    # PyJEM returns raw pixels plus a get_detectorsetting()-style dict separately;
+    # the dict is handed to save_acquisition via dataset_attrs and should land as
+    # HDF5 attrs alongside the standard ones.
     metadata = {
         "ExposureTimeValue": 1000.0,
         "GainIndex": 5,
         "ImagingArea": {"X": 0, "Y": 0, "Width": 512, "Height": 512},
     }
-    image = ReplicaAdornedImageJeol(np.arange(4, dtype=np.uint16).reshape(2, 2), metadata)
+    image = np.arange(4, dtype=np.uint16).reshape(2, 2)
 
-    path = save_acquisition(object(), data_server, "stem_image", ["HAADF"], [image])
+    path = save_acquisition(object(), data_server, "stem_image", ["HAADF"], [image], dataset_attrs=[metadata])
 
     with h5py.File(path, "r") as h5:
         dset = h5["image/HAADF"]
@@ -80,3 +82,21 @@ def test_save_acquisition_writes_scanned_images_as_ordered_image_detector_datase
         for index, detector in enumerate(detectors):
             assert h5[f"image/{detector}"][()].tolist() == images[index].tolist()
             assert h5[f"image/{detector}"].attrs["detector"] == detector
+
+
+def test_save_acquisition_tiff_writes_one_registered_file_per_detector(tmp_path):
+    data_server = FakeDataServer(tmp_path)
+    detectors = ["HAADF", "BF-S"]
+    images = [np.full((2, 2), index, dtype=np.int16) for index in range(len(detectors))]
+    # JEOL passes a get_detectorsetting()-style dict per detector; it should be
+    # json-encoded into each TIFF's ImageDescription (nested dicts included).
+    attrs = [{"GainIndex": index, "ImagingArea": {"Width": 512}} for index in range(len(detectors))]
+
+    stem = save_acquisition(object(), data_server, "stem_image", detectors, images, dataset_attrs=attrs, output_format=".tiff")
+
+    for index, detector in enumerate(detectors):
+        path = tmp_path / f"{stem}_{detector}.tiff"
+        assert path.exists()
+        assert np.array_equal(tifffile.imread(path), images[index])
+        with tifffile.TiffFile(path) as tif:
+            assert json.loads(tif.pages[0].description) == attrs[index]

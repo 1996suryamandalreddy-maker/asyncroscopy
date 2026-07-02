@@ -5,15 +5,12 @@ This module starts from the JEOL implementation that exists on upstream/main
 and adapts it to the instrument-centered package layout.
 """
 
-from datetime import datetime
-from pathlib import Path
-
 import numpy as np
 import tango
 from tango import DevState
 from tango.server import device_property
 
-from asyncroscopy.data.data_writer import DEFAULT_ACQUISITION_DIR, ReplicaAdornedImageJeol, save_acquisition
+from asyncroscopy.data.data_writer import DEFAULT_ACQUISITION_DIR, save_acquisition
 from asyncroscopy.instruments.electron_microscope.electron_microscope import ElectronMicroscope
 
 # PyJEM imports -> this block will be removed after testing this on remote pc
@@ -145,32 +142,6 @@ class JeolMicroscope(ElectronMicroscope):
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    def _persist(self, adorned, acquisition_type, detector, data_server, dataset_name='image'):
-        """Save acquired images in the format requested by the SCAN device."""
-        scan = self._detector_proxies.get('scan')
-        fmt = scan.output_format if scan is not None else '.h5'
-        if fmt == '.h5':
-            return save_acquisition(self, data_server, acquisition_type, detector, adorned, dataset_name=dataset_name)
-        if fmt != '.tiff':
-            raise ValueError(f"Unsupported output_format {fmt!r}; expected '.h5' or '.tiff'")
-
-        images = list(adorned) if isinstance(adorned, (list, tuple)) else [adorned]
-        detectors = list(detector) if isinstance(detector, (list, tuple)) else [detector]
-        if len(images) != len(detectors):
-            raise ValueError(f'Got {len(images)} images for {len(detectors)} detector(s) {detectors}')
-
-        save_dir = data_server.save_path if data_server is not None else DEFAULT_ACQUISITION_DIR
-        directory = Path(save_dir).expanduser()
-        directory.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime('%Y%m%dT%H%M%S%f')
-        stem = f'{acquisition_type}_{stamp}'
-        for img, det in zip(images, detectors):
-            path = directory / f'{stem}_{det}.tiff'
-            img.save(str(path))
-            if data_server is not None:
-                data_server.register_path(str(path))
-        return stem
-
     @staticmethod
     def _decode_rawdata(raw: bytes, width: int, height: int) -> np.ndarray:
         """
@@ -188,6 +159,7 @@ class JeolMicroscope(ElectronMicroscope):
         dwell_time: float,
         detector_list: list[str] = ['haadf'],
         scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+        output_format: str = '.h5',
     ) -> str:
         """
         Acquire a STEM scan over the requested detectors via the PyJEM
@@ -206,6 +178,7 @@ class JeolMicroscope(ElectronMicroscope):
         detector_list = [d.upper() for d in detector_list]
         full_frame = [0.0, 0.0, 1.0, 1.0]
         images = []
+        image_settings = []
         for name in detector_list:
             det = detector.Detector(name)
             if scan_region == full_frame:
@@ -225,10 +198,14 @@ class JeolMicroscope(ElectronMicroscope):
             settings = det.get_detectorsetting()
             area = settings['AreaModeImagingArea'] if scan_region != full_frame else settings['ImagingArea']
             pixels = self._decode_rawdata(det.snapshot_rawdata(), area['Width'], area['Height'])
-            images.append(ReplicaAdornedImageJeol(pixels, settings))
+            images.append(pixels)
+            image_settings.append(settings)
 
         data_server = self._detector_proxies.get('data')
-        return self._persist(images, 'stem_image', detector_list, data_server)
+        return save_acquisition(
+            self, data_server, 'stem_image', detector_list, images,
+            dataset_attrs=image_settings, output_format=output_format,
+        )
 
     def _acquire_spectrum(self, detector_name: str, exposure_time: float) -> str:
         tango.Except.throw_exception('UnsupportedCommand', 'JEOL spectrum acquisition is not implemented yet.', '_acquire_spectrum()')

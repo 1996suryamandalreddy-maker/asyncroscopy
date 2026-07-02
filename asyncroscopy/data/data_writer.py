@@ -3,30 +3,15 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import h5py
 import numpy as np
+import tifffile
 
 DEFAULT_ACQUISITION_DIR = "outputs/tiled_acquisitions"
-
-
-@dataclass
-class ReplicaAdornedImageJeol:
-    """
-    Minimal stand-in for an AutoScript adorned image, built from PyJEM output.
-
-    PyJEM returns raw pixels and instrument settings separately, so we bundle
-    them here to give the save path the same ``.data`` + ``.metadata`` shape it
-    already expects from AutoScript. ``metadata`` is the ``get_detectorsetting()``
-    dict; nested values are json-encoded when written to HDF5 attrs.
-    """
-
-    data: np.ndarray
-    metadata: dict
 
 
 def acquisition_filename(
@@ -51,6 +36,21 @@ def acquisition_filename(
     return directory / f"{acquisition_type}_{detector}_{stamp}.{extension.lower().lstrip('.')}"
 
 
+def _write_tiff(source, path: Path, attrs: dict | None = None) -> None:
+    """Write one image to ``path`` as TIFF.
+
+    AutoScript adorned images save themselves natively (embedding their own
+    metadata); anything else is a raw array (JEOL/twin) written via tifffile,
+    with ``attrs`` (e.g. JEOL's get_detectorsetting() dict) json-encoded into the
+    TIFF ImageDescription tag so the provenance survives the format.
+    """
+    if hasattr(source, "save"): # adorned images from AutoScript have a save method
+        source.save(str(path))
+    else:
+        array = source.data if hasattr(source, "data") and not isinstance(source, np.ndarray) else source
+        tifffile.imwrite(str(path), np.asarray(array), description=json.dumps(attrs) if attrs else None)
+
+
 def save_acquisition(
     device,
     data_server,
@@ -60,11 +60,31 @@ def save_acquisition(
     dataset_name: str = "image",
     dataset_attrs: dict | list[dict] | None = None,
     file_attrs: dict | None = None,
+    output_format: str = ".h5",
 ) -> str:
-    """Save one acquisition to one HDF5 file and return its DATA/Tiled key."""
+    """Save one acquisition and return its DATA/Tiled key.
+
+    ``.h5`` writes all detectors into one stacked file; ``.tiff`` writes one
+    file per detector sharing a timestamp (TIFF cannot stack), registering each.
+    """
+    if output_format not in (".h5", ".tiff"):
+        raise ValueError(f"Unsupported output_format {output_format!r}; expected '.h5' or '.tiff'")
     detector_list = list(detectors) if isinstance(detectors, (list, tuple)) else [detectors]
     data_list = list(data) if isinstance(data, (list, tuple)) else [data]
     attrs_list = dataset_attrs if isinstance(dataset_attrs, list) else [dataset_attrs] * len(data_list)
+
+    if output_format == ".tiff":
+        save_dir = data_server.save_path if data_server is not None else DEFAULT_ACQUISITION_DIR
+        directory = Path(save_dir).expanduser()
+        directory.mkdir(parents=True, exist_ok=True)
+        stem = f"{acquisition_type}_{datetime.now().strftime('%Y%m%dT%H%M%S%f')}"
+        for index, (source, detector) in enumerate(zip(data_list, detector_list)):
+            path = directory / f"{stem}_{detector}.tiff"
+            _write_tiff(source, path, attrs_list[index])
+            if data_server is not None:
+                data_server.register_path(str(path))
+        return stem
+
     has_labeled_datasets = len(detector_list) > 1 or len(data_list) > 1
     detector_label = "_".join([str(detector) for detector in detector_list])
     path = acquisition_filename(device, acquisition_type, detector_label, data_server)

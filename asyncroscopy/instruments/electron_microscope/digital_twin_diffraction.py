@@ -356,6 +356,7 @@ class DigitalTwinDiffraction(DigitalTwin):
         dwell_time: float,
         detector_list: list[str] = ['haadf'],
         scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+        output_format: str = '.h5',
     ) -> str:
         image_size = int(self.overview_image_size)
         detector_list = [detector.upper() for detector in detector_list]
@@ -369,7 +370,7 @@ class DigitalTwinDiffraction(DigitalTwin):
             'sample_pixel_size_nm': float(FOV_NM / int(self.map_size)),
         }
         images = [self._render_stem_image(image_size, float(dwell_time), [detector]) for detector in detector_list]
-        return save_acquisition(self, data_server, 'stem_image', detector_list, images, dataset_attrs=attrs)
+        return save_acquisition(self, data_server, 'stem_image', detector_list, images, dataset_attrs=attrs, output_format=output_format)
 
     def _set_fov(self, fov) -> None:
         self.warn_stream('DigitalTwinDiffraction uses a fixed 500 nm field of view.')
