@@ -53,6 +53,22 @@ diffraction = [
     "ase>=3.27.0",
 ]
 
+agent = [
+    "langchain",
+    "langchain-openai",
+    "langgraph",
+    "langchain-mcp-adapters",    
+]
+
+localagent = [
+    "accelerate",
+    "transformers",
+    "torch>=2.7.0",
+    "torchvision",
+    "bitsandbytes",
+    "langchain-huggingface",
+]
+
 [tool.setuptools]
 package-dir = { "" = "." }
 
