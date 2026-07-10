@@ -15,7 +15,7 @@ from abc import abstractmethod
 from typing import Optional
 
 import tango
-from tango import AttrWriteType, DevEncoded, DevFloat, DevState, DevVarFloatArray, DevVarStringArray
+from tango import AttrWriteType, DevEncoded, DevFloat, DevString, DevState, DevVarFloatArray, DevVarStringArray
 from tango.server import attribute, command, device_property
 
 from asyncroscopy.instruments.instrument import Instrument
@@ -123,7 +123,7 @@ class ElectronMicroscope(Instrument):
     def acquire_scanned_image(self, detector_list: list[str] = ['haadf']) -> str:
         """Acquire an image with scanning detectors and return its DATA/Tiled key."""
         scan = self._detector_proxies.get('scan')
-        return self._acquire_scanned_image(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region))
+        return self._acquire_scanned_image(scan.imsize, scan.dwell_time, detector_list, list(scan.scan_region), scan.output_format)
 
     @command(dtype_out=str)
     def acquire_scanned_data_advanced(self) -> str:
@@ -207,6 +207,47 @@ class ElectronMicroscope(Instrument):
     def get_fov(self):
         """Read the field of view for the next acquisition."""
         return self._get_fov()
+    
+    @command(dtype_in=DevVarFloatArray)
+    def set_image_shift(self, shift):
+        """Set the image shift to [x_shift, y_shift] in meters."""
+        self._set_image_shift(shift)
+
+    @command(dtype_out=DevVarFloatArray)
+    def get_image_shift(self):
+        """Get the image shiftas [x, y] in m."""
+        return self._get_image_shift()
+    
+    @command(dtype_out=DevVarFloatArray)
+    def get_beam_tilt(self):
+        """Get the current beam tilt as [alpha, beta] in radian."""
+        return self._get_beam_tilt()
+
+    @command(dtype_in=DevVarFloatArray)
+    def set_beam_tilt(self, tilt):
+        """Set the beam tilt to [x_tilt, y_tilt] in radian."""
+        self._set_beam_tilt(tilt)
+
+    @command(dtype_out=DevVarFloatArray)
+    def get_diffraction_shift(self):
+        """Get the current  diffraction shift as [alpha, beta] in radian."""
+        return self._get_diffraction_shift()
+    
+    @command(dtype_in=DevVarFloatArray)
+    def set_diffraction_shift(self, shift):
+        """Set the diffraction shift to [x_shift, y_shift] in radian."""
+        self._set_diffraction_shift(shift)
+
+    @command(dtype_out=DevString)
+    def get_status(self) -> str:
+        """ Get all status parameters"""
+        return self._get_status()
+
+    @command()
+    def calibrate_screen_current(self):
+        """Set the screen current in pA."""
+        self._calibrate_screen_current()
+
 
     @command(dtype_in=DevFloat)
     def set_screen_current(self, current):
@@ -220,12 +261,12 @@ class ElectronMicroscope(Instrument):
 
     @command(dtype_out=DevVarFloatArray)
     def get_stage(self):
-        """Get the current stage position as [x, y, z, alpha, beta]."""
+        """Get the current stage position as [x, y, z, alpha, beta]  in m and radian respectively."""
         return self._get_stage()
-
+   
     @command(dtype_in=DevVarFloatArray)
     def move_stage(self, position):
-        """Move the stage to an absolute position [x, y, z, alpha, beta]."""
+        """Move the stage to an absolute position [x, y, z, alpha, beta] in m and radian respectively."""
         self._move_stage(position)
 
     @command()
@@ -233,11 +274,7 @@ class ElectronMicroscope(Instrument):
         """Run the microscope's autofocus routine."""
         self._auto_focus()
 
-    @command(dtype_in=DevVarFloatArray)
-    def set_image_shift(self, shift):
-        """Set the image shift to [x_shift, y_shift] in meters."""
-        self._set_image_shift(shift)
-
+    
     @abstractmethod
     def _acquire_scanned_image(
         self,
@@ -245,6 +282,7 @@ class ElectronMicroscope(Instrument):
         dwell_time: float,
         detector_list: list[str] = ['haadf'],
         scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+        output_format: str = '.h5',
     ) -> str:
         """Vendor-specific scanned image acquisition implementation."""
         pass
@@ -277,11 +315,16 @@ class ElectronMicroscope(Instrument):
     def _set_defocus(self, defocus):
         pass
 
+    @abstractmethod
     def _get_defocus(self):
         pass
 
     @abstractmethod
     def _set_screen_current(self, current):
+        pass
+    
+    @abstractmethod
+    def _calibrate_screen_current(self):
         pass
 
     @abstractmethod
@@ -294,6 +337,30 @@ class ElectronMicroscope(Instrument):
 
     @abstractmethod
     def _get_stage(self):
+        pass
+
+    @abstractmethod
+    def _get_image_shift(self):
+        pass
+
+    @abstractmethod
+    def _get_beam_tilt(self):
+        pass
+
+    @abstractmethod
+    def _set_beam_tilt(self,tilt):
+        pass
+
+    @abstractmethod
+    def _get_diffraction_shift(self):
+        pass
+
+    @abstractmethod
+    def _set_diffraction_shift(self, tilt):
+        pass
+
+    @abstractmethod
+    def _get_status(self):
         pass
 
     @abstractmethod

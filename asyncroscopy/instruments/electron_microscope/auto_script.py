@@ -18,8 +18,7 @@ DATA/Tiled unique id for that saved acquisition.
 
 import math
 import time
-from datetime import datetime
-from pathlib import Path
+import json
 
 import numpy as np
 import tango
@@ -250,44 +249,16 @@ class AutoScriptMicroscope(ElectronMicroscope):
     # ------------------------------------------------------------------
     # Internal acquisition helpers
     # ------------------------------------------------------------------
-    def _persist(self, adorned, acquisition_type, detector, data_server, dataset_name="image"):
-        """Save acquired images in the format requested by the SCAN device.
-        """
-        scan = self._detector_proxies.get("scan")
-        fmt = scan.output_format if scan is not None else ".h5"  # ".h5" default
-        if fmt == ".h5":
-            return save_acquisition(self, data_server, acquisition_type, detector, adorned, dataset_name=dataset_name)
-        if fmt != ".tiff":
-            raise ValueError(f"Unsupported output_format {fmt!r}; expected '.h5' or '.tiff'")
-
-        # .tiff → AutoScript native save, one file per detector sharing one stamp
-        images = list(adorned) if isinstance(adorned, (list, tuple)) else [adorned]
-        detectors = list(detector) if isinstance(detector, (list, tuple)) else [detector]
-        if len(images) != len(detectors):
-            raise ValueError(f"Got {len(images)} images for {len(detectors)} detector(s) {detectors}")
-
-        save_dir = data_server.save_path if data_server is not None else DEFAULT_ACQUISITION_DIR
-        directory = Path(save_dir).expanduser()
-        directory.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
-        stem = f"{acquisition_type}_{stamp}"
-        # AutoScript returns images in the requested detector order (assumed; verify on hardware)
-        for img, det in zip(images, detectors):
-            path = directory / f"{stem}_{det}.tiff"
-            img.save(str(path))
-            if data_server is not None:
-                data_server.register_path(str(path))
-        return stem
-
     def _acquire_scanned_image(
         self,
         imsize: int,
         dwell_time: float,
         detector_list: list[str] = ["haadf"],
         scan_region: list[float] = [0.0, 0.0, 1.0, 1.0],
+        output_format: str = ".h5",
     ) -> str:
         """
-        Call AutoScript scanned image acquisition, save one HDF5 file, and return its DATA/Tiled key.
+        Call AutoScript scanned image acquisition, save it, and return its DATA/Tiled key.
         """
         detector_list = [d.upper() for d in detector_list]
         settings = StemAcquisitionSettings(dwell_time=dwell_time, detector_types=detector_list, size=imsize, region=Region(RegionCoordinateSystem.RELATIVE, Rectangle(*scan_region)))
@@ -295,18 +266,18 @@ class AutoScriptMicroscope(ElectronMicroscope):
         if not isinstance(adorned, list):
             adorned = [adorned]
         data_server = self._detector_proxies.get("data")
-        return self._persist(adorned, "stem_image", detector_list, data_server)
+        return save_acquisition(self, data_server, "stem_image", detector_list, adorned, output_format=output_format)
 
 
     def _acquire_camera_image(self, imsize: int, exposure_time: float, detector: str, readout_area: str) -> str:
         """
-        Call AutoScript acquisition, save the adorned image, and return its path.
+        Call AutoScript acquisition, save the adorned image, and return its DATA/Tiled key.
         this is the advanced version
         """
         settings = CameraAcquisitionSettings(camera_detector=detector, size=imsize, exposure_time=exposure_time, fixed_readout_area=readout_area, frame_combining=1)
         adorned = self._microscope.acquisition.acquire_camera_image_advanced(settings)
         data_server = self._detector_proxies.get("data")
-        return self._persist(adorned, "camera_image", str(detector), data_server)
+        return save_acquisition(self, data_server, "camera_image", str(detector), adorned)
 
     def _acquire_scanned_data_advanced(self, imsize: int, dwell_time: float, detector: str, scan_region: list[float]) -> str:
         """
@@ -379,9 +350,11 @@ class AutoScriptMicroscope(ElectronMicroscope):
 
     def _get_defocus(self) -> float:
         """Get defocus in meters."""
-        return self._microscope.optics.defocus
+        return float(self._microscope.optics.defocus)
+    
 
-    def _caibrate_screen_current(self) -> None:
+    def _calibrate_screen_current(self) -> None:
+        """ calibrate screen current with monchromator focus"""
         original_gun_lens = self._microscope.optics.monochromator.focus
         gun_lens_series = np.linspace(10, 150, 15)
 
@@ -411,7 +384,7 @@ class AutoScriptMicroscope(ElectronMicroscope):
             self._microscope.optics.monochromator.focus = float(x_real)
         else:
             self.warn_stream("Screen current calibration not available. running calibration (should take 15 seconds).")
-            self._caibrate_screen_current()
+            self._calibrate_screen_current()
 
             poly_func = self.screen_current_calibration
             adjusted_poly = poly_func - current
@@ -443,6 +416,40 @@ class AutoScriptMicroscope(ElectronMicroscope):
             return position
         else:
             return position[:4]
+        
+    
+    def _get_status(self):
+        status = {'system': self._microscope.service.system.name,
+                'vacuum': self._microscope.vacuum.state,
+                'column_valves': self._microscope.vacuum.column_valves.state,
+                'is_accelerator_on': self._microscope.optics.is_accelerator_on,
+                'acceleration_voltage': self._microscope.optics.acceleration_voltage.value,
+                'optical_mode': self._microscope.optics.optical_mode,
+                'illumination_mode': self._microscope.optics.illumination_mode,
+                'objective_lens_mode': self._microscope.optics.objective_lens_mode,
+                'projector_mode': self._microscope.optics.projector_mode,
+                #'convergence_angle': self._microscope.optics.convergence_angle,
+                'spot_size': self._microscope.optics.spot_size_index,
+                'beam_stopper': self._microscope.optics.beam_stopper.insertion_state,
+                'beam_blanker': self._microscope.optics.blanker.is_beam_blanked,
+                'is_eftem_on': self._microscope.optics.is_eftem_on,
+                }
+        if self._microscope.optics.optical_mode == 'Stem':
+            status['scan_rotation'] = self._microscope.optics.scan_rotation
+            status['scan_field_of_view'] = self._microscope.optics.scan_field_of_view
+        for mechanism_type in self._microscope.optics.aperture_mechanisms.get_available():
+            mechanism = self._microscope.optics.aperture_mechanisms.get_mechanism(mechanism_type)   
+            if not mechanism.is_enabled:
+                status[mechanism_type] = 'Disabled'
+            elif mechanism.insertion_state == 'Retracted':
+                status[mechanism_type] = 'Retracted'
+            else:
+                status[mechanism_type] = mechanism.aperture.name  
+        for deflector in self._microscope.optics.deflectors.get_available_deflectors():  
+            defl = self._microscope.optics.deflectors.get_deflector_value(deflector) 
+            status[deflector] = [defl.x, defl.y]              
+
+        return json.dumps(status)
 
     def _move_stage(self, position) -> None:
         """Move stage to specified position [x, y, z, alpha, beta]."""
@@ -459,7 +466,7 @@ class AutoScriptMicroscope(ElectronMicroscope):
             beta = None
 
         self._microscope.specimen.stage.absolute_move((x, y, z, alpha, beta))
-        self._get_stage()  # link the proxy with real state
+        # self._get_stage()  # link the proxy with real state
 
     def _auto_focus(self):
         """Perform autofocus routine C1A1"""
@@ -471,11 +478,51 @@ class AutoScriptMicroscope(ElectronMicroscope):
         x_shift = float(shift[0])
         y_shift = float(shift[1])
         try:
-            self._microscope.optics.deflectors.beam_shift = (x_shift, y_shift)
+            if self._microscope.optics.optical_mode == 'Stem':
+                self._microscope.optics.deflectors.beam_shift = (x_shift, y_shift)
+            else:
+                self._microscope.optics.deflectors.image_shift = (x_shift, y_shift)
         except Exception as e:
-            self.error_stream(f"Failed to set beam shift: {e}")
+            self.error_stream(f"Failed to set image shift: {e}")
 
+    def _set_diffraction_shift(self, shift):
+        """Apply image shift in meters."""
+        x_shift = float(shift[0])
+        y_shift = float(shift[1])
+        try:
+            if self._microscope.optics.projector_mode == 'Diffraction':
+                self._microscope.optics.deflectors.image_shift = (x_shift, y_shift)
+        except Exception as e:
+            self.error_stream(f"Failed to set diffraction shift: {e}")
+    
+    def _get_diffraction_shift(self):
+        if self._microscope.optics.optical_mode == 'Diffraction':
+            position = self._microscope.optics.deflectors.image_shift
+            return np.array([position.x, position.y])
+        else:
+            return np.array([0, 0])
+    
+    
+    def _get_image_shift(self):
+        if self._microscope.optics.optical_mode == 'Stem':
+            position = self._microscope.optics.deflectors.beam_shift
+        else:
+            position = self._microscope.optics.deflectors.image_shift
+        return np.array([position.x, position.y])
+    
+    def _get_beam_tilt(self):
+        tilt = self._microscope.optics.deflectors.beam_tilt
+        return np.array([tilt .x, tilt.y])
 
+    def _set_beam_tilt(self, tilt):
+        """Apply beam tilt in radians."""
+        x_tilt = float(tilt[0])
+        y_tilt = float(tilt[1])
+        try:
+            self._microscope.optics.deflectors.beam_tilt = (x_tilt, y_tilt)
+        except Exception as e:
+            self.error_stream(f"Failed to set beam tilt: {e}")
+    
 # ----------------------------------------------------------------------
 # Server entry point
 # ----------------------------------------------------------------------

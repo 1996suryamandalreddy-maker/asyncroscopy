@@ -134,12 +134,12 @@ class TestDataDevice:
 
     def test_catalog_database_uri_uses_sqlite_uri_for_windows_drive_path(self) -> None:
         assert (
-            _catalog_database_uri("C:/Users/ahoust17/Desktop/18167694/.asyncroscopy_tiled_catalog.db")
-            == "sqlite:///C:/Users/ahoust17/Desktop/18167694/.asyncroscopy_tiled_catalog.db"
+            _catalog_database_uri("C:/tiled_catalog_test/.asyncroscopy_tiled_catalog.db")
+            == "sqlite:///C:/tiled_catalog_test/.asyncroscopy_tiled_catalog.db"
         )
         assert (
-            _catalog_database_uri("C:\\Users\\ahoust17\\Desktop\\18167694\\.asyncroscopy_tiled_catalog.db")
-            == "sqlite:///C:/Users/ahoust17/Desktop/18167694/.asyncroscopy_tiled_catalog.db"
+            _catalog_database_uri("C:\\tiled_catalog_test\\.asyncroscopy_tiled_catalog.db")
+            == "sqlite:///C:/tiled_catalog_test/.asyncroscopy_tiled_catalog.db"
         )
 
     def test_start_tiled_server_uses_sqlite_uri_for_windows_catalog(
@@ -178,15 +178,20 @@ class TestDataDevice:
                 or type("Result", (), {"returncode": 0, "stdout": ""})()
             ),
         )
+        # The Windows drive path below is fed only to exercise the
+        # drive-path -> sqlite-URI branch; neutralize the mkdir side effect so
+        # the test does not depend on the path being creatable (a non-admin user
+        # cannot create directories under C:\, and the path can't exist on Linux).
+        monkeypatch.setattr("asyncroscopy.data.data._ensure_directory", lambda path: None)
 
         data_proxy.host = "127.0.0.1"
         data_proxy.port = 9091
-        data_proxy.save_path = "C:/Users/ahoust17/Desktop/18167694"
+        data_proxy.save_path = "C:/tiled_catalog_test"
         calls.clear()
 
         returned = json.loads(data_proxy.start_tiled_server())
 
-        expected_catalog = "sqlite:///C:/Users/ahoust17/Desktop/18167694/.asyncroscopy_tiled_catalog.db"
+        expected_catalog = "sqlite:///C:/tiled_catalog_test/.asyncroscopy_tiled_catalog.db"
         assert returned["tiled_server"] == "yes"
         assert run_commands[0][6] == expected_catalog
         assert popen_calls[0][5] == expected_catalog
