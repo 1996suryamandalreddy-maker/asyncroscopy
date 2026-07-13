@@ -239,9 +239,9 @@ class ElectronMicroscope(Instrument):
         self._set_diffraction_shift(shift)
 
     @command(dtype_out=DevString)
-    def get_status(self) -> str:
+    def get_parameters(self) -> str:
         """ Get all status parameters"""
-        return self._get_status()
+        return self._get_parameters()
 
     @command(dtype_in=DevString)
     def set_screen(self, position: str)->None:
@@ -368,7 +368,7 @@ class ElectronMicroscope(Instrument):
         pass
 
     @abstractmethod
-    def _get_status(self):
+    def _get_parameters(self):
         pass
 
     @abstractmethod
