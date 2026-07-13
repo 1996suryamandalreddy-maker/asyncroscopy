@@ -323,9 +323,9 @@ class MCPServer:
             
         else:
             # Scalars and standard arrays
-            def wrapper(**kwargs):
-                # Grab parameter name out of incoming kwargs, fallback to first positional item if needed
-                arg = kwargs.get(param_name)
+            def wrapper(*args, **kwargs):
+                # Get first positional arg or parameter name out of kwargs
+                arg = args[0] if args else kwargs.get(param_name)
                 result = func(arg)
                 return self._normalize_command_result(out_type, result)
 
