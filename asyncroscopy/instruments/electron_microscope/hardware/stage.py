@@ -8,7 +8,7 @@ reads these attributes via DeviceProxy before acquiring.
 
 from tango import AttrWriteType, DevState
 from tango.server import Device, attribute
-
+from abc import abstractmethod
 
 class STAGE(Device):
     """Stage/sample settings device.
@@ -99,13 +99,19 @@ class STAGE(Device):
     # ------------------------------------------------------------------
 
     def read_position(self) -> list[float]:
-        return list(self._position)
+        return self._read_position()
 
     def write_position(self, value) -> None:
-        position = [float(component) for component in value]
-        if len(position) != 5:
-            raise ValueError("Stage position must be [x, y, z, alpha, beta]")
-        self._position = position
+        self._write_position(value)
+
+    @abstractmethod
+    def _read_position(self):
+        pass
+
+    @abstractmethod
+    def _write_position(self, value):
+        pass
+
 
     def read_x(self) -> float:
         return self.read_position()[0]

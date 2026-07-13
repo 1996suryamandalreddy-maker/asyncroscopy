@@ -23,7 +23,7 @@ except ImportError:
 class AutoScriptSTAGE(STAGE):
     """AutoScript-backed STAGE device.
 
-    The public Tango API uses meters for x/y/z and degrees for alpha/beta.
+    We use meters for x/y/z and degrees for alpha/beta.
     AutoScript expects alpha/beta in radians, so this device converts at the
     hardware boundary.
     """
@@ -71,11 +71,8 @@ class AutoScriptSTAGE(STAGE):
     # Attribute read / write
     # ------------------------------------------------------------------
 
-    def read_position(self) -> list[float]:
+    def _read_position(self) -> list[float]:
         """Read [x, y, z, alpha, beta] from AutoScript, exposing tilts in degrees."""
-        if self._microscope is None:
-            return super().read_position()
-
         pos = self._microscope.specimen.stage.position
         position = [
             float(pos.x),
@@ -84,31 +81,18 @@ class AutoScriptSTAGE(STAGE):
             float("nan") if pos.alpha is None else math.degrees(float(pos.alpha)),
             float("nan") if pos.beta is None else math.degrees(float(pos.beta)),
         ]
-        self._position = position
         return position
 
-    def write_position(self, value) -> None:
+    def _write_position(self, value) -> None:
         """Move AutoScript stage to [x, y, z, alpha, beta], with tilts supplied in degrees."""
         position = [float(component) for component in value]
         if len(position) != 5:
             raise ValueError("Stage position must be [x, y, z, alpha, beta]")
-        self._position = position
-
-        if self._microscope is None:
-            return
 
         x, y, z, alpha, beta = position
         alpha = None if math.isnan(alpha) else math.radians(alpha)
         beta = None if math.isnan(beta) else math.radians(beta)
-        self._microscope.specimen.stage.absolute_move(
-            (
-                x,
-                y,
-                z,
-                alpha,
-                beta,
-            )
-        )
+        self._microscope.specimen.stage.absolute_move((x, y, z, alpha, beta))
 
 
 # ----------------------------------------------------------------------
