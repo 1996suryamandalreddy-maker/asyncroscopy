@@ -261,12 +261,12 @@ class ElectronMicroscope(Instrument):
 
     @command(dtype_out=DevVarFloatArray)
     def get_stage(self):
-        """Get the current stage position as [x, y, z, alpha, beta]  in m and radian respectively."""
+        """Get the current stage position as [x, y, z, alpha, beta], with x/y/z in meters and tilts in degrees."""
         return self._get_stage()
    
     @command(dtype_in=DevVarFloatArray)
     def move_stage(self, position):
-        """Move the stage to an absolute position [x, y, z, alpha, beta] in m and radian respectively."""
+        """Move the stage to [x, y, z, alpha, beta], with x/y/z in meters and tilts in degrees."""
         self._move_stage(position)
 
     @command()
