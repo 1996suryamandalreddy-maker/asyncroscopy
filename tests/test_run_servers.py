@@ -186,10 +186,13 @@ def test_load_spectra300_config_starts_servers_only():
 
 
 def test_build_devices_adds_selected_instrument():
-    config = run_servers.load_config(run_servers.PROJECT_DIR / "configs" / "DigitalTwin.yaml")
+    config = run_servers.load_config(run_servers.PROJECT_DIR / "configs" / "Test.yaml")
 
     devices = run_servers.build_devices(config)
+    stage = next(device for device in devices if device.key == "stage")
 
+    assert stage.class_name == "TestStage"
+    assert stage.module_name == "asyncroscopy.instruments.electron_microscope.hardware.TestStage"
     assert devices[-1].key == "instrument"
     assert devices[-1].class_name == "DigitalTwin"
     assert devices[-1].module_name == "asyncroscopy.instruments.electron_microscope.digital_twin"
