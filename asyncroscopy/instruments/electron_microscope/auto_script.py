@@ -418,7 +418,7 @@ class AutoScriptMicroscope(ElectronMicroscope):
             return position[:4]
         
     
-    def _get_status(self):
+    def _get_parameters(self):
         status = {'system': self._microscope.service.system.name,
                 'vacuum': self._microscope.vacuum.state,
                 'column_valves': self._microscope.vacuum.column_valves.state,
