@@ -353,7 +353,7 @@ class AutoScriptMicroscope(ElectronMicroscope):
         return float(self._microscope.optics.defocus)
     
     def _set_screen(self, position: str)->None:
-        if position.lower() in ['in', 'insert', , 'inserted']:
+        if position.lower() in ['in', 'insert', 'inserted']:
             if self._microscope.detectors.screen.position == 'Retracted':
                 self._microscope.detectors.screen.insert()
         elif position.lower() in ['out', 'retract', 'retracted']:
