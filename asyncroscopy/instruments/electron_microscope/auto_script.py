@@ -32,6 +32,7 @@ from asyncroscopy.data.data_writer import DEFAULT_ACQUISITION_DIR, save_acquisit
 # Wrapped in try/except so the device can still be imported and tested
 # on a development machine without AutoScript installed.
 try:
+    import autoscript_tem_microscope_client
     from autoscript_tem_microscope_client import TemMicroscopeClient
     from autoscript_tem_microscope_client.enumerations import EdsDetectorType
     from autoscript_tem_microscope_client.enumerations import CameraType, RegionCoordinateSystem, ExposureTimeType
@@ -470,8 +471,12 @@ class AutoScriptMicroscope(ElectronMicroscope):
 
     def _auto_focus(self):
         """Perform autofocus routine C1A1"""
-        settings = RunOptiStemSettings(method="C1A1")  # method=OptiStemMethod.C1_A1, dwell_time=2e-06, cutoff_in_pixels=5)
-        self._microscope.auto_functions.run_opti_stem(settings)
+        if self._microscope.optics.optical_mode == 'Stem':
+            settings = RunOptiStemSettings(method="C1A1")
+            self._microscope.auto_functions.run_opti_stem(settings)
+        else:
+            settings = autoscript_tem_microscope_client.structuresRunObjectiveAutoStigmatorSettings(camera_detector="Flucam")
+            self.microscope.auto_functions.run_objective_auto_stigmator(settings)
 
     def _set_image_shift(self, shift):
         """Apply image shift in meters."""
