@@ -17,8 +17,8 @@ class AdvancedMicroscopeGUI:
 
         self.saved_stage_positions = {}  # Dictionary to store saved stage positions 
 
-        DB_HOST = "10.46.217.242"
-        DB_PORT = 9095
+        DB_HOST = "10.46.217.241"
+        DB_PORT = 9094
         os.environ["TANGO_HOST"] = f"{DB_HOST}:{DB_PORT}"
         self.stage = tango.DeviceProxy("asyncroscopy/stage/default")
         self.microscope = tango.DeviceProxy("asyncroscopy/instrument/default")
