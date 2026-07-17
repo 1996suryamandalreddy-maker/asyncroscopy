@@ -159,9 +159,16 @@ class STAGE(Device):
         self.write_position(position)
 
     def read_beta(self) -> float:
-        return self.read_position()[4]
+        position = self.read_position()
+        if len(position) < 5:
+            return 0.0
+        return position[4]
 
     def write_beta(self, value: float) -> None:
+        if not self.read_beta_tilt_enabled():
+            if float(value) == 0.0:
+                return
+            raise ValueError("This stage does not support beta tilt")
         position = self.read_position()
         position[4] = float(value)
         self.write_position(position)

@@ -17,6 +17,9 @@ class TestStage(STAGE):
             raise ValueError("Stage position must be [x, y, z, alpha, beta]")
         self._position = position
 
+    def _read_beta_tilt_enabled(self) -> bool:
+        return True
+
 
 if __name__ == "__main__":
     TestStage.run_server()

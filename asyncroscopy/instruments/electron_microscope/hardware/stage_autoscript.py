@@ -74,23 +74,23 @@ class AutoScriptSTAGE(STAGE):
     def _read_position(self) -> list[float]:
         """Read [x, y, z, alpha, beta] from AutoScript, exposing tilts in degrees."""
         pos = self._microscope.specimen.stage.position
+        beta_tilt_enabled = self._read_beta_tilt_enabled()
         position = [
             float(pos.x),
             float(pos.y),
             float(pos.z),
             float("nan") if pos.a is None else math.degrees(float(pos.a)),
-            float("nan") if pos.b is None else math.degrees(float(pos.b)),
+            0.0 if not beta_tilt_enabled or pos.b is None else math.degrees(float(pos.b)),
         ]
-        if not self.beta_tilt_enabled:
-            position = position[:4]
 
         return position
 
     def _write_position(self, value) -> None:
         """Move AutoScript stage to [x, y, z, alpha, beta], with tilts supplied in degrees."""
         position = [float(component) for component in value]
+        beta_tilt_enabled = self._read_beta_tilt_enabled()
 
-        if self.beta_tilt_enabled:
+        if beta_tilt_enabled:
             if len(position) != 5:
                 raise ValueError("Stage position must be [x, y, z, alpha, beta]")
 
@@ -99,10 +99,10 @@ class AutoScriptSTAGE(STAGE):
             b = None if math.isnan(b) else math.radians(b)
             position = (x, y, z, a, b)
         else:
-            if len(position) != 4:
-                raise ValueError("Stage position must be [x, y, z, alpha]")
+            if len(position) not in (4, 5):
+                raise ValueError("Stage position must be [x, y, z, alpha] or [x, y, z, alpha, beta]")
 
-            x, y, z, a = position
+            x, y, z, a = position[:4]
             a = None if math.isnan(a) else math.radians(a)
             position = (x, y, z, a)
 
