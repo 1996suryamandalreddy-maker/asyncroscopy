@@ -78,8 +78,8 @@ class AutoScriptSTAGE(STAGE):
             float(pos.x),
             float(pos.y),
             float(pos.z),
-            float("nan") if pos.alpha is None else math.degrees(float(pos.alpha)),
-            float("nan") if pos.beta is None else math.degrees(float(pos.beta)),
+            float("nan") if pos.a is None else math.degrees(float(pos.a)),
+            float("nan") if pos.b is None else math.degrees(float(pos.b)),
         ]
         return position
 
@@ -89,10 +89,10 @@ class AutoScriptSTAGE(STAGE):
         if len(position) != 5:
             raise ValueError("Stage position must be [x, y, z, alpha, beta]")
 
-        x, y, z, alpha, beta = position
-        alpha = None if math.isnan(alpha) else math.radians(alpha)
-        beta = None if math.isnan(beta) else math.radians(beta)
-        self._microscope.specimen.stage.absolute_move((x, y, z, alpha, beta))
+        x, y, z, a, b = position
+        a = None if math.isnan(a) else math.radians(a)
+        b = None if math.isnan(b) else math.radians(b)
+        self._microscope.specimen.stage.absolute_move((x, y, z, a, b))
 
 
 # ----------------------------------------------------------------------
