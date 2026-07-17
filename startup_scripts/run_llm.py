@@ -48,7 +48,6 @@ def register_device(config: dict | None):
             print(f"Set device properties: {properties}")
 
 def run_server():
-    # Pass the instance name to run_server
     sys.argv = ["llm.py", INSTANCE_NAME]
     LLM.run_server()
 
@@ -71,10 +70,9 @@ def main():
     # Start server in thread
     threading.Thread(target=run_server, daemon=True).start()
     
-    # Wait for device to be ready
     print("Waiting for LLM device to start and initialize...")
     proxy = None
-    max_wait_seconds = 120  # Increased timeout for local model loading
+    max_wait_seconds = 120
     
     for _ in range(max_wait_seconds):
         try:
@@ -112,6 +110,14 @@ def main():
                 print(f"Response: {response}")
             except Exception as e:
                 print(f"Error: {e}")
+
+    else:
+        print("Press Ctrl+C to terminate.")
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            print("\nShutting down server...")
 
 if __name__ == "__main__":
     main()
