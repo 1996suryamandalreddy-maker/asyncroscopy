@@ -16,7 +16,6 @@ Real AutoScript image commands save the adorned object on disk and return the
 DATA/Tiled unique id for that saved acquisition.
 """
 
-import math
 import time
 import json
 
@@ -460,22 +459,16 @@ class AutoScriptMicroscope(ElectronMicroscope):
 
         return json.dumps(status)
 
+    def _get_stage(self):
+        """Get the current stage position as [x, y, z, alpha, beta], with tilts in degrees."""
+        # set proxy attributes with current stage position
+        stage = self._detector_proxies["stage"]
+        return stage.position
+
     def _move_stage(self, position) -> None:
-        """Move stage to specified position [x, y, z, alpha, beta]."""
-        # TODO: add beta value check
-
-        x = float(position[0])
-        y = float(position[1])
-        z = float(position[2])
-        alpha = float(math.radians(position[3]))
-
-        if len(position) > 4 and position[4] is not None:
-            beta = float(math.radians(position[4]))
-        else:
-            beta = None
-
-        self._microscope.specimen.stage.absolute_move((x, y, z, alpha, beta))
-        # self._get_stage()  # link the proxy with real state
+        """Move stage to [x, y, z, alpha, beta], with x/y/z in meters and tilts in degrees."""
+        stage_proxy = self._detector_proxies.get("stage")
+        stage_proxy.position = position  # expects [x, y, z, alpha, beta] in meters and degrees
 
     def _auto_focus(self):
         """Perform autofocus routine C1A1"""
