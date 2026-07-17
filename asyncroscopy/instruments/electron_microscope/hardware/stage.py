@@ -24,6 +24,13 @@ class STAGE(Device):
     # ------------------------------------------------------------------
     # Attributes
     # ------------------------------------------------------------------
+    beta_tilt_enabled = attribute(
+        label="Beta tilt enabled",
+        dtype=bool,
+        access=AttrWriteType.READ,
+        doc="Whether the beta tilt is enabled on this stage",
+    )
+
     position = attribute(
         label="Position",
         dtype=(float,),
@@ -104,6 +111,9 @@ class STAGE(Device):
     def write_position(self, value) -> None:
         self._write_position(value)
 
+    def read_beta_tilt_enabled(self) -> bool:
+        return self._read_beta_tilt_enabled()
+
     @abstractmethod
     def _read_position(self):
         pass
@@ -112,6 +122,9 @@ class STAGE(Device):
     def _write_position(self, value):
         pass
 
+    @abstractmethod
+    def _read_beta_tilt_enabled(self):
+        pass
 
     def read_x(self) -> float:
         return self.read_position()[0]

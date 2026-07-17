@@ -81,19 +81,40 @@ class AutoScriptSTAGE(STAGE):
             float("nan") if pos.a is None else math.degrees(float(pos.a)),
             float("nan") if pos.b is None else math.degrees(float(pos.b)),
         ]
+        if not self.beta_tilt_enabled():
+            position = position[:4]
+
         return position
 
     def _write_position(self, value) -> None:
         """Move AutoScript stage to [x, y, z, alpha, beta], with tilts supplied in degrees."""
         position = [float(component) for component in value]
-        if len(position) != 5:
-            raise ValueError("Stage position must be [x, y, z, alpha, beta]")
 
-        x, y, z, a, b = position
-        a = None if math.isnan(a) else math.radians(a)
-        b = None if math.isnan(b) else math.radians(b)
-        self._microscope.specimen.stage.absolute_move((x, y, z, a, b))
+        if self.beta_tilt_enabled():
+            if len(position) != 5:
+                raise ValueError("Stage position must be [x, y, z, alpha, beta]")
 
+            x, y, z, a, b = position
+            a = None if math.isnan(a) else math.radians(a)
+            b = None if math.isnan(b) else math.radians(b)
+            position = (x, y, z, a, b)
+        else:
+            if len(position) != 4:
+                raise ValueError("Stage position must be [x, y, z, alpha]")
+
+            x, y, z, a = position
+            a = None if math.isnan(a) else math.radians(a)
+            position = (x, y, z, a)
+
+        self._microscope.specimen.stage.absolute_move(position)
+
+    def _read_beta_tilt_enabled(self) -> bool:
+        """Return True if the stage supports beta tilt, False otherwise."""
+        stage_type = self._microscope.specimen.stage.get_holder_type()
+        if stage_type == "DoubleTilt":
+            return True
+        else:
+            return False
 
 # ----------------------------------------------------------------------
 # Server entry point
