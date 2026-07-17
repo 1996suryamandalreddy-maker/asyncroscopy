@@ -81,7 +81,7 @@ class AutoScriptSTAGE(STAGE):
             float("nan") if pos.a is None else math.degrees(float(pos.a)),
             float("nan") if pos.b is None else math.degrees(float(pos.b)),
         ]
-        if not self.beta_tilt_enabled():
+        if not self.beta_tilt_enabled:
             position = position[:4]
 
         return position
@@ -90,7 +90,7 @@ class AutoScriptSTAGE(STAGE):
         """Move AutoScript stage to [x, y, z, alpha, beta], with tilts supplied in degrees."""
         position = [float(component) for component in value]
 
-        if self.beta_tilt_enabled():
+        if self.beta_tilt_enabled:
             if len(position) != 5:
                 raise ValueError("Stage position must be [x, y, z, alpha, beta]")
 
