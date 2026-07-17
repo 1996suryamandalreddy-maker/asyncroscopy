@@ -31,6 +31,7 @@ from asyncroscopy.data.data_writer import DEFAULT_ACQUISITION_DIR, save_acquisit
 # Wrapped in try/except so the device can still be imported and tested
 # on a development machine without AutoScript installed.
 try:
+    import autoscript_tem_microscope_client
     from autoscript_tem_microscope_client import TemMicroscopeClient
     from autoscript_tem_microscope_client.enumerations import EdsDetectorType
     from autoscript_tem_microscope_client.enumerations import CameraType, RegionCoordinateSystem, ExposureTimeType
@@ -351,6 +352,14 @@ class AutoScriptMicroscope(ElectronMicroscope):
         """Get defocus in meters."""
         return float(self._microscope.optics.defocus)
     
+    def _set_screen(self, position: str)->None:
+        if position.lower() in ['in', 'insert', 'inserted']:
+            if self._microscope.detectors.screen.position == 'Retracted':
+                self._microscope.detectors.screen.insert()
+        elif position.lower() in ['out', 'retract', 'retracted']:
+             if self._microscope.detectors.screen.position == 'Inserted':
+                self._microscope.detectors.screen.retract()
+
 
     def _calibrate_screen_current(self) -> None:
         """ calibrate screen current with monchromator focus"""
@@ -397,7 +406,27 @@ class AutoScriptMicroscope(ElectronMicroscope):
         screen_current = self._microscope.detectors.screen.measure_current() * 1e12
         return screen_current
 
-    def _get_status(self):
+    def _get_stage(self):
+        """Get the current stage position as a list of floats [x, y, z, alpha, beta]."""
+        # set proxy attributes with current stage position
+        stage = self._detector_proxies["stage"]
+
+        # TODO: add beta value check
+        position = self._microscope.specimen.stage.position
+        position = np.array(position)
+
+        stage.x = float(position[1])
+        stage.y = float(position[0])
+        stage.z = float(position[2])
+        stage.alpha = float(math.degrees(position[3]))
+
+        if position[4] is not None:
+            return position
+        else:
+            return position[:4]
+        
+    
+    def _get_parameters(self):
         status = {'system': self._microscope.service.system.name,
                 'vacuum': self._microscope.vacuum.state,
                 'column_valves': self._microscope.vacuum.column_valves.state,
@@ -443,8 +472,12 @@ class AutoScriptMicroscope(ElectronMicroscope):
 
     def _auto_focus(self):
         """Perform autofocus routine C1A1"""
-        settings = RunOptiStemSettings(method="C1A1")  # method=OptiStemMethod.C1_A1, dwell_time=2e-06, cutoff_in_pixels=5)
-        self._microscope.auto_functions.run_opti_stem(settings)
+        if self._microscope.optics.optical_mode == 'Stem':
+            settings = RunOptiStemSettings(method="C1A1")
+            self._microscope.auto_functions.run_opti_stem(settings)
+        else:
+            settings = autoscript_tem_microscope_client.structuresRunObjectiveAutoStigmatorSettings(camera_detector="Flucam")
+            self.microscope.auto_functions.run_objective_auto_stigmator(settings)
 
     def _set_image_shift(self, shift):
         """Apply image shift in meters."""
