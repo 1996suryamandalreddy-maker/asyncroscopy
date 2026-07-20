@@ -131,9 +131,10 @@ class LLM(Device):
 
         for step in range(self.max_steps):
             if self.local_model_path is not None:
-                raw_response = self._model.invoke(agent_context).content
+                response_msg = self._model.invoke(agent_context)
             else:
-                raw_response = await self._model.ainvoke(agent_context)
+                response_msg = await self._model.ainvoke(agent_context)
+            raw_response = response_msg.content if hasattr(response_msg, 'content') else str(response_msg)
             response = raw_response.replace("<turn|>", "").strip()
             
             # Check if the model wants to call a tool
@@ -173,5 +174,9 @@ class LLM(Device):
                 return response
         return response
 
-    if __name__ == "__main__":
-        LLM.run_server()
+# ----------------------------------------------------------------------
+# Server entry point
+# ----------------------------------------------------------------------
+
+if __name__ == "__main__":
+    LLM.run_server()
