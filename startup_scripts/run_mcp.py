@@ -6,15 +6,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-
 import yaml
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+from asyncroscopy.utils.process_manager import ManagedProcess, ProcessManager
+
 DEFAULT_CONFIG_PATH = PROJECT_DIR / 'configs' / 'mcp.yaml'
 
 
@@ -114,12 +117,27 @@ def main(argv: list[str] | None = None) -> int:
 
     env = {**os.environ, 'TANGO_HOST': f'{config.tango_host}:{config.tango_port}', 'PYTHONUNBUFFERED': '1'}
     command = build_command(config)
+    
     print(f'Starting MCP server {config.mcp.name}')
     print(f'  config: {config.path}')
     print(f'  tango:  {env["TANGO_HOST"]}')
     print(f'  http:   http://{config.mcp.http_host}:{config.mcp.http_port}/mcp')
     print(f'  command: {" ".join(command)}')
-    return subprocess.run(command, cwd=PROJECT_DIR, env=env).returncode
+
+    try:
+        with ProcessManager() as manager:
+            managed: ManagedProcess = manager.start_process(
+                key=config.mcp.name,
+                label=f"MCP Server ({config.mcp.name})",
+                command=command,
+                env=env,
+            )
+            print("MCP server started. Press Ctrl+C to terminate.")
+            if managed.process:
+                managed.process.wait()
+    except KeyboardInterrupt:
+        print("\nShutting down MCP server...")
+        return 0
 
 
 if __name__ == '__main__':
