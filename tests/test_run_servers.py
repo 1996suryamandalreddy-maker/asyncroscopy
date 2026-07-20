@@ -207,7 +207,7 @@ def test_load_mcp_config():
     assert config.tango_port == 9094
     assert config.mcp.http_host == "127.0.0.1"
     assert config.mcp.http_port == 8000
-    assert config.mcp.blocked_classes == ["DataBase", "DServer"]
+    assert config.mcp.blocked_classes == ["DataBase", "DServer", "LLM"]
     assert config.mcp.blocked_functions == {"*": ["Init", "Kill", "RestartServer"]}
 
 
