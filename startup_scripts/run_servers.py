@@ -671,22 +671,32 @@ def main(argv: list[str] | None = None) -> int:
             print()
             print(color("Leave this terminal open while you use the servers. Press Ctrl+C to stop them.", Style.dim))
             
-            while True:
-                time.sleep(1)
-
-    except KeyboardInterrupt:
-        print()
-        print(color("Shutdown requested. Stopping managed processes...", Style.yellow))
-        stop_tiled_server() 
+            try:
+                while True:
+                    time.sleep(0.1)
+            except KeyboardInterrupt:
+                # Catch the Ctrl-C INSIDE the with block so processes are still alive!
+                print()
+                print(color("Shutdown requested. Stopping Tiled server...", Style.yellow))
+                stop_tiled_server() 
+                print(color("Stopping managed processes...", Style.yellow))
+                
         status_line("OK", "shutdown complete")
         return 0
-        
-    except Exception as exc:
+
+    except Exception as exc:   
+        # Catches actual startup crashes
         print()
         print(color(f"Startup failed: {exc}", Style.bold + Style.red))
         if log_dir is not None:
             print(color(f"Per-server logs in {log_dir}:", Style.bold + Style.yellow))
-        stop_tiled_server() 
+        
+        # Stop tiled on a crash
+        try:
+            stop_tiled_server() 
+        except Exception:
+            pass
+            
         return 1
 
 if __name__ == "__main__":

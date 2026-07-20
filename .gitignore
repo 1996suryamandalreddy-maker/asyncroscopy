@@ -241,3 +241,5 @@ output_tango_devices_logs/
 .claude/
 
 aws-use/
+
+.processes/

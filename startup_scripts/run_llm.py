@@ -1,6 +1,7 @@
 import sys
 import argparse
 import os
+import subprocess
 import yaml
 from pathlib import Path
 from dataclasses import dataclass
@@ -145,9 +146,14 @@ def main(argv: list[str] | None = None) -> int:
                         print(f"Error: {e}")
             else:
                 print("Press Ctrl+C to terminate.")
-                if managed.process:
-                    managed.process.wait()
-    except KeyboardInterrupt:
+                # Loop with timeout so Windows handles SIGINT / Ctrl+C cleanly
+                while managed.running:
+                    try:
+                        managed.process.wait(timeout=0.5)
+                    except subprocess.TimeoutExpired:
+                        pass    
+
+    except KeyboardInterrupt:    
         print("\nShutting down server...")
         return 0
 

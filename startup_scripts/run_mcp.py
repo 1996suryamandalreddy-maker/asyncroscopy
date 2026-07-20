@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import json
 import os
 import sys
@@ -133,11 +134,18 @@ def main(argv: list[str] | None = None) -> int:
                 env=env,
             )
             print("MCP server started. Press Ctrl+C to terminate.")
-            if managed.process:
-                managed.process.wait()
+            
+            # Loop with a timeout so Python catches SIGINT (Ctrl+C) on Windows
+            while managed.running:
+                try:
+                    managed.process.wait(timeout=0.1)
+                except subprocess.TimeoutExpired:
+                    pass
+
     except KeyboardInterrupt:
         print("\nShutting down MCP server...")
-        return 0
+        
+    return 0
 
 
 if __name__ == '__main__':
