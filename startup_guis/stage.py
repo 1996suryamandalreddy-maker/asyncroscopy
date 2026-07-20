@@ -167,9 +167,9 @@ class AdvancedMicroscopeGUI:
         if name in self.saved_stage_positions:
             positions = self.saved_stage_positions[name]
             self.stage_x, self.stage_y, self.stage_z = np.array([positions[:3]])*1e9    
-            self.stage_alpha = np.degrees(positions[3])
+            self.stage_alpha = positions[3]
             if len(positions) > 4:
-                self.stage_beta = np.degrees(positions[4])
+                self.stage_beta = positions[4]
             self.sync_ui_to_vars()
 
     def current_conditions(self):
@@ -177,11 +177,11 @@ class AdvancedMicroscopeGUI:
         self.stage_x = starting_stage_position[0]*1e9
         self.stage_y = starting_stage_position[1]*1e9
         self.stage_z = starting_stage_position[2]*1e9
-        self.stage_alpha = np.degrees(starting_stage_position[3])
+        self.stage_alpha = starting_stage_position[3]
         self.stage_beta = 0
-        if len(starting_stage_position)<4 :
+        if len(starting_stage_position) > 4 :
             if starting_stage_position[4] is not None:
-                self.stage_beta = np.degrees(starting_stage_position[4])
+                self.stage_beta = starting_stage_position[4]
         self.beam_x, self.beam_y = self.microscope.get_image_shift()
         self.beam_x *=1e9
         self.beam_y *=1e9
@@ -212,7 +212,7 @@ class AdvancedMicroscopeGUI:
     def set_stage(self):
         """Move the mechanical stage to the target coordinates."""
         self.microscope.move_stage([self.stage_x*1e-9, self.stage_y*1e-9, self.stage_z*1e-9, 
-                                                      np.radians(self.stage_alpha), np.radians(self.stage_beta)])
+                                                      self.stage_alpha, self.stage_beta])
 
     def set_defocus(self):
         """Set the defocus value."""

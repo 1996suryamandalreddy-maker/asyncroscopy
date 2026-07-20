@@ -203,11 +203,11 @@ def test_load_mcp_config():
     config = run_mcp.load_config(run_mcp.PROJECT_DIR / "configs" / "mcp.yaml")
 
     assert config.mcp.name == "Spectra300_MCP"
-    assert config.tango_host == "localhost"
+    assert config.tango_host == "10.46.217.241"
     assert config.tango_port == 9094
-    assert config.mcp.http_host == "127.0.0.1"
+    assert config.mcp.http_host == "0.0.0.0"
     assert config.mcp.http_port == 8000
-    assert config.mcp.blocked_classes == ["DataBase", "DServer"]
+    assert config.mcp.blocked_classes == ["DataBase", "DServer", "LLM"]
     assert config.mcp.blocked_functions == {"*": ["Init", "Kill", "RestartServer"]}
 
 
