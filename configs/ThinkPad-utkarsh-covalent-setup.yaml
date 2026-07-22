@@ -12,6 +12,12 @@ instrument:
   timeout_seconds: 120
 
 devices:
+  aperture:
+    class_name: AutoScriptAPERTURE
+    module_name: asyncroscopy.instruments.electron_microscope.hardware.aperture_autoscript
+    properties:
+      hardware_host: localhost
+      hardware_port: 9095
   camera:    { module_name: asyncroscopy.instruments.electron_microscope.detectors.camera }
   corrector: { module_name: asyncroscopy.instruments.electron_microscope.hardware.corrector }
   data:      { module_name: asyncroscopy.data.data }
