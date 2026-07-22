@@ -104,6 +104,8 @@ def main(argv: list[str] | None = None) -> int:
                 label="LLM Server",
                 command=command,
                 env=env,
+                stdout=None,
+                stderr=None,
             )
 
             print("Waiting for LLM device to start and initialize...")

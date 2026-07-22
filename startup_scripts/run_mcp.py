@@ -132,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
                 label=f"MCP Server ({config.mcp.name})",
                 command=command,
                 env=env,
+                stdout=None,
+                stderr=None,
             )
             print("MCP server started. Press Ctrl+C to terminate.")
             
