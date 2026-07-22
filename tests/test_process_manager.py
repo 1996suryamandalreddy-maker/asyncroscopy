@@ -89,8 +89,21 @@ def test_stop_process_graceful_and_force(tmp_path, monkeypatch):
     def mock_killpg(pgid, sig):
         signals.append((pgid, sig))
 
-    monkeypatch.setattr(process_manager.os, "killpg", mock_killpg)
-    monkeypatch.setattr(process_manager.os, "getpgid", lambda pid: pid)
+    taskkill_calls = []
+
+    if os.name != "nt":
+        monkeypatch.setattr(process_manager.os, "killpg", mock_killpg)
+        monkeypatch.setattr(process_manager.os, "getpgid", lambda pid: pid)
+    else:
+        # Capture taskkill invocations without spawning a real process
+        class FakePopenResult:
+            pass
+
+        def mock_popen(cmd, **kwargs):
+            taskkill_calls.append(cmd)
+            return FakePopenResult()
+
+        monkeypatch.setattr(process_manager.subprocess, "Popen", mock_popen)
 
     proc = ManagedProcess("test_key", "Test Label", FakeProcess(), ["cmd"])
     manager.active_processes.append(proc)
@@ -106,6 +119,8 @@ def test_stop_process_graceful_and_force(tmp_path, monkeypatch):
     if os.name != "nt":
         assert (12345, signal.SIGTERM) in signals
         assert (12345, signal.SIGKILL) in signals
+    else:
+        assert taskkill_calls == [["taskkill", "/F", "/T", "/PID", "12345"]]
 
 
 def test_cleanup_stale_state_on_enter(tmp_path, monkeypatch):
