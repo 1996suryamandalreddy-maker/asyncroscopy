@@ -4,7 +4,8 @@ import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, field
 from pathlib import Path
 import threading
 
@@ -21,6 +22,8 @@ class ManagedProcess:
     label: str
     process: subprocess.Popen
     command: list[str] | None = None
+    stdout_lines: deque = field(default_factory=deque)
+    stderr_lines: deque = field(default_factory=deque)
 
     @property
     def pid(self) -> int:
@@ -68,7 +71,7 @@ class ProcessManager:
         **kwargs,
     ) -> ManagedProcess:
         """Launches a child process, sets group/session execution, and records state."""
-        popen_kwargs = {"env": env, "cwd": cwd}
+        popen_kwargs: dict = {"env": env, "cwd": cwd, "stdout": subprocess.PIPE, "stderr": subprocess.PIPE}
         popen_kwargs.update(kwargs)
 
         # Start child process in its own group for clean tree termination
@@ -83,8 +86,21 @@ class ProcessManager:
         proc = subprocess.Popen(command, **popen_kwargs)
         managed = ManagedProcess(key=key, label=label, process=proc, command=command)
         self.active_processes.append(managed)
+        self._drain(proc.stdout, managed.stdout_lines)
+        self._drain(proc.stderr, managed.stderr_lines)
         self.save()
         return managed
+
+    @staticmethod
+    def _drain(stream, buf: deque) -> None:
+        """Continuously reads lines and saves them into a queue, preventing the pipe from getting blocked"""
+        if stream is None:
+            return
+        def _read() -> None:
+            for line in iter(stream.readline, b""):
+                buf.append(line.decode(errors="replace").rstrip())
+            stream.close()
+        threading.Thread(target=_read, daemon=True).start()
 
     def save(self):
         """Atomically saves live PIDs to this launcher's state file."""
