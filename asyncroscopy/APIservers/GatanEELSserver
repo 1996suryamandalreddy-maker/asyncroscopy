@@ -1,3 +1,10 @@
+"""
+# This python program has to be run in Gatan's DigitalMicrograph in background mode
+# Utilizes Hybrid Mode because python API is not complete.
+#
+# Author: Gerd Duscher, UTK
+# July 30th 2026 
+"""
 import DigitalMicrograph as DM
 import Pyro5.api
 import numpy as np
