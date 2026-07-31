@@ -18,19 +18,21 @@ if str(PROJECT_DIR) not in sys.path:
 
 @dataclass
 class ManagedProcess:
-    key: str
-    label: str
-    process: subprocess.Popen
-    command: list[str] | None = None
-    stdout_lines: deque = field(default_factory=deque)
-    stderr_lines: deque = field(default_factory=deque)
+    key: str  # Unique identifier
+    label: str  # The human-readable name of the process
+    process: subprocess.Popen  # Actual handle of the process
+    command: list[str] | None = None  # The command that was run
+    stdout_lines: deque = field(default_factory=lambda: deque(maxlen=1000))  # Stdout buffer
+    stderr_lines: deque = field(default_factory=lambda: deque(maxlen=1000))  # Stderr buffer
 
     @property
     def pid(self) -> int:
+        """Returns the process ID."""
         return self.process.pid
 
     @property
     def running(self) -> bool:
+        """Returns True if the process is running."""
         return self.process.poll() is None
 
 
@@ -42,6 +44,7 @@ class ProcessManager:
         name: str = None,
         state_dir: str | Path = ".processes",
         graceful_timeout: float = 5.0,
+        max_output_lines: int = 200,
     ):
         if name is None:
             name = Path(sys.argv[0]).stem
@@ -52,7 +55,10 @@ class ProcessManager:
         self.state_dir = Path(state_dir)
         self.state_file = self.state_dir / f"{self.name}.json"
         self.graceful_timeout = graceful_timeout
+        self.max_output_lines = max_output_lines
+
         self.active_processes: list[ManagedProcess] = []
+        self.history: deque[ManagedProcess] = deque(maxlen=1000)
 
     def __enter__(self):
         self._cleanup_stale_state()
@@ -75,17 +81,25 @@ class ProcessManager:
         popen_kwargs.update(kwargs)
 
         # Start child process in its own group for clean tree termination
-        if os.name == "nt":
+        if os.name == "nt": # Windows
             popen_kwargs.setdefault(
                 "creationflags", subprocess.CREATE_NEW_PROCESS_GROUP
             )
-        else:
+        else: # Linux
             if "start_new_session" not in popen_kwargs and "preexec_fn" not in popen_kwargs:
                 popen_kwargs["start_new_session"] = True
 
         proc = subprocess.Popen(command, **popen_kwargs)
-        managed = ManagedProcess(key=key, label=label, process=proc, command=command)
+        managed = ManagedProcess(
+            key=key,
+            label=label,
+            process=proc,
+            command=command,
+            stdout_lines=deque(maxlen=self.max_output_lines),
+            stderr_lines=deque(maxlen=self.max_output_lines),
+        )
         self.active_processes.append(managed)
+        self.history.append(managed) 
         self._drain(proc.stdout, managed.stdout_lines)
         self._drain(proc.stderr, managed.stderr_lines)
         self.save()
