@@ -6,8 +6,8 @@ It does NOT talk to Gatan — the eels_gatan parent class
 reads these attributes via DeviceProxy before acquiring.
 """
 
-from tango import AttrWriteType, DevState
-from tango.server import Device, attribute, command, DevVarFloatArray
+from tango import AttrWriteType, DevState, DevVarFloatArray
+from tango.server import Device, attribute, command
 import tango.server
 
 class EELSBase(tango.server.Device):
@@ -104,6 +104,12 @@ class EELSBase(tango.server.Device):
 
     def write_exposure_time(self, value: float) -> None:
         self._exposure_time = value
+
+    def read_number_of_frames(self) -> float:
+            return self._number_of_frames
+    
+    def write_number_of_frames(self, value: float) -> None:
+        self._number_of_frames = value
 
     # ------------------------------------------------------------------
     # Private Functions
