@@ -37,13 +37,21 @@ class ManagedProcess:
 
 
 class ProcessManager:
-    """Manages child subprocesses for a single launcher script."""
+    """
+    Manages child subprocesses for a single launcher script.
+
+    Args:
+        name: Unique identifier for this manager instance.
+        state_dir: Directory to store process state files.
+        timeout: Seconds to wait for a process to terminate before doing a forced kill.
+        max_output_lines: Max number of lines to buffer for stdout/stderr.
+    """
 
     def __init__(
         self,
         name: str = None,
         state_dir: str | Path = ".processes",
-        graceful_timeout: float = 5.0,
+        timeout: float = 5.0,
         max_output_lines: int = 200,
     ):
         if name is None:
@@ -54,7 +62,7 @@ class ProcessManager:
         self.name = name
         self.state_dir = Path(state_dir)
         self.state_file = self.state_dir / f"{self.name}.json"
-        self.graceful_timeout = graceful_timeout
+        self.timeout = timeout
         self.max_output_lines = max_output_lines
 
         self.active_processes: list[ManagedProcess] = []
@@ -137,7 +145,7 @@ class ProcessManager:
 
         self._send_kill_request(managed.process)
         try:
-            managed.process.wait(timeout=self.graceful_timeout)
+            managed.process.wait(timeout=self.timeout)
         except subprocess.TimeoutExpired:
             self._force_kill(managed.process)
             managed.process.wait(timeout=1.0)
@@ -170,10 +178,11 @@ class ProcessManager:
                 if proc.poll() is not None:
                     continue
 
-                # Calculate remaining time from our global timeout
-                rem = self.graceful_timeout - (time.time() - start_time)
-                if rem <= 0:
-                    rem = 0.1
+                # Determine how much of the global timeout remains.
+                # If we have spent more time than allowed, provide a small wait
+                # to allow for immediate process exit before doing a forced kill.
+                elapsed = time.time() - start_time
+                rem = max(0.1, self.timeout - elapsed)
 
                 try:
                     proc.wait(timeout=rem)
@@ -232,7 +241,7 @@ class ProcessManager:
                 capture_output=True,
             )
             try:
-                proc.wait(timeout=self.graceful_timeout)
+                proc.wait(timeout=self.timeout)
             except subprocess.TimeoutExpired:
                 pass
         else:
@@ -243,7 +252,7 @@ class ProcessManager:
                 proc.terminate()
 
             try:
-                proc.wait(timeout=self.graceful_timeout)
+                proc.wait(timeout=self.timeout)
             except subprocess.TimeoutExpired:
                 try:
                     pgid = os.getpgid(proc.pid)
