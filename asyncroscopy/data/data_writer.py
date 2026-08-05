@@ -89,7 +89,9 @@ def save_acquisition(
     detector_label = "_".join([str(detector) for detector in detector_list])
     path = acquisition_filename(device, acquisition_type, detector_label, data_server)
 
+
     datasets = []
+    # Naming statergy which is acts as a "key" for Tiled 
     for index, source in enumerate(data_list):
         detector = str(detector_list[index]) if index < len(detector_list) else f"item_{index}"
         if dataset_name == "image" and isinstance(detectors, (list, tuple)):
@@ -105,12 +107,16 @@ def save_acquisition(
 
 
 def save_acquisition_hdf5(path: str | Path, datasets: list[dict], file_attrs: dict | None = None) -> None:
-    """Save one acquisition event to one HDF5 file."""
+    """Save one acquisition event to one HDF5 file.
+    
+    Currently supported for AdornedImage datastrucutre, which comes from ThermoFisher TEM's
+    """
     with h5py.File(path, "w", track_order=True) as h5:
         for key, value in (file_attrs or {}).items():
             h5.attrs[key] = value if isinstance(value, (str, int, float, bool, np.number)) else json.dumps(value)
 
         for item in datasets:
+            # data is list of AdornedImage(Note: vendor is Thermofisher TEM's), which is typically imported as from autoscript_tem_microscope_client.structures import AdornedImage
             source = item.get("source", item.get("data"))
             data = source.data if hasattr(source, "data") and not isinstance(source, np.ndarray) else source
             name = item["name"]
@@ -125,7 +131,7 @@ def save_acquisition_hdf5(path: str | Path, datasets: list[dict], file_attrs: di
                 dset.attrs[key] = value if isinstance(value, (str, int, float, bool, np.number)) else json.dumps(value)
 
             metadata = getattr(source, "metadata", None)
-            metadata_xml = getattr(metadata, "metadata_as_xml", None)
+            metadata_xml = getattr(metadata, "metadata_as_xml", None) # typically called as : AdornedImage.metadata.metadata_as_xml
             if metadata_xml:
                 root = ET.fromstring(metadata_xml)
                 for elem in root.iter():
