@@ -21,7 +21,7 @@ def acquisition_filename(
     data_server=None,
     extension: str = "h5",
 ) -> Path:
-    """Create a timestamped acquisition filename."""
+    """Create a timestamped acquisition filename(Tiled uses this)"""
     save_directory = DEFAULT_ACQUISITION_DIR
     try:
         save_directory = device.acquisition_save_directory
@@ -87,11 +87,12 @@ def save_acquisition(
 
     has_labeled_datasets = len(detector_list) > 1 or len(data_list) > 1
     detector_label = "_".join([str(detector) for detector in detector_list])
+    # Naming statergy which is acts as a "key" for Tiled 
     path = acquisition_filename(device, acquisition_type, detector_label, data_server)
 
 
     datasets = []
-    # Naming statergy which is acts as a "key" for Tiled 
+    # Detector wise, Naming statergy which is acts as a "key" for Tiled 
     for index, source in enumerate(data_list):
         detector = str(detector_list[index]) if index < len(detector_list) else f"item_{index}"
         if dataset_name == "image" and isinstance(detectors, (list, tuple)):
