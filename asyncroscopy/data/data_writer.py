@@ -21,7 +21,7 @@ def acquisition_filename(
     data_server=None,
     extension: str = "h5",
 ) -> Path:
-    """Create a timestamped acquisition filename(Tiled uses this)"""
+    """Create a timestamped acquisition filename(Tiled uses this to retrieve the data)"""
     save_directory = DEFAULT_ACQUISITION_DIR
     try:
         save_directory = device.acquisition_save_directory
