@@ -6,9 +6,9 @@ connection and all communication with the Gatan DigitalMicrograph server.
 """
 
 import numpy as np
+from Pyro5.api import Proxy  # communication with Gatan server
 from tango import DevState
 from tango.server import device_property
-from Pyro5.api import Proxy # communication with Gatan server
 
 from asyncroscopy.data.data_writer import save_acquisition
 from asyncroscopy.instruments.electron_microscope.detectors.eels import EELSBase
@@ -29,7 +29,7 @@ class EELS(EELSBase):
 
     hardware_port = device_property(
         dtype=int,
-        default_value=9092,
+        default_value=9091,
         doc="Port of the Gatan Pyro server",
     )
 
@@ -39,39 +39,56 @@ class EELS(EELSBase):
 
     def init_device(self) -> None:
         super().init_device()
-        self._eels_proxy = None
+        self._eels_uri = (
+            f"PYRO:eels_server@{self.hardware_host}:{self.hardware_port}"
+        )
+        self._eels_proxy_factory = Proxy
 
         try:
-            uri = f"PYRO:eels_server@{self.hardware_host}:{self.hardware_port}"
-            self._eels_proxy = Proxy(uri)
-            if not self._eels_proxy.check_server():
+            if not self._call_eels("check_server"):
                 raise ConnectionError("EELS server did not respond")
             self.info_stream(
                 f"Connected to Gatan EELS at {self.hardware_host}:{self.hardware_port}"
             )
         except Exception as exc:
-            self._eels_proxy = None
             self.set_state(DevState.FAULT)
             self.error_stream(f"Gatan EELS connection failed: {exc}")
+
+    def _call_eels(self, method_name: str, *args):
+        """Call EELS through a proxy owned by the current Tango worker thread.
+
+        Pyro proxies are thread-affine. Tango can initialize a device and execute
+        its attributes or commands on different worker threads, so retaining one
+        proxy on the device eventually raises Pyro's "calling thread is not the
+        owner" error.
+        """
+        proxy = self._eels_proxy_factory(self._eels_uri)
+        try:
+            return getattr(proxy, method_name)(*args)
+        finally:
+            proxy._pyroRelease()
 
     # ------------------------------------------------------------------
     # Gatan hardware adapter
     # ------------------------------------------------------------------
 
     def _initialize_eels(self) -> bool:
-        result = self._eels_proxy.initialize_eels()
+        result = self._call_eels("initialize_eels")
         return result is not False
 
     def _write_offset(self, offset: float) -> None:
-        self._eels_proxy.set_eels_offset(float(offset))
+        self._call_eels("set_eels_offset", float(offset))
 
     def _acquire_eels_spectrum(self) -> str:
-        spectrum, start_energy, dispersion = self._eels_proxy.get_eels_spectrum(
+        spectrum, start_energy, dispersion = self._call_eels(
+            "get_eels_spectrum",
             self.read_exposure_time(),
             self.read_number_of_frames(),
         )
+        self._offset = float(start_energy)
         metadata = {
-            "start_energy": start_energy, # can be renamed...refers to the energy value of the first channel of the spectrum. actually, the other "offset" should be called energy_shift and this one should be called energy_offset
+            "offset": float(start_energy),
+            "start_energy": float(start_energy),
             "dispersion": float(dispersion),
             "energy_units": "eV",
             "dispersion_units": "eV/channel",
@@ -89,23 +106,23 @@ class EELS(EELSBase):
         )
 
     def _get_available_dispersions(self) -> str:
-        return self._eels_proxy.get_available_dispersions()
+        return self._call_eels("get_available_dispersions")
 
     def _get_eels_dispersion(self) -> list[float]:
-        dispersion_index, dispersion = self._eels_proxy.get_eels_dispersion()
+        dispersion_index, dispersion = self._call_eels("get_eels_dispersion")
         return [float(dispersion_index), float(dispersion)]
 
     def _set_eels_dispersion(self, dispersion_index: int) -> None:
-        self._eels_proxy.set_eels_dispersion(int(dispersion_index))
+        self._call_eels("set_eels_dispersion", int(dispersion_index))
 
     def _get_eels_aperture(self) -> str:
-        return self._eels_proxy.get_eels_aperture()
+        return self._call_eels("get_eels_aperture")
 
     def _set_eels_aperture(self, aperture_index: int) -> None:
-        self._eels_proxy.set_eels_aperture(int(aperture_index))
+        self._call_eels("set_eels_aperture", int(aperture_index))
 
     def _get_available_apertures(self) -> str:
-        return self._eels_proxy.get_available_apertures()
+        return self._call_eels("get_available_apertures")
 
 
 GatanEELS = EELS

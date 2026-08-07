@@ -1,3 +1,4 @@
+import threading
 from pathlib import Path
 
 import h5py
@@ -54,16 +55,62 @@ class FakeEELSProxy:
     def get_available_apertures(self):
         return "0: 2.5 mm, 1: 5 mm"
 
+    def _pyroRelease(self):
+        pass
+
 
 def make_gatan_eels() -> tuple[EELS, FakeEELSProxy]:
     device = EELS.__new__(EELS)
     proxy = FakeEELSProxy()
-    device._eels_proxy = proxy
+    device._eels_uri = "PYRO:eels_server@eels.example:9091"
+    device._eels_proxy_factory = lambda uri: proxy
     device._exposure_time = 0.05
     device._number_of_frames = 3
     device._offset = float("nan")
     device._data_proxy = None
     return device, proxy
+
+
+def test_gatan_eels_uses_a_proxy_owned_by_each_calling_thread():
+    device = EELS.__new__(EELS)
+    device._eels_uri = "PYRO:eels_server@eels.example:9091"
+    proxies = []
+
+    class ThreadOwnedProxy:
+        def __init__(self, uri):
+            self.uri = uri
+            self.owner = threading.get_ident()
+            self.released = False
+            proxies.append(self)
+
+        def set_eels_offset(self, offset):
+            assert threading.get_ident() == self.owner
+
+        def _pyroRelease(self):
+            self.released = True
+
+    device._eels_proxy_factory = ThreadOwnedProxy
+    errors = []
+
+    def write_from_worker(offset):
+        try:
+            device._write_offset(offset)
+        except Exception as exc:
+            errors.append(exc)
+
+    workers = [
+        threading.Thread(target=write_from_worker, args=(offset,))
+        for offset in (1.0, 2.0)
+    ]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join()
+
+    assert errors == []
+    assert len(proxies) == 2
+    assert all(proxy.uri == device._eels_uri for proxy in proxies)
+    assert all(proxy.released for proxy in proxies)
 
 
 def test_gatan_eels_inherits_hardware_independent_tango_api():
