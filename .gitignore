@@ -209,7 +209,9 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# macOS
 .DS_Store
+**/.DS_Store
 
 
 # Streamlit
@@ -236,5 +238,10 @@ ClAUDE.md
 
 tiled_data/
 outputs/
+output_tango_devices_logs/
 
 .claude/
+
+aws-use/
+
+.processes/

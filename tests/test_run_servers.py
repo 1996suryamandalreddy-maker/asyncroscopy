@@ -5,12 +5,17 @@ class FakeDataProxy:
     def __init__(self):
         self.timeout_millis = None
         self.stop_called = False
+        self.register_called = False
 
     def set_timeout_millis(self, timeout_millis):
         self.timeout_millis = timeout_millis
 
     def stop_tiled_server(self):
         self.stop_called = True
+
+    def register_save_path(self):
+        self.register_called = True
+        return '{"registered_path": "outputs/tiled_acquisitions"}'
 
 
 def test_get_data_proxy_sets_extended_timeout(monkeypatch):
@@ -31,76 +36,57 @@ def test_stop_tiled_server_uses_extended_data_proxy_timeout(monkeypatch):
     assert proxy.stop_called is True
 
 
-def test_start_process_tracks_process_group(monkeypatch):
-    calls = {}
+def test_register_tiled_save_path_uses_startup_registration_timeout(monkeypatch):
+    proxy = FakeDataProxy()
+    monkeypatch.setattr(run_servers.tango, "DeviceProxy", lambda _: proxy)
 
-    class FakePopen:
-        stdout = None
-        stderr = None
-        pid = 1234
+    result = run_servers.register_tiled_save_path()
 
-        def __init__(self, command, **kwargs):
-            calls["command"] = command
-            calls["kwargs"] = kwargs
-
-        def poll(self):
-            return None
-
-    monkeypatch.setattr(run_servers.subprocess, "Popen", FakePopen)
-
-    process = run_servers.start_process("scan", "SCAN", ["uv", "run", "scan"], {"TANGO_HOST": "localhost:9094"})
-
-    assert process.pid == 1234
-    assert calls["command"] == ["uv", "run", "scan"]
-    if run_servers.os.name == "nt":
-        assert "creationflags" in calls["kwargs"]
-    else:
-        assert calls["kwargs"]["start_new_session"] is True
-
-
-def test_stop_process_terminates_process_group(monkeypatch):
-    if run_servers.os.name == "nt":
-        return
-
-    signals = []
-
-    class FakeProcess:
-        pid = 4321
-
-        def poll(self):
-            return None
-
-        def wait(self, timeout):
-            return 0
-
-        def terminate(self):
-            raise AssertionError("process group should be signaled before direct terminate")
-
-    monkeypatch.setattr(run_servers.os, "killpg", lambda pid, sig: signals.append((pid, sig)))
-
-    process = run_servers.ManagedProcess("scan", "SCAN", ["uv", "run", "scan"], FakeProcess())
-    run_servers.stop_process(process)
-
-    assert signals == [(4321, run_servers.signal.SIGTERM)]
+    assert proxy.timeout_millis == run_servers.TILED_STARTUP_REGISTRATION_TIMEOUT_MILLIS
+    assert proxy.register_called is True
+    assert result == {"registered_path": "outputs/tiled_acquisitions"}
 
 
 def test_load_spectra300_config_starts_servers_only():
     config = run_servers.load_config(run_servers.PROJECT_DIR / "configs" / "Spectra300.yaml")
+    stage = next(device for device in config.support_devices if device.key == "stage")
 
     assert config.tango_host == "10.46.217.241"
     assert config.tiled.host == "10.46.217.241"
+    assert config.tiled.register_on_startup is False
+    assert config.instrument.class_name == "AutoScriptMicroscope"
+    assert config.instrument.module_name == "asyncroscopy.instruments.electron_microscope.auto_script"
+    assert stage.class_name == "AutoScriptSTAGE"
+    assert stage.module_name == "asyncroscopy.instruments.electron_microscope.hardware.stage_autoscript"
+    assert stage.properties["hardware_host"] == ["10.46.217.241"]
+    assert stage.properties["hardware_port"] == ["9095"]
+    assert config.reset_database_file is False
     assert not hasattr(config, "mcp")
+
+
+def test_build_devices_adds_selected_instrument():
+    config = run_servers.load_config(run_servers.PROJECT_DIR / "configs" / "Test.yaml")
+
+    devices = run_servers.build_devices(config)
+    stage = next(device for device in devices if device.key == "stage")
+
+    assert stage.class_name == "TestStage"
+    assert stage.module_name == "asyncroscopy.instruments.electron_microscope.hardware.TestStage"
+    assert devices[-1].key == "instrument"
+    assert devices[-1].class_name == "DigitalTwin"
+    assert devices[-1].module_name == "asyncroscopy.instruments.electron_microscope.digital_twin"
+    assert devices[-1].device_name == "asyncroscopy/instrument/default"
 
 
 def test_load_mcp_config():
     config = run_mcp.load_config(run_mcp.PROJECT_DIR / "configs" / "mcp.yaml")
 
     assert config.mcp.name == "Spectra300_MCP"
-    assert config.tango_host == "localhost"
+    assert config.tango_host == "10.46.217.241"
     assert config.tango_port == 9094
-    assert config.mcp.http_host == "127.0.0.1"
+    assert config.mcp.http_host == "0.0.0.0"
     assert config.mcp.http_port == 8000
-    assert config.mcp.blocked_classes == ["DataBase", "DServer"]
+    assert config.mcp.blocked_classes == ["DataBase", "DServer", "LLM"]
     assert config.mcp.blocked_functions == {"*": ["Init", "Kill", "RestartServer"]}
 
 

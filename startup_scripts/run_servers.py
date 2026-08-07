@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import signal
-import subprocess
 import sys
+import threading
 import time
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, field
+from io import BufferedReader
 from pathlib import Path
 from typing import Iterable
 from urllib.parse import urlsplit
@@ -21,11 +24,14 @@ import yaml
 
 DATABASE_TIMEOUT_SECONDS = 120
 TILED_COMMAND_TIMEOUT_MILLIS = 120_000
+TILED_STARTUP_REGISTRATION_TIMEOUT_MILLIS = 3_600_000
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
+
+from asyncroscopy.utils.process_manager import ManagedProcess, ProcessManager
 
 # Default config used in interactive mode (no --yaml). Passing --yaml <file>
 # selects a different config AND runs headlessly (no prompts).
@@ -48,6 +54,7 @@ class DeviceConfig:
     key: str
     class_name: str
     module_name: str
+    properties: dict[str, list[str]] = field(default_factory=dict)
     start_after_dependencies: bool = False
 
     @property
@@ -60,39 +67,25 @@ class DeviceConfig:
 
     @property
     def command(self) -> list[str]:
-        return ["uv", "run", "python", "-m", self.module_name, self.instance_name]
+        return ["uv", "run", "python", "-u", "-m", self.module_name, self.instance_name]
 
     @property
     def instance_name(self) -> str:
         return f"{self.key}_instance"
 
 
-@dataclass
-class ManagedProcess:
-    key: str
-    label: str
-    command: list[str]
-    process: subprocess.Popen[bytes]
-
-    @property
-    def pid(self) -> int:
-        return self.process.pid
-
-    @property
-    def running(self) -> bool:
-        return self.process.poll() is None
-
-
-# TODO: --debug flag where all server output streams to this terminal / log files (next commit).
-
-
 @dataclass(frozen=True)
-class MicroscopeConfig:
+class InstrumentConfig:
     class_name: str
-    module_name: str
+    file: Path
     description: str = ""
-    host: str | None = None
-    port: int | None = None
+    hardware_host: str | None = None
+    hardware_port: int | None = None
+    timeout_seconds: int | None = None
+
+    @property
+    def module_name(self) -> str:
+        return python_file_to_module(self.file)
 
 
 @dataclass(frozen=True)
@@ -101,16 +94,17 @@ class TiledConfig:
     port: int
     acquisition_dir: str
     autostart: bool = True
+    register_on_startup: bool = False
 
 
 @dataclass(frozen=True)
 class Config:
     path: Path
-    microscope: MicroscopeConfig
-    digital_twin: MicroscopeConfig | None
+    instrument: InstrumentConfig
     support_devices: list[DeviceConfig]
     tango_host: str
     tango_port: int
+    reset_database_file: bool
     tiled: TiledConfig
     device_timeout_seconds: int
 
@@ -121,13 +115,38 @@ def _require(mapping, key: str, where: str):
     return mapping[key]
 
 
-def _microscope_config(raw: dict) -> MicroscopeConfig:
-    return MicroscopeConfig(
-        class_name=_require(raw, "class_name", "microscope"),
-        module_name=_require(raw, "module_name", "microscope"),
+def python_file_to_module(path: Path) -> str:
+    file_path = path.expanduser()
+    if not file_path.is_absolute():
+        file_path = PROJECT_DIR / file_path
+    relative_path = file_path.resolve().relative_to(PROJECT_DIR)
+    return ".".join(relative_path.with_suffix("").parts)
+
+
+def _instrument_file(raw_path: str) -> Path:
+    path = Path(raw_path).expanduser()
+    if path.is_absolute():
+        return path
+    return PROJECT_DIR / path
+
+
+def _class_name_from_file(path: Path) -> str:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            return node.name
+    raise ValueError(f"Instrument file {path} does not define a class")
+
+
+def _instrument_config(raw: dict) -> InstrumentConfig:
+    instrument_file = _instrument_file(_require(raw, "file", "instrument"))
+    return InstrumentConfig(
+        class_name=raw.get("class_name") or _class_name_from_file(instrument_file),
+        file=instrument_file,
         description=raw.get("description", ""),
-        host=raw.get("host"),
-        port=raw.get("port"),
+        hardware_host=raw.get("hardware_host"),
+        hardware_port=int(raw["hardware_port"]) if raw.get("hardware_port") else None,
+        timeout_seconds=int(raw["timeout_seconds"]) if raw.get("timeout_seconds") else None,
     )
 
 
@@ -141,48 +160,41 @@ def load_config(path: Path) -> Config:
             key=key,
             class_name=(spec or {}).get("class_name", key.upper()),
             module_name=_require(spec or {}, "module_name", f"devices.{key}"),
+            properties={
+                property_name: [str(property_value)]
+                for property_name, property_value in ((spec or {}).get("properties") or {}).items()
+            },
         )
         for key, spec in _require(raw, "devices", "(top level)").items()
     ]
-    digital_twin = raw.get("digital_twin")
     tango_section = raw.get("tango", {})
     tiled = _require(raw, "tiled", "(top level)")
 
     return Config(
         path=path,
-        microscope=_microscope_config(_require(raw, "microscope", "(top level)")),
-        digital_twin=_microscope_config(digital_twin) if digital_twin else None,
+        instrument=_instrument_config(_require(raw, "instrument", "(top level)")),
         support_devices=support_devices,
         tango_host=_require(tango_section, "host", "tango"),
         tango_port=int(_require(tango_section, "port", "tango")),
+        reset_database_file=bool(tango_section.get("reset_database_file", False)),
         tiled=TiledConfig(
             host=_require(tiled, "host", "tiled"),
             port=int(_require(tiled, "port", "tiled")),
             acquisition_dir=_require(tiled, "acquisition_dir", "tiled"),
             autostart=bool(tiled.get("autostart", True)),
+            register_on_startup=bool(tiled.get("register_on_startup", False)),
         ),
         device_timeout_seconds=int(raw.get("device_timeout_seconds", 120)),
     )
 
 
-def selected_microscope_config(config: Config, mode: str) -> MicroscopeConfig:
-    if mode == "dt":
-        if config.digital_twin is None:
-            raise ValueError(
-                f"{config.path} has no 'digital_twin' block (needed for --microscope dt)"
-            )
-        return config.digital_twin
-    return config.microscope
-
-
-def build_devices(config: Config, mode: str) -> list[DeviceConfig]:
-    micro = selected_microscope_config(config, mode)
+def build_devices(config: Config) -> list[DeviceConfig]:
     return [
         *config.support_devices,
         DeviceConfig(
-            key="microscope",
-            class_name=micro.class_name,
-            module_name=micro.module_name,
+            key="instrument",
+            class_name=config.instrument.class_name,
+            module_name=config.instrument.module_name,
             start_after_dependencies=True,
         ),
     ]
@@ -195,14 +207,19 @@ def device_address_properties(config: Config) -> dict[str, list[str]]:
     }
 
 
+def instrument_properties(config: Config) -> dict[str, list[str]]:
+    properties = device_address_properties(config)
+    if config.instrument.hardware_host is not None:
+        properties['hardware_host'] = [str(config.instrument.hardware_host)]
+    if config.instrument.hardware_port is not None:
+        properties['hardware_port'] = [str(config.instrument.hardware_port)]
+    if config.instrument.timeout_seconds is not None:
+        properties['hardware_timeout_seconds'] = [str(config.instrument.timeout_seconds)]
+    return properties
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--microscope",
-        choices=["real", "dt"],
-        default="real",
-        help="Which block to start: 'real' microscope or 'dt' digital twin. Defaults to real.",
-    )
     parser.add_argument(
         "--yaml",
         type=Path,
@@ -211,18 +228,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="YAML config to start from. When given, runs headlessly (no prompts). "
         "When omitted, uses the bundled default config and prompts interactively.",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Stream each server's output (stdout+stderr) live to a per-device log "
+        "file under output_tango_devices_logs/<timestamp>/ for troubleshooting.",
+    )
     return parser.parse_args(argv)
 
 
-def all_microscope_cleanup_patterns(config: Config) -> set[str]:
-    classes = {config.microscope.class_name}
-    if config.digital_twin is not None:
-        classes.add(config.digital_twin.class_name)
-    return {f"{class_name} microscope_instance" for class_name in classes}
+def instrument_cleanup_patterns(config: Config) -> set[str]:
+    return {f"{config.instrument.class_name} instrument_instance"}
 
 
-def selected_microscope(devices: list[DeviceConfig]) -> DeviceConfig:
-    return next(device for device in devices if device.key == "microscope")
+def selected_instrument(devices: list[DeviceConfig]) -> DeviceConfig:
+    return next(device for device in devices if device.key == "instrument")
 
 
 def color(text: str, code: str) -> str:
@@ -307,185 +327,34 @@ def make_environment(
     }
 
 
-def start_process(
-    key: str, label: str, command: list[str], environment: dict[str, str]
-) -> ManagedProcess:
-    popen_kwargs = {
-        "env": environment,
-        "cwd": PROJECT_DIR,
-        "stdout": subprocess.PIPE,
-        "stderr": subprocess.PIPE,
-    }
-    if os.name == "nt":
-        popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-    else:
-        popen_kwargs["start_new_session"] = True
-
-    process = subprocess.Popen(
-        command,
-        **popen_kwargs,
-    )
-    for stream in (process.stdout, process.stderr):
-        if stream is not None:
-            try:
-                os.set_blocking(stream.fileno(), False)
-            except (AttributeError, OSError):
-                pass
-    return ManagedProcess(key=key, label=label, command=command, process=process)
-
-
-def read_process_output(stream) -> str:
-    if stream is None:
-        return ""
-
-    chunks: list[bytes] = []
-    while True:
-        try:
-            chunk = stream.read(4096)
-        except BlockingIOError:
-            break
-        except Exception:
-            break
-        if not chunk:
-            break
-        chunks.append(chunk)
-    return b"".join(chunks).decode(errors="replace").strip()
-
-
-def stop_process(process: ManagedProcess, timeout: float = 5.0) -> None:
-    if not process.running and os.name == "nt":
-        return
-    if os.name == "nt":
-        process.process.terminate()
-    else:
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            if not process.running:
-                return
-            process.process.terminate()
-        except OSError:
-            process.process.terminate()
-    try:
-        process.process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        if os.name == "nt":
-            process.process.kill()
-        else:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            except OSError:
-                process.process.kill()
-        process.process.wait(timeout=timeout)
-
-
-def stop_all(processes: Iterable[ManagedProcess]) -> None:
-    for process in reversed(list(processes)):
-        stop_process(process)
-
-
-def stop_processes_on_port(port: int) -> int:
-    if os.name == "nt":
-        try:
-            result = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True, text=True)
-        except FileNotFoundError:
-            status_line("SKIP", f"database port {port}", "netstat is not available")
-            return 0
-
-        pids: set[int] = set()
-        for line in result.stdout.splitlines():
-            parts = line.split()
-            if len(parts) < 5 or parts[0].upper() != "TCP":
-                continue
-            local_address = parts[1]
-            state = parts[3].upper()
-            pid = parts[-1]
-            if state == "LISTENING" and local_address.rsplit(":", 1)[-1] == str(port) and pid.isdigit():
-                pids.add(int(pid))
-
-        stopped = 0
-        for pid in sorted(pids):
-            try:
-                result = subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, text=True)
-            except FileNotFoundError:
-                status_line("SKIP", f"PID {pid}", "taskkill is not available")
-                continue
-            if result.returncode == 0:
-                stopped += 1
-            else:
-                status_line("FAIL", f"PID {pid}", (result.stderr or result.stdout).strip())
-        return stopped
-
-    try:
-        result = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
-    except FileNotFoundError:
-        status_line("SKIP", f"database port {port}", "lsof is not installed")
-        return 0
-
-    stopped = 0
-    for line in result.stdout.splitlines():
-        if not line.strip().isdigit():
-            continue
-        try:
-            os.kill(int(line), signal.SIGTERM)
-            stopped += 1
-        except ProcessLookupError:
-            pass
-        except PermissionError:
-            status_line("FAIL", f"PID {line}", "permission denied")
-    return stopped
-
-
-def stop_python_process_matching(pattern: str) -> bool:
-    if os.name == "nt":
-        script = (
-            "$pattern = $args[0]; "
-            "Get-CimInstance Win32_Process | "
-            "Where-Object { $_.CommandLine -and $_.CommandLine.Contains($pattern) } | "
-            "ForEach-Object { Stop-Process -Id $_.ProcessId -Force; $_.ProcessId }"
-        )
-        try:
-            result = subprocess.run(
-                ["powershell.exe", "-NoProfile", "-Command", script, pattern],
-                capture_output=True,
-                text=True,
-            )
-        except FileNotFoundError:
-            return False
-        return result.returncode == 0 and bool(result.stdout.strip())
-
-    try:
-        result = subprocess.run(["pkill", "-f", pattern], capture_output=True, text=True)
-    except FileNotFoundError:
-        return False
-    return result.returncode == 0
-
-
-def clear_old_processes(
-    port: int,
-    devices: list[DeviceConfig],
-    config: Config,
-    tiled_port: int | None = None,
+def drain_process_output(
+    stream: BufferedReader | None,
+    output: deque[str],
+    log_path: Path | None = None,
+    stream_name: str = '',
 ) -> None:
-    stopped_databases = stop_processes_on_port(port)
-    status_line("OK" if stopped_databases else "SKIP", f"database port {port}", f"{stopped_databases} process(es) signaled")
+    if stream is None:
+        return
 
-    if tiled_port is not None and tiled_port != port:
-        stopped_tiled = stop_processes_on_port(tiled_port)
-        status_line("OK" if stopped_tiled else "SKIP", f"Tiled port {tiled_port}", f"{stopped_tiled} process(es) signaled")
+    def drain() -> None:
+        log_file = log_path.open('a', encoding='utf-8') if log_path is not None else None
+        for line in iter(stream.readline, b""):
+            text = line.decode(errors='replace').rstrip()
+            output.append(text)
+            if log_file is not None:
+                prefix = f'[{stream_name}] ' if stream_name else ''
+                log_file.write(f'{prefix}{text}\n')
+                log_file.flush()
+        if log_file is not None:
+            log_file.close()
+        stream.close()
 
-    stopped_servers = 0
-    cleanup_patterns = {f"{device.class_name} {device.instance_name}" for device in devices}
-    cleanup_patterns.update(all_microscope_cleanup_patterns(config))
-    for pattern in sorted(cleanup_patterns):
-        if stop_python_process_matching(pattern):
-            stopped_servers += 1
+    threading.Thread(target=drain, daemon=True).start()
 
-    status_line("OK" if stopped_servers else "SKIP", "old device servers", f"{stopped_servers} process group(s) signaled")
-    time.sleep(2)
 
+def buffered_output(lines: deque[str]) -> str:
+    return "\n".join(line for line in lines if line)
+    
 
 def wait_for_database(host: str, port: int, timeout: int) -> float:
     start = time.monotonic()
@@ -517,9 +386,7 @@ def wait_for_device(device_name: str, timeout: int) -> float:
     raise TimeoutError(f"{device_name} did not become ready after {timeout}s. Last error: {last_error}")
 
 
-def register_devices(
-    devices: list[DeviceConfig], microscope_properties: dict[str, list[str]]
-) -> None:
+def register_devices(devices: list[DeviceConfig], instrument_properties: dict[str, list[str]]) -> None:
     database = tango.Database()
     status_line("OK", "database", f"{database.get_db_host()}:{database.get_db_port()}")
 
@@ -530,10 +397,13 @@ def register_devices(
         device_info.name = device.device_name
         database.add_device(device_info)
         status_line("OK", device.device_name)
+        for property_name, property_value in device.properties.items():
+            database.put_device_property(device.device_name, {property_name: property_value})
+            status_line("OK", f"property: {device.device_name} {property_name} = {property_value[0]}")
 
-    microscope = selected_microscope(devices)
-    for property_name, property_value in microscope_properties.items():
-        database.put_device_property(microscope.device_name, {property_name: property_value})
+    instrument = selected_instrument(devices)
+    for property_name, property_value in instrument_properties.items():
+        database.put_device_property(instrument.device_name, {property_name: property_value})
         status_line("OK", f"property: {property_name} = {property_value[0]}")
 
 
@@ -541,6 +411,12 @@ def get_data_proxy() -> tango.DeviceProxy:
     data = tango.DeviceProxy("asyncroscopy/data/default")
     data.set_timeout_millis(TILED_COMMAND_TIMEOUT_MILLIS)
     return data
+
+
+def register_tiled_save_path() -> dict:
+    data = get_data_proxy()
+    data.set_timeout_millis(TILED_STARTUP_REGISTRATION_TIMEOUT_MILLIS)
+    return json.loads(data.register_save_path())
 
 
 def stop_tiled_server() -> None:
@@ -555,8 +431,8 @@ def print_debug_output(processes: Iterable[ManagedProcess]) -> None:
     print(color("Debug output", Style.bold + Style.yellow))
     print(color("-" * 78, Style.dim))
     for process in processes:
-        stdout = read_process_output(process.process.stdout)
-        stderr = read_process_output(process.process.stderr)
+        stdout = buffered_output(process.stdout_lines)
+        stderr = buffered_output(process.stderr_lines)
         print(
             f"{color(process.label, Style.bold)}  pid={process.pid}  running={process.running}  returncode={process.process.poll()}"
         )
@@ -620,15 +496,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     headless = args.yaml is not None
-    devices = build_devices(config, args.microscope)
-    microscope = selected_microscope(devices)
-    micro_config = selected_microscope_config(config, args.microscope)
+    devices = build_devices(config)
+    instrument = selected_instrument(devices)
+    instrument_config = config.instrument
     regular_devices = [device for device in devices if not device.start_after_dependencies]
     dependency_devices = [device for device in devices if device.start_after_dependencies]
 
     print_banner("ASYNCROSCOPY SERVER STARTUP")
 
-    microscope_properties = device_address_properties(config)
+    registered_instrument_properties = instrument_properties(config)
     if headless:
         print(f"Headless start from {config_path}")
         print()
@@ -636,11 +512,10 @@ def main(argv: list[str] | None = None) -> int:
         tiled_host, tiled_port = config.tiled.host, config.tiled.port
         acquisition_dir = config.tiled.acquisition_dir
         should_start_tiled = config.tiled.autostart
+        should_register_tiled = config.tiled.register_on_startup
         clear_first = start_database = should_register_devices = True
+        reset_database_file = config.reset_database_file
         device_timeout = config.device_timeout_seconds
-        if micro_config.host is not None and micro_config.port is not None:
-            microscope_properties["autoscript_host_ip"] = [str(micro_config.host)]
-            microscope_properties["autoscript_host_port"] = [str(micro_config.port)]
     else:
         print("Press Enter at any prompt to use the value shown in brackets.")
         print()
@@ -654,130 +529,186 @@ def main(argv: list[str] | None = None) -> int:
             os.environ.get("ASYNCROSCOPY_ACQUISITION_DIR", config.tiled.acquisition_dir),
         )
         should_start_tiled = prompt_bool("Start Tiled HTTP server", config.tiled.autostart)
+        should_register_tiled = prompt_bool(
+            "Register acquisition directory with Tiled on startup (can be slow)",
+            config.tiled.register_on_startup,
+        )
         clear_first = prompt_bool("Clear old processes first", True)
+        reset_database_file = prompt_bool("Delete Tango database file before start", config.reset_database_file)
         start_database = prompt_bool("Start Tango database", True)
         should_register_devices = prompt_bool("Register devices", True)
         device_timeout = prompt_int("Device startup timeout seconds", config.device_timeout_seconds)
-        if micro_config.host is not None and micro_config.port is not None:
-            autoscript_host = prompt_str("AutoScript host IP", str(micro_config.host))
-            autoscript_port = prompt_int("AutoScript host port", int(micro_config.port))
-            microscope_properties["autoscript_host_ip"] = [autoscript_host]
-            microscope_properties["autoscript_host_port"] = [str(autoscript_port)]
+        
+        if instrument_config.hardware_host is not None:
+            registered_instrument_properties['hardware_host'] = [
+                prompt_str("Hardware host", str(instrument_config.hardware_host))
+            ]
+        if instrument_config.hardware_port is not None:
+            registered_instrument_properties['hardware_port'] = [
+                str(prompt_int("Hardware port", int(instrument_config.hardware_port)))
+            ]
+        if instrument_config.timeout_seconds is not None:
+            registered_instrument_properties['hardware_timeout_seconds'] = [
+                str(prompt_int("Hardware timeout seconds", int(instrument_config.timeout_seconds)))
+            ]
 
     total_steps = 5
-
     environment = make_environment(host, port, tiled_host, tiled_port, acquisition_dir)
-    processes: list[ManagedProcess] = []
     ready_times: dict[str, float] = {}
     tiled_config = None
+
+    log_dir: Path | None = None
+    if args.debug:
+        log_dir = PROJECT_DIR / "output_tango_devices_logs" / time.strftime("%Y-%m-%d_%H-%M-%S")
+        log_dir.mkdir(parents=True, exist_ok=True)
 
     print()
     print(f"  {color('TANGO_HOST', Style.bold):<18} {host}:{port}")
     print(f"  {color('PROJECT', Style.bold):<18} {PROJECT_DIR}")
     print(f"  {color('CONFIG', Style.bold):<18} {config_path}")
-    print(f"  {color('MICROSCOPE', Style.bold):<18} {args.microscope} ({microscope.class_name})")
+    print(f"  {color('INSTRUMENT', Style.bold):<18} {instrument.class_name}")
+    if log_dir is not None:
+        print(f"  {color('DEBUG LOGS', Style.bold):<18} {log_dir}")
     print_inventory(devices)
 
     try:
-        print_section(1, total_steps, "Clearing old processes")
-        if clear_first:
-            clear_old_processes(port, devices, config, tiled_port if should_start_tiled else None)
-        else:
-            status_line("SKIP", "old process cleanup")
+        with ProcessManager() as manager:
+            print_section(1, total_steps, "Clearing old processes")
+            if clear_first:
+                ports_to_clear = [port]
+                if should_start_tiled:
+                    ports_to_clear.append(tiled_port)
+                manager.scour_ports(ports_to_clear)
+            else:
+                status_line("SKIP", "old process cleanup")
+                
+            if reset_database_file and start_database:
+                manager.wipe_databases()
+            elif reset_database_file:
+                status_line("SKIP", "Tango database file", "database startup is disabled")
 
-        print_section(2, total_steps, "Starting Tango database")
-        if start_database:
-            database = start_process(
-                "database",
-                "Tango database",
-                ["uv", "run", "python", "-m", "tango.databaseds.database", "2"],
-                environment,
-            )
-            processes.append(database)
-            print("  WAIT  database readiness", end="", flush=True)
-            elapsed = wait_for_database(host, port, DATABASE_TIMEOUT_SECONDS)
-            ready_times["database"] = elapsed
-            print(
-                f" {color('OK', Style.green)} pid={database.pid} ready in {elapsed:.1f}s"
-            )
-        else:
-            print("  WAIT  existing database readiness", end="", flush=True)
-            elapsed = wait_for_database(host, port, DATABASE_TIMEOUT_SECONDS)
-            ready_times["database"] = elapsed
-            print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
-
-        print_section(3, total_steps, "Registering devices")
-        if should_register_devices:
-            register_devices(devices, microscope_properties)
-        else:
-            status_line("SKIP", "device registration")
-
-        print_section(4, total_steps, "Starting device servers")
-        for device in regular_devices:
-            process = start_process(device.key, device.class_name, device.command, environment)
-            processes.append(process)
-            status_line("RUN", device.key, f"{device.module_name}  pid={process.pid}")
-
-        for device in regular_devices:
-            print(f"  WAIT  {device.device_name:<34}", end="", flush=True)
-            elapsed = wait_for_device(device.device_name, device_timeout)
-            ready_times[device.key] = elapsed
-            print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
-
-        if should_start_tiled:
-            tiled_config = json.loads(get_data_proxy().start_tiled_server())
-            if tiled_config["tiled_server"] != "yes":
-                raise RuntimeError(
-                    f"Tiled HTTP server failed to start: {tiled_config['tiled_server_status']}"
+            print_section(2, total_steps, "Starting Tango database")
+            if start_database:
+                database = manager.start_process(
+                    key="database",
+                    label="Tango database",
+                    command=["uv", "run", "python", "-m", "tango.databaseds.database", "2"],
+                    env=environment,
                 )
-            status_line("OK", "Tiled HTTP server", f"{tiled_config['uri']} serving {tiled_config['tiled_server_serving']}")
-        else:
-            status_line("SKIP", "Tiled HTTP server")
+                print("  WAIT  database readiness", end="", flush=True)
+                elapsed = wait_for_database(host, port, DATABASE_TIMEOUT_SECONDS)
+                ready_times["database"] = elapsed
+                print(f" {color('OK', Style.green)} pid={database.pid} ready in {elapsed:.1f}s")
+            else:
+                print("  WAIT  existing database readiness", end="", flush=True)
+                elapsed = wait_for_database(host, port, DATABASE_TIMEOUT_SECONDS)
+                ready_times["database"] = elapsed
+                print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
 
-        for device in dependency_devices:
-            print()
-            status_line("RUN", device.key, f"{device.module_name}  starting after dependencies")
-            process = start_process(device.key, device.class_name, device.command, environment)
-            processes.append(process)
-            print(f"  WAIT  {device.device_name:<34}", end="", flush=True)
-            elapsed = wait_for_device(device.device_name, device_timeout)
-            ready_times[device.key] = elapsed
-            print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
+            print_section(3, total_steps, "Registering devices")
+            if should_register_devices:
+                register_devices(devices, registered_instrument_properties)
+            else:
+                status_line("SKIP", "device registration")
 
-        print_summary(
-            host,
-            port,
-            processes,
-            ready_times,
-            tiled_config,
-            step=total_steps,
-            total=total_steps,
-        )
-        print()
-        print(
-            color(
-                "Leave this terminal open while you use the servers. Press Ctrl+C to stop them.",
-                Style.dim,
+            print_section(4, total_steps, "Starting device servers")
+            for device in regular_devices:
+                process = manager.start_process(
+                    key=device.key, 
+                    label=device.class_name, 
+                    command=device.command, 
+                    env=environment
+                )
+                status_line("RUN", device.key, f"{device.module_name}  pid={process.pid}")
+
+            for device in regular_devices:
+                print(f"  WAIT  {device.device_name:<34}", end="", flush=True)
+                elapsed = wait_for_device(device.device_name, device_timeout)
+                ready_times[device.key] = elapsed
+                print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
+
+            if should_start_tiled:
+                tiled_config = json.loads(get_data_proxy().start_tiled_server())
+                if tiled_config["tiled_server"] != "yes":
+                    raise RuntimeError(f"Tiled HTTP server failed to start: {tiled_config['tiled_server_status']}")
+                status_line("OK", "Tiled HTTP server", f"{tiled_config['uri']} serving {tiled_config['tiled_server_serving']}")
+                
+                if should_register_tiled:
+                    status_line("WAIT", "Tiled startup registration", "registering acquisition directory; this can take a while")
+                    tiled_registration = register_tiled_save_path()
+                    tiled_config.update(tiled_registration)
+                    status_line("OK", "Tiled startup registration", tiled_registration["registered_path"])
+                else:
+                    status_line("SKIP", "Tiled startup registration", "register_on_startup=false; files register manually")
+            else:
+                status_line("SKIP", "Tiled HTTP server")
+                if should_register_tiled:
+                    status_line("SKIP", "Tiled startup registration", "Tiled HTTP server autostart is disabled")
+
+            for device in dependency_devices:
+                print()
+                status_line("RUN", device.key, f"{device.module_name}  starting after dependencies")
+                process = manager.start_process(
+                    key=device.key, 
+                    label=device.class_name, 
+                    command=device.command, 
+                    env=environment
+                )
+                print(f"  WAIT  {device.device_name:<34}", end="", flush=True)
+                elapsed = wait_for_device(device.device_name, device_timeout)
+                ready_times[device.key] = elapsed
+                print(f" {color('OK', Style.green)} ready in {elapsed:.1f}s")
+
+            print_summary(
+                host,
+                port,
+                manager.active_processes,
+                ready_times,
+                tiled_config,
+                step=total_steps,
+                total=total_steps,
             )
-        )
-        while True:
-            time.sleep(1)
-
-    except KeyboardInterrupt:
-        print()
-        print(color("Shutdown requested. Stopping managed processes...", Style.yellow))
-        stop_tiled_server()
-        stop_all(processes)
+            print()
+            print(color("Leave this terminal open while you use the servers. Press Ctrl+C to stop them.", Style.dim))
+            
+            try:
+                while True:
+                    time.sleep(0.1)
+            except KeyboardInterrupt:
+                # Catch the Ctrl-C INSIDE the with block so processes are still alive!
+                print()
+                print(color("Shutdown requested. Stopping Tiled server...", Style.yellow))
+                stop_tiled_server() 
+                print(color("Stopping managed processes...", Style.yellow))
+                
         status_line("OK", "shutdown complete")
         return 0
-    except Exception as exc:
+
+    except Exception as exc:   
+        # Catches actual startup crashes
         print()
         print(color(f"Startup failed: {exc}", Style.bold + Style.red))
-        print_debug_output(processes)
-        stop_tiled_server()
-        stop_all(processes)
-        return 1
+        if log_dir is not None:
+            print(color(f"Per-server logs in {log_dir}:", Style.bold + Style.yellow))
 
+        if 'manager' in locals() and manager.history:
+            print_debug_output(manager.history)
+            
+            if log_dir is not None:
+                for p in manager.history:
+                    stdout = buffered_output(p.stdout_lines)
+                    stderr = buffered_output(p.stderr_lines)
+                    log_file = log_dir / f"{p.key}.log"
+                    log_file.write_text(f"STDOUT:\n{stdout}\n\nSTDERR:\n{stderr}", encoding="utf-8")
+                print(color(f"Saved logs to {log_dir}", Style.bold + Style.yellow))
+
+        # Stop tiled on a crash
+        try:
+            stop_tiled_server() 
+        except Exception:
+            pass
+            
+        return 1
 
 if __name__ == "__main__":
     raise SystemExit(main())
