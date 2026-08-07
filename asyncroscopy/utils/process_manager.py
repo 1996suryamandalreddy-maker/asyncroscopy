@@ -110,7 +110,6 @@ class ProcessManager:
         self.history.append(managed) 
         self._drain(proc.stdout, managed.stdout_lines)
         self._drain(proc.stderr, managed.stderr_lines)
-        self.save()
         return managed
 
     @staticmethod
