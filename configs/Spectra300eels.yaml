@@ -24,7 +24,7 @@ devices:
     module_name: asyncroscopy.instruments.electron_microscope.detectors.eels_gatan
     properties:
       hardware_host: 10.46.217.242
-      hardware_port: 9091
+      hardware_port: 9092
       data_device_address: asyncroscopy/data/default
 
 tango:
