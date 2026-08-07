@@ -1,6 +1,7 @@
 """
 # This python program has to be run in Gatan's DigitalMicrograph in background mode
 # Utilizes Hybrid Mode because python API is not complete.
+# useful scripting stuff at: Gatan>Documentation>Scripting_IFControl.pdf
 #
 # Author: Gerd Duscher, UTK
 # July 30th 2026 
