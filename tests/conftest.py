@@ -11,11 +11,7 @@ This avoids:
 - Flaky multi-context issues from spinning up multiple separate servers
 """
 
-import sys
-import asyncio
-
 import pytest
-from unittest.mock import MagicMock
 
 import numpy as np
 import tango
@@ -31,26 +27,9 @@ from asyncroscopy.instruments.electron_microscope.auto_script import AutoScriptM
 from asyncroscopy.data.data import DATA
 
 
-def _setup_llm_environment():
-    if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    mock_core = MagicMock()
-    mock_core.tools.BaseTool = type("BaseTool", (), {})
-
-    sys.modules.update({
-        "langchain_core": mock_core,
-        "langchain_core.tools": mock_core.tools,
-        "langchain": MagicMock(),
-        "langchain.chat_models": MagicMock(),
-        "langchain_mcp_adapters": MagicMock(),
-        "langchain_mcp_adapters.client": MagicMock(),
-    })
-
-
-_setup_llm_environment()
-from asyncroscopy.mcp.llm import LLM
-
+from tests.test_llm_device import setup_llm_stubs
+# Stub out heavy LLM dependencies
+setup_llm_stubs()
 
 class FakeAdornedImage:
     def __init__(self, data: np.ndarray):
@@ -152,20 +131,6 @@ def tango_ctx(data_save_dir):
                 }
             ],
         },
-        {
-            "class": LLM,
-            "devices": [
-                {
-                    "name": "asyncroscopy/llm/default",
-                    "properties": {
-                        "mcp_url": "http://localhost:8000",
-                        "model_name": "gpt-4o-mini",
-                        "model_provider": "openai",
-                        # "api_key": "<your_api_key_here>",
-                    },
-                }
-            ],
-        },
     ]
 
     # Keep one in-process context for the whole session. Starting multiple
@@ -212,9 +177,6 @@ def data_proxy(tango_ctx):
 def auto_script_proxy(tango_ctx):
     return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/autoscriptmicroscope/default"))
 
-@pytest.fixture(scope="session")
-def llm_proxy(tango_ctx):
-    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/llm/default"))
 
 @pytest.fixture
 def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
