@@ -11,11 +11,7 @@ This avoids:
 - Flaky multi-context issues from spinning up multiple separate servers
 """
 
-import sys
-import asyncio
-
 import pytest
-from unittest.mock import MagicMock
 
 import numpy as np
 import tango
@@ -169,20 +165,6 @@ def tango_ctx(data_save_dir):
                 }
             ],
         },
-        {
-            "class": LLM,
-            "devices": [
-                {
-                    "name": "asyncroscopy/llm/default",
-                    "properties": {
-                        "mcp_url": "http://localhost:8000",
-                        "model_name": "gpt-4o-mini",
-                        "model_provider": "openai",
-                        # "api_key": "<your_api_key_here>",
-                    },
-                }
-            ],
-        },
     ]
 
     # Keep one in-process context for the whole session. Starting multiple
@@ -236,9 +218,6 @@ def data_proxy(tango_ctx):
 def auto_script_proxy(tango_ctx):
     return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/autoscriptmicroscope/default"))
 
-@pytest.fixture(scope="session")
-def llm_proxy(tango_ctx):
-    return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/llm/default"))
 
 @pytest.fixture
 def patched_single_image(monkeypatch: pytest.MonkeyPatch) -> None:
