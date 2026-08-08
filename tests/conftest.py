@@ -28,26 +28,9 @@ from asyncroscopy.instruments.electron_microscope.auto_script import AutoScriptM
 from asyncroscopy.data.data import DATA
 
 
-def _setup_llm_environment():
-    if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    mock_core = MagicMock()
-    mock_core.tools.BaseTool = type("BaseTool", (), {})
-
-    sys.modules.update({
-        "langchain_core": mock_core,
-        "langchain_core.tools": mock_core.tools,
-        "langchain": MagicMock(),
-        "langchain.chat_models": MagicMock(),
-        "langchain_mcp_adapters": MagicMock(),
-        "langchain_mcp_adapters.client": MagicMock(),
-    })
-
-
-_setup_llm_environment()
-from asyncroscopy.mcp.llm import LLM  # noqa: E402
-
+from tests.test_llm_device import setup_llm_stubs
+# Stub out heavy LLM dependencies
+setup_llm_stubs()
 
 class FakeAdornedImage:
     def __init__(self, data: np.ndarray):
