@@ -27,6 +27,7 @@ from asyncroscopy.instruments.electron_microscope.detectors.eds import EDS
 from asyncroscopy.instruments.electron_microscope.hardware.scan import SCAN
 from asyncroscopy.instruments.electron_microscope.hardware.TestStage import TestStage
 from asyncroscopy.instruments.electron_microscope.digital_twin import DigitalTwin
+from asyncroscopy.instruments.electron_microscope.digital_twin_tilt import DigitalTwinTilt
 from asyncroscopy.instruments.electron_microscope.auto_script import AutoScriptMicroscope
 from asyncroscopy.data.data import DATA
 
@@ -49,7 +50,7 @@ def _setup_llm_environment():
 
 
 _setup_llm_environment()
-from asyncroscopy.mcp.llm import LLM
+from asyncroscopy.mcp.llm import LLM  # noqa: E402
 
 
 class FakeAdornedImage:
@@ -135,6 +136,22 @@ def tango_ctx(data_save_dir):
                 }
             ],
         },
+        {
+            "class": DigitalTwinTilt,
+            "devices": [
+                {
+                    "name": "asyncroscopy/digitaltwintilt/default",
+                    "properties": {
+                        "scan_device_address": "asyncroscopy/scan/default",
+                        "stage_device_address": "asyncroscopy/stage/default",
+                        "camera_device_address": "asyncroscopy/camera/default",
+                        "acquisition_save_directory": str(data_save_dir),
+                        "diffraction_image_size": 16,
+                        "randomness_scale": 0.0,
+                    },
+                }
+            ],
+        },
 
         {
             "class": AutoScriptMicroscope,
@@ -186,6 +203,13 @@ def scan_proxy(tango_ctx):
 @pytest.fixture(scope="session")
 def twin_proxy(tango_ctx):
     return tango.DeviceProxy(tango_ctx.get_device_access("asyncroscopy/digitaltwin/default"))
+
+
+@pytest.fixture(scope="session")
+def tilt_twin_proxy(tango_ctx):
+    return tango.DeviceProxy(
+        tango_ctx.get_device_access("asyncroscopy/digitaltwintilt/default")
+    )
 
 
 @pytest.fixture(scope="session")
