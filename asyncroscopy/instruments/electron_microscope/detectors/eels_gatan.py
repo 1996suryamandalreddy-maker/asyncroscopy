@@ -125,8 +125,5 @@ class EELS(EELSBase):
         return self._call_eels("get_available_apertures")
 
 
-GatanEELS = EELS
-
-
 if __name__ == "__main__":
     EELS.run_server()
