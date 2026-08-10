@@ -49,6 +49,7 @@ def test_register_tiled_save_path_uses_startup_registration_timeout(monkeypatch)
 
 def test_load_spectra300_config_starts_servers_only():
     config = run_servers.load_config(run_servers.PROJECT_DIR / "configs" / "Spectra300.yaml")
+    aperture = next(device for device in config.support_devices if device.key == "aperture")
     stage = next(device for device in config.support_devices if device.key == "stage")
 
     assert config.tango_host == "10.46.217.241"
@@ -56,6 +57,10 @@ def test_load_spectra300_config_starts_servers_only():
     assert config.tiled.register_on_startup is False
     assert config.instrument.class_name == "AutoScriptMicroscope"
     assert config.instrument.module_name == "asyncroscopy.instruments.electron_microscope.auto_script"
+    assert aperture.class_name == "AutoScriptAPERTURE"
+    assert aperture.module_name == "asyncroscopy.instruments.electron_microscope.hardware.aperture_autoscript"
+    assert aperture.properties["hardware_host"] == ["10.46.217.241"]
+    assert aperture.properties["hardware_port"] == ["9095"]
     assert stage.class_name == "AutoScriptSTAGE"
     assert stage.module_name == "asyncroscopy.instruments.electron_microscope.hardware.stage_autoscript"
     assert stage.properties["hardware_host"] == ["10.46.217.241"]

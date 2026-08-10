@@ -37,6 +37,7 @@ from startup_guis.shared import BODY_FONT, CONFIG_DIR, GENERATED_CONFIG_DIR, SEC
 DEFAULT_CONFIG_PATH = CONFIG_DIR / 'Spectra300.yaml' 
 GENERATED_CONFIG_PATH = GENERATED_CONFIG_DIR / 'server_gui.yaml' 
 DEVICE_MODULES = { 
+    'aperture': 'asyncroscopy.instruments.electron_microscope.hardware.aperture_autoscript',
     'camera': 'asyncroscopy.instruments.electron_microscope.detectors.camera', 
     'corrector': 'asyncroscopy.instruments.electron_microscope.hardware.corrector', 
     'data': 'asyncroscopy.data.data', 
