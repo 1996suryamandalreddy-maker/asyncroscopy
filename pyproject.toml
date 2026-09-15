@@ -81,10 +81,10 @@ package-dir = { "" = "." }
 include = ["asyncroscopy*"]
 
 [tool.uv.sources]
-autoscript-core = { path = "stubs/AutoScript_v_1.17/autoscript_core-1.3.0-py3-none-any.whl" }
-autoscript-tem-microscope-client = { path = "stubs/AutoScript_v_1.17/autoscript_tem_microscope_client-1.17.0-py3-none-any.whl" }
-autoscript-tem-toolkit = { path = "stubs/AutoScript_v_1.17/autoscript_tem_toolkit-1.17.0-py3-none-any.whl" }
-thermoscientific-logging = { path = "stubs/AutoScript_v_1.17/thermoscientific_logging-1.3.0-py3-none-any.whl" }
+autoscript-core = { path = "stubs/AutoScript_v_1.18/autoscript_core-1.4.0-py3-none-any.whl" }
+autoscript-tem-microscope-client = { path = "stubs/AutoScript_v_1.18/autoscript_tem_microscope_client-1.18.0-py3-none-any.whl" }
+autoscript-tem-toolkit = { path = "stubs/AutoScript_v_1.18/autoscript_tem_toolkit-1.18.0-py3-none-any.whl" }
+thermoscientific-logging = { path = "stubs/AutoScript_v_1.18/thermoscientific_logging-1.4.0-py3-none-any.whl" }
 pyjem = { path = "stubs/PyJEM_v_1.3.0.3564/PyJEM-1.3.0.3564-py3-none-any.whl" }
 torch = [
     { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
