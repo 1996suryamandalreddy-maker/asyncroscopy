@@ -61,6 +61,10 @@ agent = [
     "langchain-mcp-adapters",    
 ]
 
+jupiter = [
+    "aespm>=1.1.4",
+]
+
 ollama = [
     "langchain_ollama"
 ]
@@ -91,6 +95,12 @@ torch = [
 ]
 torchvision = [
     { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+
+
+[tool.uv]
+override-dependencies = [
+    "numpy>=2.3.5",
 ]
 
 [[tool.uv.index]]
